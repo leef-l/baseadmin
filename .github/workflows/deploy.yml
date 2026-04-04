@@ -1,0 +1,449 @@
+name: Deploy GBaseAdmin
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'admin-go/**'
+      - 'vue-vben-admin/**'
+      - 'wap-ui/**'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Deploy target'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - backend
+          - frontend
+          - wap
+
+env:
+  SERVER_HOST: pw.easytestdev.online
+  SERVER_USER: root
+  DEPLOY_DIR: /www/wwwroot/pw.easytestdev.online
+  GO_VERSION: '1.23'
+  NODE_VERSION: '20'
+
+jobs:
+  # ============================================
+  # Detect which components changed
+  # ============================================
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      wap: ${{ steps.changes.outputs.wap }}
+      target: ${{ steps.target.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect file changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'admin-go/**'
+            frontend:
+              - 'vue-vben-admin/**'
+            wap:
+              - 'wap-ui/**'
+
+      - name: Determine deploy target
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.target }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=auto" >> $GITHUB_OUTPUT
+          fi
+
+  # ============================================
+  # Build & Deploy backend (sequential, one by one)
+  # ============================================
+  deploy-system:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.target == 'all' ||
+      needs.detect-changes.outputs.target == 'backend' ||
+      (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.backend == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: admin-go/go.sum
+
+      - name: Build system
+        run: |
+          cd admin-go
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -ldflags "-s -w" -o system ./app/system/main.go
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy system
+        env:
+          REMOTE: ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}
+        run: |
+          ssh $REMOTE "mkdir -p /tmp/gba_stage/system"
+          scp admin-go/system $REMOTE:/tmp/gba_stage/system/system
+          scp -r admin-go/app/system/manifest $REMOTE:/tmp/gba_stage/system/
+          ssh $REMOTE bash <<'EOF'
+          set -e
+          APP=system
+          DEPLOY_DIR=/www/wwwroot/pw.easytestdev.online
+
+          echo "[$APP] Stopping service..."
+          systemctl stop gba-$APP 2>/dev/null || true
+          for i in $(seq 1 10); do
+              if ! pgrep -x "$APP" >/dev/null 2>&1; then break; fi
+              sleep 1
+          done
+
+          echo "[$APP] Replacing binary..."
+          mkdir -p $DEPLOY_DIR/$APP
+          cp /tmp/gba_stage/$APP/$APP $DEPLOY_DIR/$APP/$APP
+          chmod +x $DEPLOY_DIR/$APP/$APP
+
+          if [ ! -f $DEPLOY_DIR/$APP/manifest/config/config.yaml ]; then
+              cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
+          fi
+
+          echo "[$APP] Starting service..."
+          systemctl start gba-$APP
+
+          for i in $(seq 1 8); do
+              status=$(systemctl is-active gba-$APP 2>/dev/null || echo 'unknown')
+              if [ "$status" = "active" ]; then break; fi
+              sleep 1
+          done
+
+          status=$(systemctl is-active gba-$APP 2>/dev/null || echo 'unknown')
+          echo "[$APP] Status: $status"
+          if [ "$status" != "active" ]; then exit 1; fi
+
+          rm -rf /tmp/gba_stage/$APP
+          EOF
+
+  deploy-play:
+    needs: [detect-changes, deploy-system]
+    if: |
+      always() &&
+      (needs.deploy-system.result == 'success' || needs.deploy-system.result == 'skipped') &&
+      (
+        needs.detect-changes.outputs.target == 'all' ||
+        needs.detect-changes.outputs.target == 'backend' ||
+        (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.backend == 'true')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: admin-go/go.sum
+
+      - name: Build play
+        run: |
+          cd admin-go
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -ldflags "-s -w" -o play ./app/play/main.go
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy play
+        env:
+          REMOTE: ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}
+        run: |
+          ssh $REMOTE "mkdir -p /tmp/gba_stage/play"
+          scp admin-go/play $REMOTE:/tmp/gba_stage/play/play
+          scp -r admin-go/app/play/manifest $REMOTE:/tmp/gba_stage/play/
+          ssh $REMOTE bash <<'EOF'
+          set -e
+          APP=play
+          DEPLOY_DIR=/www/wwwroot/pw.easytestdev.online
+
+          echo "[$APP] Stopping service..."
+          systemctl stop gba-$APP 2>/dev/null || true
+          for i in $(seq 1 10); do
+              if ! pgrep -x "$APP" >/dev/null 2>&1; then break; fi
+              sleep 1
+          done
+
+          echo "[$APP] Replacing binary..."
+          mkdir -p $DEPLOY_DIR/$APP
+          cp /tmp/gba_stage/$APP/$APP $DEPLOY_DIR/$APP/$APP
+          chmod +x $DEPLOY_DIR/$APP/$APP
+
+          if [ ! -f $DEPLOY_DIR/$APP/manifest/config/config.yaml ]; then
+              cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
+          fi
+
+          echo "[$APP] Starting service..."
+          systemctl start gba-$APP
+
+          for i in $(seq 1 8); do
+              status=$(systemctl is-active gba-$APP 2>/dev/null || echo 'unknown')
+              if [ "$status" = "active" ]; then break; fi
+              sleep 1
+          done
+
+          status=$(systemctl is-active gba-$APP 2>/dev/null || echo 'unknown')
+          echo "[$APP] Status: $status"
+          if [ "$status" != "active" ]; then exit 1; fi
+
+          rm -rf /tmp/gba_stage/$APP
+          EOF
+
+  deploy-upload:
+    needs: [detect-changes, deploy-play]
+    if: |
+      always() &&
+      (needs.deploy-play.result == 'success' || needs.deploy-play.result == 'skipped') &&
+      (
+        needs.detect-changes.outputs.target == 'all' ||
+        needs.detect-changes.outputs.target == 'backend' ||
+        (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.backend == 'true')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: admin-go/go.sum
+
+      - name: Build upload
+        run: |
+          cd admin-go
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -ldflags "-s -w" -o upload ./app/upload/main.go
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy upload
+        env:
+          REMOTE: ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}
+        run: |
+          ssh $REMOTE "mkdir -p /tmp/gba_stage/upload"
+          scp admin-go/upload $REMOTE:/tmp/gba_stage/upload/upload
+          scp -r admin-go/app/upload/manifest $REMOTE:/tmp/gba_stage/upload/
+          ssh $REMOTE bash <<'EOF'
+          set -e
+          APP=upload
+          DEPLOY_DIR=/www/wwwroot/pw.easytestdev.online
+
+          echo "[$APP] Stopping service..."
+          systemctl stop gba-$APP 2>/dev/null || true
+          for i in $(seq 1 10); do
+              if ! pgrep -x "$APP" >/dev/null 2>&1; then break; fi
+              sleep 1
+          done
+
+          echo "[$APP] Replacing binary..."
+          mkdir -p $DEPLOY_DIR/$APP
+          cp /tmp/gba_stage/$APP/$APP $DEPLOY_DIR/$APP/$APP
+          chmod +x $DEPLOY_DIR/$APP/$APP
+
+          if [ ! -f $DEPLOY_DIR/$APP/manifest/config/config.yaml ]; then
+              cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
+          fi
+
+          echo "[$APP] Starting service..."
+          systemctl start gba-$APP
+
+          for i in $(seq 1 8); do
+              status=$(systemctl is-active gba-$APP 2>/dev/null || echo 'unknown')
+              if [ "$status" = "active" ]; then break; fi
+              sleep 1
+          done
+
+          status=$(systemctl is-active gba-$APP 2>/dev/null || echo 'unknown')
+          echo "[$APP] Status: $status"
+          if [ "$status" != "active" ]; then exit 1; fi
+
+          rm -rf /tmp/gba_stage/$APP
+          EOF
+
+  # ============================================
+  # Build & Deploy frontend
+  # ============================================
+  deploy-frontend:
+    needs: [detect-changes, deploy-upload]
+    if: |
+      always() &&
+      (needs.deploy-upload.result == 'success' || needs.deploy-upload.result == 'skipped') &&
+      (
+        needs.detect-changes.outputs.target == 'all' ||
+        needs.detect-changes.outputs.target == 'frontend' ||
+        (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.frontend == 'true')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-frontend-${{ hashFiles('vue-vben-admin/pnpm-lock.yaml') }}
+          restore-keys: pnpm-frontend-
+
+      - name: Install & Build frontend
+        run: |
+          cd vue-vben-admin
+          pnpm install --frozen-lockfile
+          pnpm build:antd
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy frontend
+        env:
+          REMOTE: ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}
+        run: |
+          cd vue-vben-admin/apps/web-antd/dist
+          tar -czf /tmp/frontend.tar.gz .
+          echo "Frontend size: $(du -h /tmp/frontend.tar.gz | cut -f1)"
+          scp /tmp/frontend.tar.gz $REMOTE:/tmp/gba_frontend.tar.gz
+          ssh $REMOTE bash <<'EOF'
+          set -e
+          DEPLOY_DIR=/www/wwwroot/pw.easytestdev.online
+          mkdir -p $DEPLOY_DIR/admin
+          rm -rf $DEPLOY_DIR/admin/*
+          tar -xzf /tmp/gba_frontend.tar.gz -C $DEPLOY_DIR/admin/
+          rm -f /tmp/gba_frontend.tar.gz
+          echo "Frontend deployed"
+          EOF
+
+  # ============================================
+  # Build & Deploy WAP
+  # ============================================
+  deploy-wap:
+    needs: [detect-changes, deploy-frontend]
+    if: |
+      always() &&
+      (needs.deploy-frontend.result == 'success' || needs.deploy-frontend.result == 'skipped') &&
+      (
+        needs.detect-changes.outputs.target == 'all' ||
+        needs.detect-changes.outputs.target == 'wap' ||
+        (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.wap == 'true')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-wap-${{ hashFiles('wap-ui/pnpm-lock.yaml') }}
+          restore-keys: pnpm-wap-
+
+      - name: Install & Build WAP
+        run: |
+          cd wap-ui
+          pnpm install --frozen-lockfile
+          pnpm build:h5
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy WAP
+        env:
+          REMOTE: ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}
+        run: |
+          cd wap-ui/dist
+          tar -czf /tmp/wap.tar.gz .
+          echo "WAP size: $(du -h /tmp/wap.tar.gz | cut -f1)"
+          scp /tmp/wap.tar.gz $REMOTE:/tmp/gba_wap.tar.gz
+          ssh $REMOTE bash <<'EOF'
+          set -e
+          DEPLOY_DIR=/www/wwwroot/pw.easytestdev.online
+          mkdir -p $DEPLOY_DIR/wap
+          rm -rf $DEPLOY_DIR/wap/*
+          tar -xzf /tmp/gba_wap.tar.gz -C $DEPLOY_DIR/wap/
+          rm -f /tmp/gba_wap.tar.gz
+          echo "WAP deployed"
+          EOF
+
+  # ============================================
+  # Final status report
+  # ============================================
+  status-check:
+    needs: [deploy-system, deploy-play, deploy-upload, deploy-frontend, deploy-wap]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Check service status
+        run: |
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} bash <<'EOF'
+          echo "===== Service Status ====="
+          for app in system play upload; do
+              status=$(systemctl is-active gba-$app 2>/dev/null || echo "unknown")
+              echo "gba-$app: $status"
+          done
+          EOF
+
+      - name: Summary
+        run: |
+          echo "## Deploy Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| system | ${{ needs.deploy-system.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| play | ${{ needs.deploy-play.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| upload | ${{ needs.deploy-upload.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | ${{ needs.deploy-frontend.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| WAP | ${{ needs.deploy-wap.result }} |" >> $GITHUB_STEP_SUMMARY

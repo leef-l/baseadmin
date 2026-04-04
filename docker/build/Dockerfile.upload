@@ -1,0 +1,56 @@
+# ─────────────────────────────────────────────────────────────
+# GBaseAdmin - Upload 上传服务 Dockerfile
+# 多阶段构建：builder(golang:1.25-alpine) → runner(alpine:3.19)
+# ─────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────
+# Stage 1: 编译阶段
+# ─────────────────────────────────────────────
+FROM golang:1.25-alpine AS builder
+
+RUN apk add --no-cache git ca-certificates tzdata
+
+WORKDIR /build
+
+ENV GOPROXY=https://goproxy.cn,direct
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+ENV GOARCH=amd64
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN go build -ldflags "-s -w" -o /build/upload ./app/upload/main.go
+
+# ─────────────────────────────────────────────
+# Stage 2: 运行阶段
+# ─────────────────────────────────────────────
+FROM alpine:3.19
+
+RUN apk add --no-cache \
+    ca-certificates \
+    tzdata \
+    wget \
+    curl \
+    busybox-extras
+
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+WORKDIR /app
+
+COPY --from=builder /build/upload ./upload
+COPY --from=builder /build/app/upload/manifest ./manifest
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+
+EXPOSE 8002
+
+# 健康检查：当前服务未提供 /health 路由，改为端口探活
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD nc -z 127.0.0.1 8002 || exit 1
+
+CMD ["./upload"]
