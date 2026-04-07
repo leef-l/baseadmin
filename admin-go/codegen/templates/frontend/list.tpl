@@ -299,7 +299,11 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
   sortConfig: {
     remote: true,
     trigger: 'cell',
+{{- if .HasSort}}
+    defaultSort: { field: 'sort', order: 'asc' },
+{{- else}}
     defaultSort: { field: 'createdAt', order: 'desc' },
+{{- end}}
   },
   toolbarConfig: {
     custom: true,

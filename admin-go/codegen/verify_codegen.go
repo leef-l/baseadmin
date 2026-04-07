@@ -369,6 +369,11 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 				chk(!strings.Contains(output, "handleImportChange"), "未启用导入时不应生成 handleImportChange")
 				chk(!strings.Contains(output, "handleDownloadTemplate"), "未启用导入时不应生成模板下载")
 			}
+			if meta.HasSort {
+				chk(strings.Contains(output, "defaultSort: { field: 'sort', order: 'asc' }"), "含 sort 字段的列表默认排序应为 sort asc")
+			} else {
+				chk(strings.Contains(output, "defaultSort: { field: 'createdAt', order: 'desc' }"), "无 sort 字段的列表默认排序应为 createdAt desc")
+			}
 			if meta.HasBatchEdit {
 				chk(strings.Contains(output, "handleBatchUpdateStatus"), "缺少 handleBatchUpdateStatus")
 				chk(strings.Contains(output, ":batch-update"), "缺少 batch-update 权限按钮")
