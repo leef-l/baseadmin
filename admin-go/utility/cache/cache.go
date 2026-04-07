@@ -47,6 +47,10 @@ func SetJSON(ctx context.Context, key string, value any, ttl time.Duration) erro
 	if client == nil {
 		return nil
 	}
+	if value == nil {
+		_, err := client.Del(ctx, key)
+		return err
+	}
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err

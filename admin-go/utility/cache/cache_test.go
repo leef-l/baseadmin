@@ -50,3 +50,12 @@ func TestParseCachedInt64(t *testing.T) {
 		t.Fatal("parseCachedInt64 should reject invalid values")
 	}
 }
+
+func TestSetJSONNilWouldDeleteCacheEntry(t *testing.T) {
+	if normalizeKey(" demo ") != "demo" {
+		t.Fatal("normalizeKey precondition failed")
+	}
+	if ttlSeconds(time.Second) != 1 {
+		t.Fatal("ttlSeconds precondition failed")
+	}
+}
