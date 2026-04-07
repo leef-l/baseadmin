@@ -1,7 +1,7 @@
 gfcli:
   gen:
     dao:
-      - link: "mysql:gbaseadmin:gbaseadmin123@tcp(127.0.0.1:40001)/gbaseadmin?charset=utf8mb4"
+      - link: "mysql:gbaseadmin:gbaseadmin123@tcp(127.0.0.1:44001)/gbaseadmin?charset=utf8mb4"
         tables: "dept,role,menu,users,role_dept,role_menu,user_role,user_dept"
         descriptionTag: true
         noModelComment: false
