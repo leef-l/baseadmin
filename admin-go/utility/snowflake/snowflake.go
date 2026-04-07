@@ -131,12 +131,18 @@ func Generate() JsonInt64 {
 	return JsonInt64(defaultGen.generate())
 }
 
-// SetWorkerID 设置 Worker ID（0 ~ 1023）
-func SetWorkerID(id int64) {
+// TrySetWorkerID 设置 Worker ID（0 ~ 1023）
+func TrySetWorkerID(id int64) error {
 	if id < 0 || id > workerMax {
-		panic(fmt.Sprintf("worker ID must be between 0 and %d", workerMax))
+		return fmt.Errorf("worker ID must be between 0 and %d", workerMax)
 	}
 	defaultGen.mu.Lock()
 	defer defaultGen.mu.Unlock()
 	defaultGen.workerID = id
+	return nil
+}
+
+// SetWorkerID 设置 Worker ID（0 ~ 1023）
+func SetWorkerID(id int64) {
+	_ = TrySetWorkerID(id)
 }

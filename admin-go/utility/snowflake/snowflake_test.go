@@ -83,3 +83,24 @@ func TestJsonInt64ScanTrimmedText(t *testing.T) {
 		t.Fatalf("trimmed bytes should decode to 77, got %d", decoded)
 	}
 }
+
+func TestTrySetWorkerID(t *testing.T) {
+	original := defaultGen.workerID
+	t.Cleanup(func() {
+		defaultGen.workerID = original
+	})
+
+	if err := TrySetWorkerID(7); err != nil {
+		t.Fatalf("TrySetWorkerID(valid) failed: %v", err)
+	}
+	if defaultGen.workerID != 7 {
+		t.Fatalf("worker id mismatch after valid set: %d", defaultGen.workerID)
+	}
+
+	if err := TrySetWorkerID(workerMax + 1); err == nil {
+		t.Fatal("TrySetWorkerID should reject out-of-range value")
+	}
+	if defaultGen.workerID != 7 {
+		t.Fatalf("worker id should remain unchanged after invalid set: %d", defaultGen.workerID)
+	}
+}
