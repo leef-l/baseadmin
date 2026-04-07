@@ -129,6 +129,7 @@ docker compose --env-file .\docker\dev\.env -f .\docker\dev\docker-compose.yml l
 - 允许使用的表单组件和交互组件，以 `vue-vben-admin/apps/web-antd/src/adapter/component/index.ts` 中已注册、已适配的组件为准
 - 如果缺组件，必须先在 adapter 完成适配，再修改 codegen 映射和模板；禁止直接在模板里生成仓库未注册的组件名
 - 生成页必须优先对齐 `vue-vben-admin/apps/web-antd/src/views/system/*`、`vue-vben-admin/apps/web-antd/src/views/upload/*` 的现有写法
+- 页面风格校验脚本：`./scripts/verify-vben-pages.sh`
 
 更多说明见：
 
