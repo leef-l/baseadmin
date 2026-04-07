@@ -214,7 +214,11 @@ func (s *s{{.ModelName}}) Detail(ctx context.Context, id snowflake.JsonInt64) (o
 {{- if and .RefFieldName (not .IsHidden)}}
 	// 查询{{.Label}}关联显示
 	if out.{{.NameCamel}} != 0 {
-		val, err := g.DB().Ctx(ctx).Model("{{.RefTableDB}}").Where("id", out.{{.NameCamel}}).Where("deleted_at", nil).Value("{{.RefDisplayField}}")
+		refQuery := g.DB().Ctx(ctx).Model("{{.RefTableDB}}").Where("id", out.{{.NameCamel}})
+{{- if .RefHasDeletedAt}}
+		refQuery = refQuery.Where("deleted_at", nil)
+{{- end}}
+		val, err := refQuery.Value("{{.RefDisplayField}}")
 		if err == nil {
 			out.{{.RefFieldName}} = val.String()
 		}
@@ -299,11 +303,12 @@ func (s *s{{.ModelName}}) fillRefFields(ctx context.Context, list []*model.{{.Mo
 			for id := range idSet {
 				ids = append(ids, id)
 			}
-			rows, err := g.DB().Ctx(ctx).Model("{{.RefTableDB}}").
-				Fields("id", "{{.RefDisplayField}}").
-				Where("deleted_at", nil).
-				WhereIn("id", ids).
-				All()
+			refQuery := g.DB().Ctx(ctx).Model("{{.RefTableDB}}").
+				Fields("id", "{{.RefDisplayField}}")
+{{- if .RefHasDeletedAt}}
+			refQuery = refQuery.Where("deleted_at", nil)
+{{- end}}
+			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
 				for _, row := range rows {
@@ -487,11 +492,12 @@ func (s *s{{.ModelName}}) Tree(ctx context.Context, in *model.{{.ModelName}}Tree
 			for id := range idSet {
 				ids = append(ids, id)
 			}
-			rows, queryErr := g.DB().Ctx(ctx).Model("{{.RefTableDB}}").
-				Fields("id", "{{.RefDisplayField}}").
-				Where("deleted_at", nil).
-				WhereIn("id", ids).
-				All()
+			refQuery := g.DB().Ctx(ctx).Model("{{.RefTableDB}}").
+				Fields("id", "{{.RefDisplayField}}")
+{{- if .RefHasDeletedAt}}
+			refQuery = refQuery.Where("deleted_at", nil)
+{{- end}}
+			rows, queryErr := refQuery.WhereIn("id", ids).All()
 			if queryErr == nil {
 				refMap := make(map[int64]string, len(rows))
 				for _, row := range rows {

@@ -96,3 +96,26 @@ func TestFindDisplayFieldUsesPriorityOrder(t *testing.T) {
 		t.Fatalf("expected highest-priority display field, got %q", got)
 	}
 }
+
+func TestTableHasColumnReflectsDeletedAtPresence(t *testing.T) {
+	p := &Parser{
+		tableColumnsCache: map[string]map[string]struct{}{
+			"system_users": {
+				"id":         {},
+				"username":   {},
+				"deleted_at": {},
+			},
+			"legacy_member": {
+				"id":       {},
+				"nickname": {},
+			},
+		},
+	}
+
+	if !p.tableHasColumn("system_users", "deleted_at") {
+		t.Fatal("expected deleted_at on system_users")
+	}
+	if p.tableHasColumn("legacy_member", "deleted_at") {
+		t.Fatal("did not expect deleted_at on legacy_member")
+	}
+}

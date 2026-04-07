@@ -28,6 +28,13 @@ function get{{.NameCamel}}Color(val: number | string): string {
 {{- end}}
 const detail = ref<{{.ModelName}}Item | null>(null);
 
+function displayValue(value: null | number | string | undefined) {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  return value;
+}
+
 const [Modal, modalApi] = useVbenModal({
   fullscreenButton: false,
   footer: false,
@@ -73,6 +80,11 @@ const [Modal, modalApi] = useVbenModal({
         <a v-if="detail.{{.NameLower}}" :href="detail.{{.NameLower}}" target="_blank">查看文件</a>
         <span v-else>-</span>
       </DescriptionsItem>
+{{- else if eq .Component "InputUrl"}}
+      <DescriptionsItem label="{{.ShortLabel}}">
+        <a v-if="detail.{{.NameLower}}" :href="detail.{{.NameLower}}" target="_blank">{{"{{"}} detail.{{.NameLower}} {{"}}"}}</a>
+        <span v-else>-</span>
+      </DescriptionsItem>
 {{- else if eq .Component "RichText"}}
       <DescriptionsItem label="{{.ShortLabel}}">
         <div v-html="detail.{{.NameLower}}" style="max-height: 300px; overflow: auto;" />
@@ -82,17 +94,17 @@ const [Modal, modalApi] = useVbenModal({
         <pre style="max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 12px;">{{"{{"}} (() => { try { return JSON.stringify(JSON.parse(detail.{{.NameLower}}), null, 2) } catch { return detail.{{.NameLower}} } })() {{"}}"}}</pre>
       </DescriptionsItem>
 {{- else}}
-      <DescriptionsItem label="{{.ShortLabel}}">{{"{{"}} detail.{{.NameLower}} || '-' {{"}}"}}</DescriptionsItem>
+      <DescriptionsItem label="{{.ShortLabel}}">{{"{{"}} displayValue(detail.{{.NameLower}}) {{"}}"}}</DescriptionsItem>
 {{- end}}
 {{- end}}
 {{- end}}
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (.IsTimeField)}}
-      <DescriptionsItem label="{{.ShortLabel}}">{{"{{"}} detail.{{.NameLower}} || '-' {{"}}"}}</DescriptionsItem>
+      <DescriptionsItem label="{{.ShortLabel}}">{{"{{"}} displayValue(detail.{{.NameLower}}) {{"}}"}}</DescriptionsItem>
 {{- end}}
 {{- end}}
-      <DescriptionsItem label="创建时间">{{"{{"}} detail.createdAt || '-' {{"}}"}}</DescriptionsItem>
-      <DescriptionsItem label="更新时间">{{"{{"}} detail.updatedAt || '-' {{"}}"}}</DescriptionsItem>
+      <DescriptionsItem label="创建时间">{{"{{"}} displayValue(detail.createdAt) {{"}}"}}</DescriptionsItem>
+      <DescriptionsItem label="更新时间">{{"{{"}} displayValue(detail.updatedAt) {{"}}"}}</DescriptionsItem>
     </Descriptions>
   </Modal>
 </template>

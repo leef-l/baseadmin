@@ -235,3 +235,36 @@ func TestFinalizeTemplateMetaRefreshesDerivedFlags(t *testing.T) {
 		t.Fatalf("parent_id search component should be TreeSelect: %+v", meta.SearchFields)
 	}
 }
+
+func TestFinalizeTemplateMetaDisablesBatchEditWithoutVisibleEnums(t *testing.T) {
+	meta := &TableMeta{
+		Fields: []FieldMeta{
+			{
+				Name:       "status",
+				NameLower:  "status",
+				Component:  ComponentInput,
+				GoType:     "int",
+				TSType:     "number",
+				IsRequired: true,
+			},
+			{
+				Name:      "title",
+				NameLower: "title",
+				GoType:    "string",
+				TSType:    "string",
+			},
+		},
+	}
+
+	for i := range meta.Fields {
+		ApplySearchMeta(&meta.Fields[i])
+	}
+	FinalizeTemplateMeta(meta)
+
+	if !meta.HasStatus {
+		t.Fatalf("status flag should still be enabled: %+v", meta)
+	}
+	if meta.HasBatchEdit {
+		t.Fatalf("batch edit should stay disabled without visible enum fields: %+v", meta)
+	}
+}

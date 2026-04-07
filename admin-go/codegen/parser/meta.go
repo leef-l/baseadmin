@@ -90,6 +90,7 @@ type FieldMeta struct {
 	RefFieldName    string // 结构体字段名 = RefTableCamel + RefDisplayCamel，如 ArticleTitle
 	RefFieldJSON    string // json 名 = RefTableLower + RefDisplayCamel，如 articleTitle
 	RefIsTree       bool   // 关联表是否有 parent_id（树形结构）
+	RefHasDeletedAt bool   // 关联表是否有 deleted_at（用于安全生成软删过滤）
 }
 
 // TableMeta 表元数据

@@ -377,6 +377,13 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			if meta.HasImage {
 				chk(strings.Contains(output, "<img"), "有图片字段但 detail-drawer 缺少 img 标签")
 			}
+			chk(strings.Contains(output, "displayValue("), "detail-drawer 缺少 displayValue 兜底")
+			for _, f := range meta.Fields {
+				if f.Component == "InputUrl" && !f.IsHidden && !f.IsID && !f.IsPassword {
+					chk(strings.Contains(output, ":href=\"detail."+f.NameLower+"\""), f.Name+" 详情应渲染为可点击链接")
+					break
+				}
+			}
 		}
 
 		if strings.Contains(tplFile, "types") {
@@ -461,6 +468,7 @@ func buildCategoryMeta() *parser.TableMeta {
 			f.RefFieldName = "CategoryName"
 			f.RefFieldJSON = "categoryName"
 			f.RefIsTree = true
+			f.RefHasDeletedAt = true
 		}),
 		f("name", "Name", "Name", "name", "string", "string", func(f *parser.FieldMeta) {
 			f.IsRequired = true
@@ -511,6 +519,7 @@ func buildArticleMeta() *parser.TableMeta {
 			f.RefFieldName = "CategoryName"
 			f.RefFieldJSON = "categoryName"
 			f.RefIsTree = true
+			f.RefHasDeletedAt = true
 		}),
 		// 跨应用普通外键
 		f("user_id", "UserID", "UserId", "userId", "JsonInt64", "string", func(f *parser.FieldMeta) {
@@ -529,6 +538,7 @@ func buildArticleMeta() *parser.TableMeta {
 			f.RefFieldName = "UsersUsername"
 			f.RefFieldJSON = "usersUsername"
 			f.RefIsTree = false
+			f.RefHasDeletedAt = true
 		}),
 		f("title", "Title", "Title", "title", "string", "string", func(f *parser.FieldMeta) {
 			f.IsRequired = true

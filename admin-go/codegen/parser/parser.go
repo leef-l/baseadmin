@@ -237,6 +237,7 @@ func (p *Parser) ParseTable(tableName string) (*TableMeta, error) {
 		f.RefFieldJSON = snakeToCamelLower(refTable) + snakeToCamel(displayField)
 		// 检查关联表是否有 parent_id（树形结构）
 		f.RefIsTree = p.tableHasColumn(refTableDB, "parent_id")
+		f.RefHasDeletedAt = p.tableHasColumn(refTableDB, "deleted_at")
 	}
 
 	FinalizeTemplateMeta(meta)
@@ -272,6 +273,7 @@ func FinalizeTemplateMeta(meta *TableMeta) {
 	meta.ParentDisplayField = ""
 	meta.SearchFields = nil
 	meta.KeywordSearchFields = nil
+	batchEditableEnumCount := 0
 
 	for i := range meta.Fields {
 		field := &meta.Fields[i]
@@ -321,6 +323,7 @@ func FinalizeTemplateMeta(meta *TableMeta) {
 		}
 		if field.IsEnum && !field.IsHidden {
 			meta.HasEnum = true
+			batchEditableEnumCount++
 		}
 		if field.Component == ComponentImageUpload && !field.IsHidden {
 			meta.HasImage = true
@@ -330,7 +333,7 @@ func FinalizeTemplateMeta(meta *TableMeta) {
 		}
 	}
 
-	meta.HasBatchEdit = meta.HasStatus
+	meta.HasBatchEdit = batchEditableEnumCount > 0
 	meta.HasImport = !meta.HasParentID
 
 	finalizeSearchMeta(meta)
