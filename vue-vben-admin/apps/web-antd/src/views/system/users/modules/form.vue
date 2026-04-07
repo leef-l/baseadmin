@@ -16,6 +16,7 @@ const emit = defineEmits<{ success: [] }>();
 const isEdit = ref(false);
 const editId = ref('');
 const deptTreeData = ref<DeptItem[]>([]);
+const openToken = ref(0);
 
 /** 表单配置 */
 const [Form, formApi] = useVbenForm({
@@ -112,52 +113,70 @@ const [Modal, modalApi] = useVbenModal({
     }
   },
   async onOpenChange(isOpen: boolean) {
-    if (isOpen) {
-      const data = modalApi.getData<{ id?: string } | null>();
+    if (!isOpen) {
+      openToken.value += 1;
+      return;
+    }
 
-      // 加载部门树
+    const currentOpenToken = ++openToken.value;
+    formApi.resetForm();
+    const data = modalApi.getData<{ id?: string } | null>();
+
+    // 加载部门树
+    try {
+      const res = await getDeptTree();
+      if (currentOpenToken !== openToken.value) {
+        return;
+      }
+      deptTreeData.value = [
+        { id: '0', title: '顶级部门', children: res ?? [] } as any,
+      ];
+      formApi.updateSchema([
+        {
+          fieldName: 'deptId',
+          componentProps: { treeData: deptTreeData.value },
+        },
+      ]);
+    } catch { /* ignore */ }
+
+    // 加载角色树
+    try {
+      const res = await getRoleTree();
+      if (currentOpenToken !== openToken.value) {
+        return;
+      }
+      formApi.updateSchema([
+        {
+          fieldName: 'roleIds',
+          componentProps: { options: res ?? [] },
+        },
+      ]);
+    } catch { /* ignore */ }
+
+    if (currentOpenToken !== openToken.value) {
+      return;
+    }
+    if (data?.id) {
+      isEdit.value = true;
+      editId.value = data.id;
+      modalApi.setState({ title: '编辑用户' });
       try {
-        const res = await getDeptTree();
-        deptTreeData.value = [
-          { id: '0', title: '顶级部门', children: res ?? [] } as any,
-        ];
-        formApi.updateSchema([
-          {
-            fieldName: 'deptId',
-            componentProps: { treeData: deptTreeData.value },
-          },
-        ]);
-      } catch { /* ignore */ }
-
-      // 加载角色树
-      try {
-        const res = await getRoleTree();
-        formApi.updateSchema([
-          {
-            fieldName: 'roleIds',
-            componentProps: { options: res ?? [] },
-          },
-        ]);
-      } catch { /* ignore */ }
-
-      if (data?.id) {
-        isEdit.value = true;
-        editId.value = data.id;
-        modalApi.setState({ title: '编辑用户' });
-        try {
-          const detail = await getUsersDetail(data.id);
-          if (detail) {
-            formApi.setValues(detail);
-          }
-        } catch {
+        const detail = await getUsersDetail(data.id);
+        if (currentOpenToken !== openToken.value) {
+          return;
+        }
+        if (detail) {
+          formApi.setValues(detail);
+        }
+      } catch {
+        if (currentOpenToken === openToken.value) {
           message.error('获取详情失败');
         }
-      } else {
-        isEdit.value = false;
-        editId.value = '';
-        modalApi.setState({ title: '新建用户' });
-        formApi.resetForm();
       }
+    } else {
+      isEdit.value = false;
+      editId.value = '';
+      modalApi.setState({ title: '新建用户' });
     }
   },
 });

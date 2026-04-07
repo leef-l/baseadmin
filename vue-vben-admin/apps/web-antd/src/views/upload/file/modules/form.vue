@@ -27,6 +27,7 @@ const isImageOptions = [
 const emit = defineEmits<{ success: [] }>();
 const isEdit = ref(false);
 const editId = ref('');
+const openToken = ref(0);
 
 /** 目录下拉选项 */
 const dirIDOptions = ref<{ label: string; value: string }[]>([]);
@@ -49,12 +50,18 @@ function flattenDirTree(
 
 /** 加载目录选项 */
 async function loadDirOptions() {
+  let options: { label: string; value: string }[] = [];
   try {
     const list = await getDirTree();
-    dirIDOptions.value = flattenDirTree(list);
+    options = flattenDirTree(list);
   } catch {
-    dirIDOptions.value = [];
+    options = [];
   }
+  return options;
+}
+
+function applyDirOptions(options: { label: string; value: string }[]) {
+  dirIDOptions.value = options;
   formApi.updateSchema([
     {
       fieldName: 'dirID',
@@ -146,27 +153,40 @@ const [Modal, modalApi] = useVbenModal({
     }
   },
   async onOpenChange(isOpen: boolean) {
-    if (isOpen) {
-      await loadDirOptions();
-      const data = modalApi.getData<{ id?: string } | null>();
-      if (data?.id) {
-        isEdit.value = true;
-        editId.value = data.id;
-        modalApi.setState({ title: '编辑文件记录' });
-        try {
-          const detail = await getFileDetail(data.id);
-          if (detail) {
-            formApi.setValues(detail);
-          }
-        } catch {
+    if (!isOpen) {
+      openToken.value += 1;
+      return;
+    }
+
+    const currentOpenToken = ++openToken.value;
+    formApi.resetForm();
+    const options = await loadDirOptions();
+    if (currentOpenToken !== openToken.value) {
+      return;
+    }
+    applyDirOptions(options);
+    const data = modalApi.getData<{ id?: string } | null>();
+    if (data?.id) {
+      isEdit.value = true;
+      editId.value = data.id;
+      modalApi.setState({ title: '编辑文件记录' });
+      try {
+        const detail = await getFileDetail(data.id);
+        if (currentOpenToken !== openToken.value) {
+          return;
+        }
+        if (detail) {
+          formApi.setValues(detail);
+        }
+      } catch {
+        if (currentOpenToken === openToken.value) {
           message.error('获取详情失败');
         }
-      } else {
-        isEdit.value = false;
-        editId.value = '';
-        modalApi.setState({ title: '新建文件记录' });
-        formApi.resetForm();
       }
+    } else {
+      isEdit.value = false;
+      editId.value = '';
+      modalApi.setState({ title: '新建文件记录' });
     }
   },
 });

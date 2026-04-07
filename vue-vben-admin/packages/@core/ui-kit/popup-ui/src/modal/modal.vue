@@ -220,6 +220,9 @@ const getForceMount = computed(() => {
 
 const handleOpened = () => {
   requestAnimationFrame(() => {
+    if (!state?.value?.isOpen || !dialogRef.value?.isConnected) {
+      return;
+    }
     props.modalApi?.onOpened();
   });
 };

@@ -25,6 +25,7 @@ const dataScopeOptions = [
 const emit = defineEmits<{ success: [] }>();
 const isEdit = ref(false);
 const editId = ref('');
+const openToken = ref(0);
 
 /** 表单配置 */
 const [Form, formApi] = useVbenForm({
@@ -104,41 +105,56 @@ const [Modal, modalApi] = useVbenModal({
     }
   },
   async onOpenChange(isOpen: boolean) {
-    if (isOpen) {
-      const data = modalApi.getData<{ id?: string } | null>();
-      // 加载树形数据
-      try {
-        const res = await getRoleTree();
-        treeData.value = [
-          { id: '0', title: '顶级节点', children: res ?? [] } as RoleItem,
-        ];
-        formApi.updateSchema([
-          {
-            fieldName: 'parentID',
-            componentProps: { treeData: treeData.value },
-          },
-        ]);
-      } catch {
-        // ignore
+    if (!isOpen) {
+      openToken.value += 1;
+      return;
+    }
+
+    const currentOpenToken = ++openToken.value;
+    formApi.resetForm();
+    const data = modalApi.getData<{ id?: string } | null>();
+    // 加载树形数据
+    try {
+      const res = await getRoleTree();
+      if (currentOpenToken !== openToken.value) {
+        return;
       }
-      if (data?.id) {
-        isEdit.value = true;
-        editId.value = data.id;
-        modalApi.setState({ title: '编辑角色表' });
-        try {
-          const detail = await getRoleDetail(data.id);
-          if (detail) {
-            formApi.setValues(detail);
-          }
-        } catch {
+      treeData.value = [
+        { id: '0', title: '顶级节点', children: res ?? [] } as RoleItem,
+      ];
+      formApi.updateSchema([
+        {
+          fieldName: 'parentID',
+          componentProps: { treeData: treeData.value },
+        },
+      ]);
+    } catch {
+      // ignore
+    }
+    if (currentOpenToken !== openToken.value) {
+      return;
+    }
+    if (data?.id) {
+      isEdit.value = true;
+      editId.value = data.id;
+      modalApi.setState({ title: '编辑角色表' });
+      try {
+        const detail = await getRoleDetail(data.id);
+        if (currentOpenToken !== openToken.value) {
+          return;
+        }
+        if (detail) {
+          formApi.setValues(detail);
+        }
+      } catch {
+        if (currentOpenToken === openToken.value) {
           message.error('获取详情失败');
         }
-      } else {
-        isEdit.value = false;
-        editId.value = '';
-        modalApi.setState({ title: '新建角色表' });
-        formApi.resetForm();
       }
+    } else {
+      isEdit.value = false;
+      editId.value = '';
+      modalApi.setState({ title: '新建角色表' });
     }
   },
 });

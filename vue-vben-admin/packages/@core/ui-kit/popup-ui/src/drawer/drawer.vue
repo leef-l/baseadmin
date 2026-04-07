@@ -175,12 +175,21 @@ function handleClosed() {
 const getForceMount = computed(() => {
   return !unref(destroyOnClose) && unref(hasOpened);
 });
+
+function handleOpened() {
+  requestAnimationFrame(() => {
+    if (!state?.value?.isOpen) {
+      return;
+    }
+    props.drawerApi?.onOpened();
+  });
+}
 </script>
 <template>
   <Sheet
     :modal="false"
     :open="state?.isOpen"
-    @update:open="() => drawerApi?.close()"
+    @update:open="() => (!submitting ? drawerApi?.close() : undefined)"
   >
     <SheetContent
       :append-to="getAppendTo"
@@ -203,7 +212,7 @@ const getForceMount = computed(() => {
       @focus-outside="handleFocusOutside"
       @interact-outside="interactOutside"
       @open-auto-focus="handerOpenAutoFocus"
-      @opened="() => drawerApi?.onOpened()"
+      @opened="handleOpened"
       @pointer-down-outside="pointerDownOutside"
     >
       <SheetHeader

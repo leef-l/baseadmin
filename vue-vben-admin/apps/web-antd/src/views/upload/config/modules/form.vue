@@ -20,6 +20,7 @@ const storageOptions = [
 const emit = defineEmits<{ success: [] }>();
 const isEdit = ref(false);
 const editId = ref('');
+const openToken = ref(0);
 
 /** 本地存储字段的 dependencies */
 const localDeps = {
@@ -183,26 +184,35 @@ const [Modal, modalApi] = useVbenModal({
     }
   },
   async onOpenChange(isOpen: boolean) {
-    if (isOpen) {
-      const data = modalApi.getData<{ id?: string } | null>();
-      if (data?.id) {
-        isEdit.value = true;
-        editId.value = data.id;
-        modalApi.setState({ title: '编辑上传配置' });
-        try {
-          const detail = await getConfigDetail(data.id);
-          if (detail) {
-            formApi.setValues(detail);
-          }
-        } catch {
+    if (!isOpen) {
+      openToken.value += 1;
+      return;
+    }
+
+    const currentOpenToken = ++openToken.value;
+    formApi.resetForm();
+    const data = modalApi.getData<{ id?: string } | null>();
+    if (data?.id) {
+      isEdit.value = true;
+      editId.value = data.id;
+      modalApi.setState({ title: '编辑上传配置' });
+      try {
+        const detail = await getConfigDetail(data.id);
+        if (currentOpenToken !== openToken.value) {
+          return;
+        }
+        if (detail) {
+          formApi.setValues(detail);
+        }
+      } catch {
+        if (currentOpenToken === openToken.value) {
           message.error('获取详情失败');
         }
-      } else {
-        isEdit.value = false;
-        editId.value = '';
-        modalApi.setState({ title: '新建上传配置' });
-        formApi.resetForm();
       }
+    } else {
+      isEdit.value = false;
+      editId.value = '';
+      modalApi.setState({ title: '新建上传配置' });
     }
   },
 });
