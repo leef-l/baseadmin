@@ -140,9 +140,13 @@ function handleMouseenter(event: FocusEvent | MouseEvent, showTimeout = 300) {
 
   timer.value && window.clearTimeout(timer.value);
   timer.value = setTimeout(() => {
+    timer.value = null;
     rootMenu?.openMenu(props.path, parentPaths.value);
   }, showTimeout);
-  parentMenu.value?.vnode.el?.dispatchEvent(new MouseEvent('mouseenter'));
+  const parentElement = parentMenu.value?.vnode.el;
+  if (parentElement instanceof HTMLElement && parentElement.isConnected) {
+    parentElement.dispatchEvent(new MouseEvent('mouseenter'));
+  }
 }
 
 function handleMouseleave(deepDispatch = false) {
@@ -161,6 +165,7 @@ function handleMouseleave(deepDispatch = false) {
     subMenu.mouseInChild.value = false;
   }
   timer.value = setTimeout(() => {
+    timer.value = null;
     !mouseInChild.value && rootMenu?.closeMenu(props.path, parentPaths.value);
   }, 300);
 
@@ -185,6 +190,8 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  timer.value && window.clearTimeout(timer.value);
+  timer.value = null;
   subMenu?.removeSubMenu?.(item);
   rootMenu?.removeSubMenu?.(item);
 });

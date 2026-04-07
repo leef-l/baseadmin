@@ -11,6 +11,7 @@ type DomElement = Element | null | undefined;
 export function useTabsViewScroll(props: TabsProps) {
   let resizeObserver: null | ResizeObserver = null;
   let mutationObserver: MutationObserver | null = null;
+  let scrollFrame: null | number = null;
   let tabItemCount = 0;
   const scrollbarRef = ref<InstanceType<typeof VbenScrollbar> | null>(null);
   const scrollViewportEl = ref<DomElement>(null);
@@ -61,6 +62,10 @@ export function useTabsViewScroll(props: TabsProps) {
     const viewportEl = scrollbarEl?.querySelector(
       'div[data-reka-scroll-area-viewport]',
     );
+    if (!(viewportEl instanceof HTMLElement)) {
+      scrollViewportEl.value = null;
+      return;
+    }
 
     scrollViewportEl.value = viewportEl;
     calcShowScrollbarButton();
@@ -117,7 +122,11 @@ export function useTabsViewScroll(props: TabsProps) {
       return;
     }
 
-    requestAnimationFrame(() => {
+    if (scrollFrame) {
+      cancelAnimationFrame(scrollFrame);
+    }
+    scrollFrame = requestAnimationFrame(() => {
+      scrollFrame = null;
       const activeItem = viewportEl?.querySelector('.is-active');
       activeItem?.scrollIntoView({ behavior: 'smooth', inline: 'start' });
     });
@@ -183,6 +192,10 @@ export function useTabsViewScroll(props: TabsProps) {
   onMounted(initScrollbar);
 
   onUnmounted(() => {
+    if (scrollFrame) {
+      cancelAnimationFrame(scrollFrame);
+      scrollFrame = null;
+    }
     resizeObserver?.disconnect();
     mutationObserver?.disconnect();
     resizeObserver = null;

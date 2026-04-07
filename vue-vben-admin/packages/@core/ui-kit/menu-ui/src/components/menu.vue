@@ -13,6 +13,7 @@ import type {
 import {
   computed,
   nextTick,
+  onBeforeUnmount,
   reactive,
   ref,
   toRef,
@@ -66,6 +67,7 @@ const activePath = ref<MenuProvider['activePath']>(props.defaultActive);
 const items = ref<MenuProvider['items']>({});
 const subMenus = ref<MenuProvider['subMenus']>({});
 const mouseInChild = ref(false);
+let resizeTimer: null | ReturnType<typeof setTimeout> = null;
 
 const isMenuPopup = computed<MenuProvider['isMenuPopup']>(() => {
   return (
@@ -181,14 +183,14 @@ function calcSliceIndex() {
   return sliceIndex === items.length ? -1 : sliceIndex;
 }
 
-function debounce(fn: () => void, wait = 33.34) {
-  let timer: null | ReturnType<typeof setTimeout>;
-  return () => {
-    timer && clearTimeout(timer);
-    timer = setTimeout(() => {
-      fn();
-    }, wait);
-  };
+function debounceResize(fn: () => void, wait = 33.34) {
+  if (resizeTimer) {
+    clearTimeout(resizeTimer);
+  }
+  resizeTimer = setTimeout(() => {
+    resizeTimer = null;
+    fn();
+  }, wait);
 }
 
 let isFirstTimeRender = true;
@@ -202,9 +204,8 @@ function handleResize() {
       sliceIndex.value = calcSliceIndex();
     });
   };
-  callback();
-  // // execute callback directly when first time resize to avoid shaking
-  isFirstTimeRender ? callback() : debounce(callback)();
+  // execute callback directly when first time resize to avoid shaking
+  isFirstTimeRender ? callback() : debounceResize(callback);
   isFirstTimeRender = false;
 }
 
@@ -215,6 +216,14 @@ const enableScroll = computed(
 useMenuScroll(activePath, {
   enable: enableScroll,
   delay: 320,
+});
+
+onBeforeUnmount(() => {
+  if (resizeTimer) {
+    clearTimeout(resizeTimer);
+    resizeTimer = null;
+  }
+  resizeStopper?.();
 });
 
 // 监听 activePath 变化，自动滚动到激活项
