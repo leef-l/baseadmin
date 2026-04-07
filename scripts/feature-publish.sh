@@ -37,10 +37,20 @@ fi
 
 remote="${GIT_REMOTE:-origin}"
 branch="${GIT_BRANCH_OVERRIDE:-$(git branch --show-current)}"
-message="$1"
+message="$(printf '%s' "$1" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 
 if [ -z "$branch" ]; then
   echo "current branch is empty, refusing to push from detached HEAD" >&2
+  exit 1
+fi
+
+if [ -z "$message" ]; then
+  echo "commit message is empty after trimming whitespace" >&2
+  exit 1
+fi
+
+if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
+  echo "unresolved merge conflicts detected, refusing to publish" >&2
   exit 1
 fi
 
