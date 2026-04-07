@@ -27,6 +27,7 @@ func init() {
 type sUploader struct{}
 
 const maxInt64AsUint64 = ^uint64(0) >> 1
+const defaultLocalStoragePath = "resource/upload"
 
 var imageExts = map[string]bool{
 	"jpg": true, "jpeg": true, "png": true, "gif": true,
@@ -45,7 +46,7 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 	// 读取默认上传配置
 	maxSize := int64(10 * 1024 * 1024) // 默认10MB
 	storageType := 1                   // 默认本地
-	localPath := "resource/upload"
+	localPath := defaultLocalStoragePath
 
 	var configRecord map[string]interface{}
 	err := dao.UploadConfig.Ctx(ctx).
@@ -64,6 +65,7 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 			localPath = v
 		}
 	}
+	localPath = normalizeLocalStoragePath(localPath)
 
 	// 验证文件大小
 	if file.Size > maxSize {
@@ -149,9 +151,7 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 		_ = os.Remove(fullPath)
 
 	default: // case 1: 本地存储
-		// URL 路径：静态路由 /upload -> resource/upload，所以 URL 需要去掉 localPath 前缀
-		relativePath := filepath.Join(dateDir, uniqueName)
-		fileURL = "/upload/" + strings.ReplaceAll(relativePath, "\\", "/")
+		fileURL = buildLocalFileURL(dateDir, uniqueName)
 	}
 
 	// 生成ID并写入数据库
@@ -296,4 +296,51 @@ func normalizeExt(ext string) string {
 	ext = strings.TrimSpace(ext)
 	ext = strings.TrimPrefix(ext, ".")
 	return strings.ToLower(ext)
+}
+
+func normalizeLocalStoragePath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return defaultLocalStoragePath
+	}
+	cleaned := filepath.Clean(path)
+	if cleaned == "." {
+		return defaultLocalStoragePath
+	}
+	return cleaned
+}
+
+func buildLocalFileURL(parts ...string) string {
+	filtered := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.Trim(strings.TrimSpace(part), `/\`)
+		if part != "" {
+			filtered = append(filtered, part)
+		}
+	}
+	if len(filtered) == 0 {
+		return "/upload"
+	}
+	return "/upload/" + strings.Join(filtered, "/")
+}
+
+func localStoragePhysicalPath(fileURL string) string {
+	fileURL = strings.TrimSpace(fileURL)
+	if fileURL == "" {
+		return defaultLocalStoragePath
+	}
+	trimmed := strings.TrimPrefix(fileURL, "/upload")
+	trimmed = strings.TrimPrefix(trimmed, "/")
+	if trimmed == "" {
+		return defaultLocalStoragePath
+	}
+	parts := strings.Split(trimmed, "/")
+	all := make([]string, 0, len(parts)+1)
+	all = append(all, defaultLocalStoragePath)
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
+			all = append(all, part)
+		}
+	}
+	return filepath.Join(all...)
 }

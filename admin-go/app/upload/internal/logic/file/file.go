@@ -109,7 +109,7 @@ func (s *sFile) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if fileInfo.Url != "" {
 		switch fileInfo.Storage {
 		case 1: // 本地存储: URL /upload/xxx -> 物理路径 resource/upload/xxx
-			localPath := "resource" + fileInfo.Url
+			localPath := localStoragePhysicalPath(fileInfo.Url)
 			_ = os.Remove(localPath)
 		case 2: // 阿里云OSS
 			if delErr := deleteCloudFileOSS(ctx, fileInfo.Url); delErr != nil {

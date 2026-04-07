@@ -2,6 +2,7 @@ package uploader
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -59,5 +60,27 @@ func TestGetInt64DropsOverflowUint64(t *testing.T) {
 	}
 	if got := getInt64(values, "too_big"); got != 0 {
 		t.Fatalf("getInt64 should ignore overflow uint64 values, got %d", got)
+	}
+}
+
+func TestNormalizeLocalStoragePath(t *testing.T) {
+	if got := normalizeLocalStoragePath("  resource/upload/  "); got != "resource/upload" {
+		t.Fatalf("normalizeLocalStoragePath mismatch: %q", got)
+	}
+	if got := normalizeLocalStoragePath(" "); got != defaultLocalStoragePath {
+		t.Fatalf("normalizeLocalStoragePath blank mismatch: %q", got)
+	}
+}
+
+func TestBuildLocalFileURL(t *testing.T) {
+	if got := buildLocalFileURL("2026-04-08", "demo.png"); got != "/upload/2026-04-08/demo.png" {
+		t.Fatalf("buildLocalFileURL mismatch: %q", got)
+	}
+}
+
+func TestLocalStoragePhysicalPath(t *testing.T) {
+	want := filepath.Join(defaultLocalStoragePath, "2026-04-08", "demo.png")
+	if got := localStoragePhysicalPath("/upload/2026-04-08/demo.png"); got != want {
+		t.Fatalf("localStoragePhysicalPath mismatch: got=%q want=%q", got, want)
 	}
 }
