@@ -2,9 +2,10 @@ package uploader
 
 import (
 	"context"
+	crand "crypto/rand"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -100,7 +101,7 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 	// 生成唯一文件名和对象路径
 	now := time.Now()
 	dateDir := now.Format("2006-01-02")
-	uniqueName := buildUniqueName(now, rand.Intn(10000), ext)
+	uniqueName := buildUniqueName(now, randomSuffix(10000), ext)
 
 	// 始终先保存到本地临时目录，云存储场景下上传后再清理
 	savePath := filepath.Join(localPath, dateDir)
@@ -343,4 +344,15 @@ func localStoragePhysicalPath(fileURL string) string {
 		}
 	}
 	return filepath.Join(all...)
+}
+
+func randomSuffix(max int) int {
+	if max <= 1 {
+		return 0
+	}
+	var buf [8]byte
+	if _, err := crand.Read(buf[:]); err == nil {
+		return int(binary.BigEndian.Uint64(buf[:]) % uint64(max))
+	}
+	return int(time.Now().UnixNano() % int64(max))
 }

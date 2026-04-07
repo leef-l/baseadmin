@@ -84,3 +84,15 @@ func TestLocalStoragePhysicalPath(t *testing.T) {
 		t.Fatalf("localStoragePhysicalPath mismatch: got=%q want=%q", got, want)
 	}
 }
+
+func TestRandomSuffixRange(t *testing.T) {
+	for i := 0; i < 32; i++ {
+		got := randomSuffix(10000)
+		if got < 0 || got >= 10000 {
+			t.Fatalf("randomSuffix out of range: %d", got)
+		}
+	}
+	if got := randomSuffix(1); got != 0 {
+		t.Fatalf("randomSuffix(1) mismatch: %d", got)
+	}
+}
