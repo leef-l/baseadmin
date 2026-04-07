@@ -14,3 +14,19 @@ func TestGenerateCodeReturnsSixDigits(t *testing.T) {
 		t.Fatalf("generateCode should only contain digits: %q", code)
 	}
 }
+
+func TestNormalizeConfigTrimsFieldsAndDefaultsProvider(t *testing.T) {
+	cfg := normalizeConfig(smsConfig{
+		Provider:        "  ",
+		AccessKeyId:     "  id  ",
+		AccessKeySecret: "  secret  ",
+		SignName:        "  sign  ",
+		TemplateCode:    "  tpl  ",
+	})
+	if cfg.Provider != "aliyun" {
+		t.Fatalf("provider mismatch: %q", cfg.Provider)
+	}
+	if cfg.AccessKeyId != "id" || cfg.AccessKeySecret != "secret" || cfg.SignName != "sign" || cfg.TemplateCode != "tpl" {
+		t.Fatalf("normalizeConfig should trim fields: %+v", cfg)
+	}
+}

@@ -6,8 +6,10 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRequestURI(t *testing.T) {
@@ -77,5 +79,23 @@ func TestMerchantSummary(t *testing.T) {
 	client.platformPublicKey = &rsa.PublicKey{}
 	if got := client.merchantSummary(); got != "mch123:true" {
 		t.Fatalf("merchantSummary mismatch with verifier: %q", got)
+	}
+}
+
+func TestRequestClientDefaultsToConfiguredTimeoutClient(t *testing.T) {
+	client := &Client{}
+	if got := client.requestClient(); got != defaultHTTPClient {
+		t.Fatal("requestClient should fall back to package default client")
+	}
+	if got := defaultHTTPClient.Timeout; got != 15*time.Second {
+		t.Fatalf("defaultHTTPClient timeout mismatch: %v", got)
+	}
+}
+
+func TestRequestClientPrefersInjectedClient(t *testing.T) {
+	custom := &http.Client{Timeout: time.Second}
+	client := &Client{httpClient: custom}
+	if got := client.requestClient(); got != custom {
+		t.Fatal("requestClient should prefer injected client")
 	}
 }

@@ -11,15 +11,25 @@ if [ -z "$app_name" ]; then
 fi
 
 should_migrate="${DB_MIGRATE_AUTO:-auto}"
-if [ "$should_migrate" = "auto" ]; then
+normalized_migrate="$(printf '%s' "$should_migrate" | tr '[:upper:]' '[:lower:]')"
+if [ "$normalized_migrate" = "auto" ]; then
   if [ "$app_name" = "system" ]; then
-    should_migrate="1"
+    normalized_migrate="1"
   else
-    should_migrate="0"
+    normalized_migrate="0"
   fi
 fi
 
-if [ "$should_migrate" != "0" ]; then
+case "$normalized_migrate" in
+  0|false|no|off)
+    normalized_migrate="0"
+    ;;
+  *)
+    normalized_migrate="1"
+    ;;
+esac
+
+if [ "$normalized_migrate" != "0" ]; then
   ./migrate up
 fi
 

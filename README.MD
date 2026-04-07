@@ -93,6 +93,7 @@ Docker 铁律：
 
 - 初始化现在统一走 `admin-go/database/migrations/`
 - Docker 与部署启动前都会先执行 `golang-migrate up`
+- `DB_MIGRATE_AUTO=0/false/no/off` 可显式关闭容器启动迁移；`auto` 下默认仅 `system` 自动执行
 - 默认初始化账号为 `admin` / `admin123`
 
 ### 默认开发端口

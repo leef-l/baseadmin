@@ -3,9 +3,9 @@ package uploader
 import (
 	"context"
 	crand "crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"encoding/binary"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -53,7 +53,7 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 	err := dao.UploadConfig.Ctx(ctx).
 		Where("is_default", 1).
 		Where("status", 1).
-		Where("deleted_at IS NULL").
+		Where(dao.UploadConfig.Columns().DeletedAt, nil).
 		Scan(&configRecord)
 	if err == nil && configRecord != nil {
 		if v := getInt64(configRecord, "max_size"); v > 0 {

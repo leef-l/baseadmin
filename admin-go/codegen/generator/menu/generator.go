@@ -40,6 +40,12 @@ type Generator struct {
 	config Config
 }
 
+const (
+	menuTypeDirectory = 1
+	menuTypePage      = 2
+	menuTypeButton    = 3
+)
+
 // New 创建菜单生成器
 func New(cfg Config) *Generator {
 	return &Generator{config: cfg}
@@ -111,12 +117,7 @@ func (g *Generator) Generate(meta *parser.TableMeta) (int, error) {
 // ensureDirectory 查找或创建应用目录（type=1）
 func (g *Generator) ensureDirectory(db *sql.DB, appName, path string) (int64, error) {
 	// 查找已存在的目录
-	var id int64
-	err := db.QueryRow(
-		"SELECT id FROM system_menu WHERE path = ? AND type = 1 AND deleted_at IS NULL",
-		path,
-	).Scan(&id)
-
+	id, err := findMenuID(db, "path", path, menuTypeDirectory)
 	if err == nil {
 		fmt.Printf("  [菜单] 目录已存在: %s (ID: %d)\n", path, id)
 		return id, nil
@@ -149,8 +150,8 @@ func (g *Generator) ensureDirectory(db *sql.DB, appName, path string) (int64, er
 
 	_, err = db.Exec(
 		`INSERT INTO system_menu (id, parent_id, title, type, path, component, permission, icon, sort, is_show, is_cache, status, created_by, dept_id, created_at, updated_at)
-		 VALUES (?, 0, ?, 1, ?, NULL, '', ?, ?, 1, 0, 1, 0, 0, NOW(), NOW())`,
-		id, title, path, icon, sortVal,
+		 VALUES (?, 0, ?, ?, ?, NULL, '', ?, ?, 1, 0, 1, 0, 0, NOW(), NOW())`,
+		id, title, menuTypeDirectory, path, icon, sortVal,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("创建目录失败: %w", err)
@@ -161,12 +162,7 @@ func (g *Generator) ensureDirectory(db *sql.DB, appName, path string) (int64, er
 
 // ensureMenu 查找或创建菜单页（type=2）
 func (g *Generator) ensureMenu(db *sql.DB, parentID int64, title, path, component, permission string, sort int, isShow int) (int64, bool, error) {
-	var id int64
-	err := db.QueryRow(
-		"SELECT id FROM system_menu WHERE path = ? AND type = 2 AND deleted_at IS NULL",
-		path,
-	).Scan(&id)
-
+	id, err := findMenuID(db, "path", path, menuTypePage)
 	if err == nil {
 		if g.config.Force {
 			_, err = db.Exec(
@@ -195,8 +191,8 @@ func (g *Generator) ensureMenu(db *sql.DB, parentID int64, title, path, componen
 
 	_, err = db.Exec(
 		`INSERT INTO system_menu (id, parent_id, title, type, path, component, permission, icon, sort, is_show, is_cache, status, created_by, dept_id, created_at, updated_at)
-		 VALUES (?, ?, ?, 2, ?, ?, ?, '', ?, ?, 0, 1, 0, 0, NOW(), NOW())`,
-		id, parentID, title, path, component, permission, sort, isShow,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, '', ?, ?, 0, 1, 0, 0, NOW(), NOW())`,
+		id, parentID, title, menuTypePage, path, component, permission, sort, isShow,
 	)
 	if err != nil {
 		return 0, false, fmt.Errorf("创建菜单失败: %w", err)
@@ -207,12 +203,7 @@ func (g *Generator) ensureMenu(db *sql.DB, parentID int64, title, path, componen
 
 // ensureButton 查找或创建按钮权限（type=3）
 func (g *Generator) ensureButton(db *sql.DB, parentID int64, title, permission string, sort int) (bool, error) {
-	var id int64
-	err := db.QueryRow(
-		"SELECT id FROM system_menu WHERE permission = ? AND type = 3 AND deleted_at IS NULL",
-		permission,
-	).Scan(&id)
-
+	id, err := findMenuID(db, "permission", permission, menuTypeButton)
 	if err == nil {
 		if g.config.Force {
 			_, err = db.Exec(
@@ -241,8 +232,8 @@ func (g *Generator) ensureButton(db *sql.DB, parentID int64, title, permission s
 
 	_, err = db.Exec(
 		`INSERT INTO system_menu (id, parent_id, title, type, path, component, permission, icon, sort, is_show, is_cache, status, created_by, dept_id, created_at, updated_at)
-		 VALUES (?, ?, ?, 3, NULL, NULL, ?, '', ?, 0, 0, 1, 0, 0, NOW(), NOW())`,
-		id, parentID, title, permission, sort,
+		 VALUES (?, ?, ?, ?, NULL, NULL, ?, '', ?, 0, 0, 1, 0, 0, NOW(), NOW())`,
+		id, parentID, title, menuTypeButton, permission, sort,
 	)
 	if err != nil {
 		return false, fmt.Errorf("创建按钮失败: %w", err)
@@ -311,6 +302,16 @@ func buildButtonSpecs(meta *parser.TableMeta) []buttonSpec {
 // dashCase 将 snake_case 的模块名转为 dash-case（用于 URL path）
 func dashCase(s string) string {
 	return strings.ReplaceAll(s, "_", "-")
+}
+
+func findMenuID(db *sql.DB, field string, value any, menuType int) (int64, error) {
+	if db == nil {
+		return 0, sql.ErrConnDone
+	}
+	var id int64
+	query := fmt.Sprintf("SELECT id FROM system_menu WHERE %s = ? AND type = ? AND deleted_at IS NULL", field)
+	err := db.QueryRow(query, value, menuType).Scan(&id)
+	return id, err
 }
 
 // --- 内联 Snowflake ID 生成（与项目 utility/snowflake 算法一致）---

@@ -43,7 +43,10 @@ type Client struct {
 	cfg               Config
 	privateKey        *rsa.PrivateKey
 	platformPublicKey *rsa.PublicKey
+	httpClient        *http.Client
 }
+
+var defaultHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
 // New 从 GoFrame 配置中创建微信支付客户端
 func New(ctx context.Context) (*Client, error) {
@@ -214,7 +217,7 @@ func (c *Client) doRequest(ctx context.Context, method, rawURL string, body []by
 	}
 	req.Header.Set("Authorization", auth)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.requestClient().Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -394,6 +397,13 @@ func randomString(n int) string {
 
 func (c *Client) hasPlatformVerifier() bool {
 	return c != nil && c.platformPublicKey != nil
+}
+
+func (c *Client) requestClient() *http.Client {
+	if c != nil && c.httpClient != nil {
+		return c.httpClient
+	}
+	return defaultHTTPClient
 }
 
 func (c *Client) merchantSummary() string {

@@ -63,6 +63,7 @@
 
 - MySQL 容器不再挂载初始化 SQL
 - `system` / `upload` 容器启动前会自动执行 `golang-migrate up`
+- `DB_MIGRATE_AUTO=0/false/no/off` 可关闭启动迁移；`auto` 模式默认仅 `system` 执行迁移
 - 数据库真源迁移目录为 [admin-go/database/migrations](../admin-go/database/migrations)
 - 默认上传配置使用本地存储，目录为 `resource/upload`
 

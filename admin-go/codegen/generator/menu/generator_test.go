@@ -1,6 +1,7 @@
 package menu
 
 import (
+	"database/sql"
 	"reflect"
 	"testing"
 
@@ -91,5 +92,11 @@ func TestGenerateIDRemainsMonotonicWhenClockMovesBackwards(t *testing.T) {
 
 	if !(first < second && second < third) {
 		t.Fatalf("IDs should remain monotonic, got %d, %d, %d", first, second, third)
+	}
+}
+
+func TestFindMenuIDRejectsNilDB(t *testing.T) {
+	if _, err := findMenuID(nil, "path", "/demo", menuTypeDirectory); err != sql.ErrConnDone {
+		t.Fatalf("findMenuID nil db mismatch: %v", err)
 	}
 }

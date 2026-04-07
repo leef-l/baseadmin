@@ -64,3 +64,12 @@ func TestParseTokenTrimsWhitespace(t *testing.T) {
 		t.Fatalf("ParseToken should accept surrounding whitespace: %v", err)
 	}
 }
+
+func TestNormalizeSecretFallsBackOnBlank(t *testing.T) {
+	if got := normalizeSecret("  ", "fallback"); got != "fallback" {
+		t.Fatalf("normalizeSecret fallback mismatch: %q", got)
+	}
+	if got := normalizeSecret("  real-secret  ", "fallback"); got != "real-secret" {
+		t.Fatalf("normalizeSecret trim mismatch: %q", got)
+	}
+}

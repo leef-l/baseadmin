@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	mrand "math/rand"
+	"strings"
 	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/dysmsapi"
@@ -47,7 +48,7 @@ func loadConfig(ctx context.Context) smsConfig {
 		cfg.DevMode = true
 	}
 
-	return cfg
+	return normalizeConfig(cfg)
 }
 
 // generateCode 生成 6 位随机数字验证码
@@ -63,10 +64,20 @@ func generateCode() string {
 // 生产模式（devMode=false）：生成 6 位随机验证码，调用阿里云短信 API 发送
 func SendCode(ctx context.Context, phone string) (code string, err error) {
 	cfg := loadConfig(ctx)
+	phone = strings.TrimSpace(phone)
+	if phone == "" {
+		return "", fmt.Errorf("手机号不能为空")
+	}
 
 	if cfg.DevMode {
 		g.Log().Infof(ctx, "[SMS DevMode] phone=%s, code=123456（未真实发送）", phone)
 		return "123456", nil
+	}
+	if cfg.Provider != "aliyun" {
+		return "", fmt.Errorf("暂不支持的短信服务商: %s", cfg.Provider)
+	}
+	if cfg.AccessKeyId == "" || cfg.AccessKeySecret == "" || cfg.SignName == "" || cfg.TemplateCode == "" {
+		return "", fmt.Errorf("短信配置不完整")
 	}
 
 	// 生产模式：生成随机验证码
@@ -95,4 +106,16 @@ func SendCode(ctx context.Context, phone string) (code string, err error) {
 
 	g.Log().Infof(ctx, "[SMS] 验证码已发送: phone=%s, requestId=%s", phone, response.RequestId)
 	return code, nil
+}
+
+func normalizeConfig(cfg smsConfig) smsConfig {
+	cfg.Provider = strings.ToLower(strings.TrimSpace(cfg.Provider))
+	if cfg.Provider == "" {
+		cfg.Provider = "aliyun"
+	}
+	cfg.AccessKeyId = strings.TrimSpace(cfg.AccessKeyId)
+	cfg.AccessKeySecret = strings.TrimSpace(cfg.AccessKeySecret)
+	cfg.SignName = strings.TrimSpace(cfg.SignName)
+	cfg.TemplateCode = strings.TrimSpace(cfg.TemplateCode)
+	return cfg
 }

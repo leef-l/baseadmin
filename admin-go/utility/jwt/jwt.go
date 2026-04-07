@@ -27,11 +27,11 @@ var (
 func init() {
 	ctx := gctx.New()
 	key, _ := g.Cfg().Get(ctx, "jwt.secret", "gbaseadmin-secret-key")
-	secret = []byte(key.String())
+	secret = []byte(normalizeSecret(key.String(), "gbaseadmin-secret-key"))
 	// 会员端独立 secret，未配置时回退到管理端 secret
 	mKey, _ := g.Cfg().Get(ctx, "jwt.memberSecret", "")
-	if mKey.String() != "" {
-		memberSecret = []byte(mKey.String())
+	if memberKey := strings.TrimSpace(mKey.String()); memberKey != "" {
+		memberSecret = []byte(memberKey)
 	} else {
 		memberSecret = secret
 	}
@@ -131,4 +131,12 @@ func parseToken(tokenStr string, claims gojwt.Claims, key []byte) (*gojwt.Token,
 		}
 		return key, nil
 	})
+}
+
+func normalizeSecret(value string, fallback string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return fallback
+	}
+	return value
 }
