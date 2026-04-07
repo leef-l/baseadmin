@@ -49,7 +49,7 @@ export function batchDelete{{.ModelName}}(ids: string[]) {
 {{- end}}
 
 /** 导出{{.Comment}} */
-export function export{{.ModelName}}(params?: Record<string, any>) {
+export function export{{.ModelName}}(params?: Partial<{{.ModelName}}ListParams>) {
   return requestClient.get(`${PREFIX}/export`, {
     params,
     responseType: 'blob',

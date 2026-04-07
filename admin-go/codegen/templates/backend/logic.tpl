@@ -578,6 +578,12 @@ func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (s
 			dao.{{.DaoName}}.Columns().Id:        id,
 			dao.{{.DaoName}}.Columns().CreatedAt: gtime.Now(),
 			dao.{{.DaoName}}.Columns().UpdatedAt: gtime.Now(),
+{{- if .HasCreatedBy}}
+			dao.{{.DaoName}}.Columns().CreatedBy: middleware.GetUserID(ctx),
+{{- end}}
+{{- if .HasDeptID}}
+			dao.{{.DaoName}}.Columns().DeptId:    middleware.GetDeptID(ctx),
+{{- end}}
 		}
 		idx := 0
 {{- range .Fields}}

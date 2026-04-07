@@ -193,6 +193,12 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			if meta.HasImport {
 				chk(strings.Contains(output, "Import("), "缺少 Import 方法")
 				chk(strings.Contains(output, "io.EOF"), "导入逻辑缺少 io.EOF 结束处理")
+				if meta.HasCreatedBy {
+					chk(strings.Contains(output, "Columns().CreatedBy"), "导入逻辑缺少 created_by 注入")
+				}
+				if meta.HasDeptID {
+					chk(strings.Contains(output, "Columns().DeptId"), "导入逻辑缺少 dept_id 注入")
+				}
 			} else {
 				chk(!strings.Contains(output, "Import("), "未启用导入时不应生成 Import 方法")
 			}
@@ -483,6 +489,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			chk(strings.Contains(output, "update"+meta.ModelName), "缺少 update")
 			chk(strings.Contains(output, "delete"+meta.ModelName), "缺少 delete")
 			chk(strings.Contains(output, "export"+meta.ModelName), "缺少 export")
+			chk(strings.Contains(output, "Partial<"+meta.ModelName+"ListParams>"), "export API 应复用 ListParams 类型")
 			if meta.HasParentID {
 				chk(strings.Contains(output, "get"+meta.ModelName+"Tree"), "树形表缺少 getTree")
 				chk(!strings.Contains(output, "batchDelete"+meta.ModelName), "树形表不应生成 batchDelete API")
