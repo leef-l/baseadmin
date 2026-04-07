@@ -25,8 +25,9 @@ export function useSidebarDrag() {
   ) => {
     const { min, max } = options;
     const { dragBar, target } = elements;
+    const body = typeof document === 'undefined' ? undefined : document.body;
 
-    if (isDragging.value || !dragBar || !target) return;
+    if (isDragging.value || !dragBar || !target || !body) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -55,7 +56,7 @@ export function useSidebarDrag() {
     dragOverlay.style.outline = 'none';
     dragOverlay.tabIndex = -1;
     dragOverlay.style.background = 'rgba(0,0,0,0)';
-    document.body.append(dragOverlay);
+    body.append(dragOverlay);
 
     const onMouseMove = (moveEvent: MouseEvent) => {
       if (!isDragging.value || !dragBar || !target) {
@@ -128,10 +129,10 @@ export function useSidebarDrag() {
         target.style.transition = targetTransition;
       }
 
-      if (dragOverlay) {
+      if (dragOverlay?.isConnected) {
         dragOverlay.remove();
-        dragOverlay = null;
       }
+      dragOverlay = null;
 
       isDragging.value = false;
       cleanup = null;

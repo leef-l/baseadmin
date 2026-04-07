@@ -283,6 +283,9 @@ function createComponentProps(slotProps: Record<string, any>) {
 }
 
 function autofocus() {
+  if (typeof document === 'undefined') {
+    return;
+  }
   if (
     fieldComponentRef.value &&
     isFunction(fieldComponentRef.value.focus) &&

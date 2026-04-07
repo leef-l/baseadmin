@@ -6,6 +6,9 @@
  * 自定义loading可以见：https://doc.vben.pro/guide/in-depth/loading.html
  */
 export function unmountGlobalLoading() {
+  if (typeof document === 'undefined') {
+    return;
+  }
   // 查找全局 loading 元素
   const loadingElement = document.querySelector('#__app-loading__');
 
@@ -18,14 +21,23 @@ export function unmountGlobalLoading() {
       '[data-app-loading^="inject"]',
     );
 
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) {
+        return;
+      }
+      cleaned = true;
+      loadingElement.remove();
+      injectLoadingElements.forEach((el) => el.remove());
+    };
+
     // 当过渡动画结束时，移除 loading 元素和所有注入的 loading 元素
     loadingElement.addEventListener(
       'transitionend',
-      () => {
-        loadingElement.remove(); // 移除 loading 元素
-        injectLoadingElements.forEach((el) => el.remove()); // 移除所有注入的 loading 元素
-      },
+      cleanup,
       { once: true },
     ); // 确保事件只触发一次
+
+    window.setTimeout(cleanup, 500);
   }
 }

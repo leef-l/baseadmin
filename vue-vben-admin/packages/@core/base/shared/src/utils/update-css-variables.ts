@@ -6,6 +6,13 @@ function updateCSSVariables(
   variables: { [key: string]: string },
   id = '__vben-styles__',
 ): void {
+  if (
+    typeof document === 'undefined' ||
+    !document.head ||
+    !document.documentElement
+  ) {
+    return;
+  }
   // 获取或创建内联样式表元素
   const styleElement =
     document.querySelector(`#${id}`) || document.createElement('style');
@@ -26,9 +33,7 @@ function updateCSSVariables(
 
   // 将内联样式表添加到文档头部
   if (!document.querySelector(`#${id}`)) {
-    setTimeout(() => {
-      document.head.append(styleElement);
-    });
+    document.head.append(styleElement);
   }
 }
 

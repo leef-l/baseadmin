@@ -132,6 +132,9 @@ export function triggerDownload(
   fileName: string | undefined,
   revokeDelay: number = 100,
 ): void {
+  if (typeof document === 'undefined' || !document.body) {
+    return;
+  }
   const defaultFileName = 'downloaded_file';
   const finalFileName = fileName || defaultFileName;
 
@@ -149,7 +152,9 @@ export function triggerDownload(
   link.remove();
 
   // 清理临时 URL 以释放内存
-  setTimeout(() => URL.revokeObjectURL(href), revokeDelay);
+  if (href.startsWith('blob:')) {
+    setTimeout(() => URL.revokeObjectURL(href), revokeDelay);
+  }
 }
 
 function resolveFileName(url: string, fileName?: string): string {

@@ -22,7 +22,7 @@ const loadingDirective: Directive = {
     const instance = el[LOADING_INSTANCE_KEY];
     el.classList.remove(CLASS_NAME_RELATIVE);
     render(null, el);
-    instance.el.remove();
+    instance?.el?.remove?.();
 
     el[LOADING_INSTANCE_KEY] = null;
   },
@@ -68,7 +68,7 @@ const spinningDirective: Directive = {
     const instance = el[SPINNER_INSTANCE_KEY];
     el.classList.remove(CLASS_NAME_RELATIVE);
     render(null, el);
-    instance.el.remove();
+    instance?.el?.remove?.();
 
     el[SPINNER_INSTANCE_KEY] = null;
   },
@@ -108,6 +108,9 @@ export function registerLoadingDirective(
   app: App,
   params?: loadingDirectiveParams,
 ) {
+  if (typeof document === 'undefined' || !document.head) {
+    return;
+  }
   // 注入一个样式供指令使用，确保容器是相对定位
   const style = document.createElement('style');
   style.id = CLASS_NAME_RELATIVE;

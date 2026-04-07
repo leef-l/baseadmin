@@ -1,6 +1,14 @@
 import type { FormRenderProps } from '../types';
 
-import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue';
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  useTemplateRef,
+  watch,
+} from 'vue';
 
 import {
   breakpointsTailwind,
@@ -17,6 +25,7 @@ export function useExpandable(props: FormRenderProps) {
   const rowMapping = ref<Record<number, number>>({});
   // 是否已经计算过一次
   const isCalculated = ref(false);
+  let calculateToken = 0;
 
   const breakpoints = useBreakpoints(breakpointsTailwind);
 
@@ -49,11 +58,15 @@ export function useExpandable(props: FormRenderProps) {
   );
 
   async function calculateRowMapping() {
+    const currentToken = ++calculateToken;
     if (!props.showCollapseButton) {
       return;
     }
 
     await nextTick();
+    if (currentToken !== calculateToken) {
+      return;
+    }
     if (!wrapperRef.value) {
       return;
     }
@@ -99,6 +112,10 @@ export function useExpandable(props: FormRenderProps) {
 
   onMounted(() => {
     calculateRowMapping();
+  });
+
+  onBeforeUnmount(() => {
+    calculateToken += 1;
   });
 
   return { isCalculated, keepFormItemIndex, wrapperRef };
