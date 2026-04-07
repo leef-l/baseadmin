@@ -1,5 +1,7 @@
 # Docker 开发说明
 
+本说明描述仓库保留的 Docker 方案，适用于具备 Docker 条件的环境。当前低配机器不要在本机执行 Docker。
+
 ## 目录约定
 
 - 开发环境：`docker/dev/docker-compose.yml`
@@ -37,6 +39,23 @@
 - Docker 使用的变量和 GoFrame 本地配置一致
 - `admin-go/.env` 不需要手动维护两份
 - 目录迁移后仍然只有一份开发环境源配置
+
+## 默认连接与账号
+
+- 登录账号：`admin`
+- 登录密码：`admin123`
+- MySQL：`127.0.0.1:40001`
+- Redis：`127.0.0.1:40002`
+- system：`127.0.0.1:40003`
+- upload：`127.0.0.1:40004`
+- frontend：`127.0.0.1:40005`
+- adminer：`127.0.0.1:40006`
+
+## 初始化来源
+
+- Docker MySQL 启动时挂载 [docker/mysql/init.sql](../docker/mysql/init.sql)
+- 该脚本与 [admin-go/codegen/sql/init.sql](../admin-go/codegen/sql/init.sql) 保持同步，都是当前仓库 `system` / `upload` 的最小初始化数据
+- 默认上传配置使用本地存储，目录为 `resource/upload`
 
 ## Docker 资源目录
 

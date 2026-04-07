@@ -25,6 +25,8 @@
 
 静态文件访问：`/upload/` 映射到 `resource/upload/` 目录。
 
+默认初始化数据中的本地存储目录也是 `resource/upload`。
+
 ## 上传流程
 
 1. 前端调用 `POST /api/upload/uploader/upload`，发送 `file`（文件）+ `dirId`（可选目录ID）
@@ -32,6 +34,7 @@
 3. 验证文件大小，解析扩展名和 MIME 类型，判断是否为图片
 4. 本地存储：保存到 `resource/upload/{日期}/{唯一文件名}`
 5. 写入 `upload_file` 记录，返回文件信息（id, url, name, size, ext, mime, isImage）
+6. 如果数据库写入失败，已上传成功的 OSS/COS 对象会执行回滚删除，避免残留孤儿文件
 
 ## 存储类型
 
@@ -45,7 +48,7 @@
 
 删除文件时同时执行物理删除，根据 `storage` 字段判断存储类型：
 - 本地：直接删除磁盘文件
-- OSS/COS：TODO（待实现云端删除）
+- OSS/COS：按文件 URL 匹配真实配置后删除对应云端对象
 
 ## 前端组件
 

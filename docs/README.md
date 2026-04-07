@@ -1,5 +1,7 @@
 # 文档目录
 
+- [AI 协作铁律](../CLAUDE.md)
 - [基础框架说明](基础框架说明.md)
 - [Docker 开发说明](Docker开发说明.md)
-- [EasyMVP对接OpenHands与Aider引擎设计实现文档](EasyMVP对接OpenHands与Aider引擎设计实现文档.md)
+- [Upload 应用说明](../admin-go/app/upload/README.MD)
+- [代码生成器说明](../admin-go/codegen/README.md)

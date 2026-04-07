@@ -2,12 +2,11 @@
 
 ## 必须先阅读
 
-1. [EasyMVP对接OpenHands与Aider引擎设计实现文档](docs/EasyMVP对接OpenHands与Aider引擎设计实现文档.md)
-2. [仓库总说明](README.MD)
-3. [基础框架说明](docs/基础框架说明.md)
-4. [Docker 开发说明](docs/Docker开发说明.md)
-5. [system 服务路由入口](admin-go/app/system/internal/cmd/cmd.go)
-6. [upload 服务路由入口](admin-go/app/upload/internal/cmd/cmd.go)
+1. [仓库总说明](README.MD)
+2. [基础框架说明](docs/基础框架说明.md)
+3. [Docker 开发说明](docs/Docker开发说明.md)
+4. [system 服务路由入口](admin-go/app/system/internal/cmd/cmd.go)
+5. [upload 服务路由入口](admin-go/app/upload/internal/cmd/cmd.go)
 
 当前仓库已经收缩为后台基础框架，AI/代理默认只围绕以下范围工作：
 
@@ -53,7 +52,8 @@ admin-go/app/*/internal/model/entity/
 3. 菜单与权限联动：后端接口、前端入口、`system_menu` 要一起看
 4. 文档统一放 `docs/`，根目录只保留简短说明
 5. 路径引用尽量写成 Markdown 相对链接，保证能直接点击打开
-6. codegen 测试必须全面：每次修改 codegen 后，必须用 `admin-go/codegen/verify_test.go` 做端到端验证。测试表必须覆盖以下全部场景，缺一不可：
+6. 本机资源受限：允许在本机执行 `gf`、`go` 和数据库访问；禁止在本机直接执行 `npm`、`pnpm`，也禁止在本机使用 Docker。文档和流程设计必须遵守这条约束
+7. codegen 测试必须全面：每次修改 `admin-go/codegen/` 后，必须同步维护离线验证脚本和覆盖样例，不允许把“需要本机跑 `npm` / `pnpm` / Docker 才能验证”当作唯一验收路径。测试表必须覆盖以下全部场景，缺一不可：
    - 树形表（parent_id）+ 非树形表
    - 单选外键（*_id 指向同应用表）+ 跨应用外键（*_id 指向其他应用表）
    - 树形外键（关联表有 parent_id）+ 普通外键（关联表无 parent_id）
@@ -72,6 +72,8 @@ admin-go/app/*/internal/model/entity/
    - 验证规则（email/phone/url/max-length）
 
 ## 常用命令
+
+本仓库保留 Docker 入口，但当前低配机器不要在本机执行这些命令。
 
 ```powershell
 .\docker\dev\compose.ps1 up -d --build
