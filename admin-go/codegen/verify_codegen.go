@@ -16,6 +16,26 @@ import (
 	"gbaseadmin/codegen/parser"
 )
 
+var supportedVbenComponents = map[string]struct{}{
+	"Input":            {},
+	"InputNumber":      {},
+	"Textarea":         {},
+	"Switch":           {},
+	"Radio":            {},
+	"Select":           {},
+	"TreeSelectSingle": {},
+	"TreeSelectMulti":  {},
+	"SelectMulti":      {},
+	"ImageUpload":      {},
+	"FileUpload":       {},
+	"RichText":         {},
+	"JsonEditor":       {},
+	"Password":         {},
+	"InputUrl":         {},
+	"DateTimePicker":   {},
+	"IconPicker":       {},
+}
+
 // codegen 离线模板验证 — 覆盖当前协作约定中的 codegen 验收场景
 // 运行: cd admin-go/codegen && go run verify_codegen.go
 
@@ -135,6 +155,15 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 	}
 
 	isBackend := strings.HasPrefix(tplFile, "backend/")
+
+	for _, f := range meta.Fields {
+		if f.IsHidden || f.IsID {
+			continue
+		}
+		if _, ok := supportedVbenComponents[f.Component]; !ok {
+			errs = append(errs, fmt.Sprintf("字段 %s 使用了未登记的组件 %s；必须先在 vue-vben-admin/apps/web-antd/src/adapter/component/index.ts 适配后再生成", f.Name, f.Component))
+		}
+	}
 
 	if isBackend {
 		// Go 代码检查
