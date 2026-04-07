@@ -456,6 +456,7 @@ async function handleExport() {
   try {
     const formValues = await gridApi.formApi.getValues();
     const params: Record<string, any> = { ...formValues };
+    const sorts = gridApi.grid?.getSortColumns?.() ?? [];
     if (params.timeRange && params.timeRange.length === 2) {
       params.startTime = params.timeRange[0];
       params.endTime = params.timeRange[1];
@@ -470,6 +471,13 @@ async function handleExport() {
     delete params.{{.SearchFormField}};
 {{- end}}
 {{- end}}
+    if (sorts.length > 0) {
+      const sort = sorts[0];
+      if (sort?.field && sort?.order) {
+        params.orderBy = resolveSortField(String(sort.field));
+        params.orderDir = sort.order;
+      }
+    }
     const blob = await export{{.ModelName}}(params);
     downloadFileFromBlob({ fileName: '{{.Comment}}.csv', source: blob as Blob });
     message.success('导出成功');

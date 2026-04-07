@@ -335,6 +335,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			chk(strings.Contains(output, "downloadFileFromBlob"), "list 应使用 vben 下载工具")
 			chk(strings.Contains(output, "const sortableFieldMap"), "list 缺少排序字段映射")
 			chk(strings.Contains(output, "resolveSortField"), "list 缺少排序字段转换 helper")
+			chk(strings.Contains(output, "getSortColumns"), "list 导出应读取当前表格排序状态")
 			if meta.HasKeywordSearch {
 				chk(strings.Contains(output, "fieldName: 'keyword'"), "关键词搜索缺少 keyword 控件")
 			}
