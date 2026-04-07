@@ -320,6 +320,8 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 		}
 	} else {
 		// 前端代码检查
+		chk(!strings.Contains(output, "rules: ["), "前端模板不应生成数组 rules，必须服从当前 vben 表单规则")
+		chk(!strings.Contains(output, "document.createElement"), "前端模板不应生成裸 DOM createElement 交互")
 		if strings.Contains(tplFile, "list") {
 			chk(strings.Contains(output, "downloadFileFromBlob"), "list 应使用 vben 下载工具")
 			if meta.HasKeywordSearch {
