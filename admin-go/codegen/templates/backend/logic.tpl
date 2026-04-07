@@ -345,19 +345,7 @@ func (s *s{{.ModelName}}) List(ctx context.Context, in *model.{{.ModelName}}List
 		return
 	}
 	// 动态排序（白名单校验防止 SQL 注入）
-	if in.OrderBy != "" && s.isAllowedOrderField(in.OrderBy) {
-		if in.OrderDir == "desc" {
-			m = m.OrderDesc(in.OrderBy)
-		} else {
-			m = m.OrderAsc(in.OrderBy)
-		}
-	} else {
-{{- if .HasSort}}
-		m = m.OrderAsc(dao.{{.DaoName}}.Columns().Sort).OrderDesc(dao.{{.DaoName}}.Columns().Id)
-{{- else}}
-		m = m.OrderDesc(dao.{{.DaoName}}.Columns().Id)
-{{- end}}
-	}
+	m = s.applyListOrder(m, in.OrderBy, in.OrderDir)
 	err = m.Page(in.PageNum, in.PageSize).Scan(&list)
 	if err != nil {
 		return
@@ -387,10 +375,25 @@ func (s *s{{.ModelName}}) isAllowedOrderField(field string) bool {
 	}
 	return allowed[field]
 }
+
+func (s *s{{.ModelName}}) applyListOrder(m *gdb.Model, orderBy, orderDir string) *gdb.Model {
+	if orderBy != "" && s.isAllowedOrderField(orderBy) {
+		if orderDir == "desc" {
+			return m.OrderDesc(orderBy)
+		}
+		return m.OrderAsc(orderBy)
+	}
+{{- if .HasSort}}
+	return m.OrderAsc(dao.{{.DaoName}}.Columns().Sort).OrderDesc(dao.{{.DaoName}}.Columns().Id)
+{{- else}}
+	return m.OrderDesc(dao.{{.DaoName}}.Columns().Id)
+{{- end}}
+}
+
 // Export 导出{{.Comment}}（不分页）
 func (s *s{{.ModelName}}) Export(ctx context.Context, in *model.{{.ModelName}}ListInput) (list []*model.{{.ModelName}}ListOutput, err error) {
 	m := s.applyListFilter(ctx, in)
-	err = m.OrderDesc(dao.{{.DaoName}}.Columns().Id).Limit(10000).Scan(&list)
+	err = s.applyListOrder(m, in.OrderBy, in.OrderDir).Limit(10000).Scan(&list)
 	if err != nil {
 		return
 	}

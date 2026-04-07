@@ -174,6 +174,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			chk(strings.Contains(output, "func init()"), "缺少 init() 函数")
 			chk(strings.Contains(output, "applyListFilter"), "缺少 applyListFilter")
 			chk(strings.Contains(output, "isAllowedOrderField"), "缺少 isAllowedOrderField")
+			chk(strings.Contains(output, "applyListOrder"), "缺少 applyListOrder")
 			if meta.HasParentID {
 				chk(strings.Contains(output, "collectChildIDs"), "树形表缺少 collectChildIDs")
 				chk(strings.Contains(output, "doCollectChildIDs"), "树形表缺少 doCollectChildIDs")
