@@ -8,6 +8,7 @@ import type {
 
 import {
   computed,
+  onBeforeUnmount,
   onMounted,
   reactive,
   ref,
@@ -60,6 +61,7 @@ const state = reactive({
 });
 
 const left = ref('0');
+let cleanupImageListeners: null | (() => void) = null;
 
 const pieceStyle = computed(() => {
   return {
@@ -154,8 +156,7 @@ function initCanvas() {
   const img = new Image();
   // 解决跨域
   img.crossOrigin = 'Anonymous';
-  img.src = src;
-  img.addEventListener('load', () => {
+  const handleLoad = () => {
     draw(puzzleCanvasCtx, pieceCanvasCtx);
     puzzleCanvasCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
     pieceCanvasCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
@@ -171,7 +172,20 @@ function initCanvas() {
     pieceCanvas.width = pieceLength;
     pieceCanvasCtx.putImageData(imageData, 0, sy);
     setLeft('0');
-  });
+    cleanupImageListeners?.();
+  };
+  const handleError = () => {
+    resetCanvas();
+    cleanupImageListeners?.();
+  };
+  cleanupImageListeners = () => {
+    img.removeEventListener('load', handleLoad);
+    img.removeEventListener('error', handleError);
+    cleanupImageListeners = null;
+  };
+  img.addEventListener('load', handleLoad, { once: true });
+  img.addEventListener('error', handleError, { once: true });
+  img.src = src;
 }
 
 function getRandomNumberByRange(start: number, end: number) {
@@ -255,6 +269,10 @@ function resume() {
 
 onMounted(() => {
   initCanvas();
+});
+
+onBeforeUnmount(() => {
+  cleanupImageListeners?.();
 });
 </script>
 

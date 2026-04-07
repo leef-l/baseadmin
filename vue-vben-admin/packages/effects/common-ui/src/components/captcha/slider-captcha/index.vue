@@ -5,7 +5,14 @@ import type {
   SliderRotateVerifyPassingData,
 } from '../types';
 
-import { reactive, unref, useTemplateRef, watch, watchEffect } from 'vue';
+import {
+  onBeforeUnmount,
+  reactive,
+  unref,
+  useTemplateRef,
+  watch,
+  watchEffect,
+} from 'vue';
 
 import { $t } from '@vben/locales';
 
@@ -55,6 +62,7 @@ const contentRef =
   useTemplateRef<InstanceType<typeof SliderCaptchaContent>>('contentRef');
 const actionRef =
   useTemplateRef<InstanceType<typeof SliderCaptchaAction>>('actionRef');
+let resumeTimer: null | ReturnType<typeof setTimeout> = null;
 
 watch(
   () => state.isPassing,
@@ -146,7 +154,8 @@ function handleDragOver(e: MouseEvent | TouchEvent) {
     const { actionWidth, offset, wrapperWidth } = getOffset(actionNode);
     if (moveX < offset) {
       if (props.isSlot) {
-        setTimeout(() => {
+        resumeTimer = setTimeout(() => {
+          resumeTimer = null;
           if (modelValue.value) {
             const contentEl = unref(contentRef);
             const contentNode = contentEl?.getEl();
@@ -181,6 +190,10 @@ function checkPass() {
 }
 
 function resume() {
+  if (resumeTimer) {
+    clearTimeout(resumeTimer);
+    resumeTimer = null;
+  }
   state.isMoving = false;
   state.isPassing = false;
   state.moveDistance = 0;
@@ -203,6 +216,13 @@ function resume() {
     barEl.setWidth('0');
   }, 300);
 }
+
+onBeforeUnmount(() => {
+  if (resumeTimer) {
+    clearTimeout(resumeTimer);
+    resumeTimer = null;
+  }
+});
 </script>
 
 <template>

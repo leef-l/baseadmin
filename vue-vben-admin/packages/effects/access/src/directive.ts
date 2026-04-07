@@ -35,6 +35,7 @@ const mounted = (el: Element, binding: DirectiveBinding<string | string[]>) => {
 
 const authDirective: Directive = {
   mounted,
+  updated: mounted,
 };
 
 export function registerAccessDirective(app: App) {

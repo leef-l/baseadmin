@@ -74,6 +74,10 @@ const preventDefaultBrowserSearchHotKey = (event: KeyboardEvent) => {
 };
 
 const toggleKeydownListener = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  window.removeEventListener('keydown', preventDefaultBrowserSearchHotKey);
   if (props.enableShortcutKey) {
     window.addEventListener('keydown', preventDefaultBrowserSearchHotKey);
   } else {
@@ -89,10 +93,12 @@ watch(() => props.enableShortcutKey, toggleKeydownListener);
 
 onMounted(() => {
   toggleKeydownListener();
+});
 
-  onUnmounted(() => {
+onUnmounted(() => {
+  if (typeof window !== 'undefined') {
     window.removeEventListener('keydown', preventDefaultBrowserSearchHotKey);
-  });
+  }
 });
 </script>
 
