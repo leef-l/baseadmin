@@ -78,3 +78,24 @@ func TestNormalizeAuthLoginInput(t *testing.T) {
 		t.Fatalf("normalizeAuthLoginInput should not trim password: %+v", in)
 	}
 }
+
+func TestChangePasswordInputValidation(t *testing.T) {
+	authSvc := &sAuth{}
+	if err := authSvc.ChangePassword(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("ChangePassword nil input mismatch: %v", err)
+	}
+	if err := authSvc.ChangePassword(nil, &model.AuthChangePasswordInput{
+		UserID:      1,
+		OldPassword: "abc123",
+		NewPassword: "",
+	}); err == nil || err.Error() != "新密码不能为空" {
+		t.Fatalf("ChangePassword blank new password mismatch: %v", err)
+	}
+	if err := authSvc.ChangePassword(nil, &model.AuthChangePasswordInput{
+		UserID:      1,
+		OldPassword: "abc123",
+		NewPassword: "abc123",
+	}); err == nil || err.Error() != "新密码不能与旧密码相同" {
+		t.Fatalf("ChangePassword same password mismatch: %v", err)
+	}
+}

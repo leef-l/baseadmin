@@ -245,6 +245,15 @@ func (s *sAuth) loadInfo(ctx context.Context, userID snowflake.JsonInt64) (out *
 
 // ChangePassword 修改密码
 func (s *sAuth) ChangePassword(ctx context.Context, in *model.AuthChangePasswordInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
+	if in.NewPassword == "" {
+		return gerror.New("新密码不能为空")
+	}
+	if in.NewPassword == in.OldPassword {
+		return gerror.New("新密码不能与旧密码相同")
+	}
 	// 查询当前密码
 	currentPassword, err := dao.Users.Ctx(ctx).
 		Where(dao.Users.Columns().Id, in.UserID).
