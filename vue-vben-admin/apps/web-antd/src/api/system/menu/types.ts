@@ -24,6 +24,16 @@ export interface MenuItem {
 export interface MenuListParams {
   pageNum: number;
   pageSize: number;
+  keyword?: string;
+  type?: number;
+  isShow?: number;
+  isCache?: number;
+  status?: number;
+}
+
+/** 菜单表树形查询参数 */
+export interface MenuTreeParams {
+  keyword?: string;
   type?: number;
   isShow?: number;
   isCache?: number;

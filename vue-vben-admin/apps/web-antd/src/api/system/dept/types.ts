@@ -19,6 +19,13 @@ export interface DeptItem {
 export interface DeptListParams {
   pageNum: number;
   pageSize: number;
+  keyword?: string;
+  status?: number;
+}
+
+/** 部门表树形查询参数 */
+export interface DeptTreeParams {
+  keyword?: string;
   status?: number;
 }
 

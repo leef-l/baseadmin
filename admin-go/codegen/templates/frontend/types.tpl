@@ -26,14 +26,15 @@ export interface {{.ModelName}}ListParams {
   orderDir?: string;
   startTime?: string;
   endTime?: string;
-{{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
-  {{.NameLower}}?: {{.TSType}};
+{{- if .HasKeywordSearch}}
+  keyword?: string;
 {{- end}}
-{{- end}}
-{{- range .Fields}}
-{{- if .IsSearchable}}
-  {{.NameLower}}?: string;
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+  {{.NameLower}}Start?: string;
+  {{.NameLower}}End?: string;
+{{- else}}
+  {{.NameLower}}?: {{.SearchTSType}};
 {{- end}}
 {{- end}}
 }
@@ -43,14 +44,15 @@ export interface {{.ModelName}}ListParams {
 export interface {{.ModelName}}TreeParams {
   startTime?: string;
   endTime?: string;
-{{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (not .IsParentID) (.IsEnum)}}
-  {{.NameLower}}?: {{.TSType}};
+{{- if .HasKeywordSearch}}
+  keyword?: string;
 {{- end}}
-{{- end}}
-{{- range .Fields}}
-{{- if .IsSearchable}}
-  {{.NameLower}}?: string;
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+  {{.NameLower}}Start?: string;
+  {{.NameLower}}End?: string;
+{{- else}}
+  {{.NameLower}}?: {{.SearchTSType}};
 {{- end}}
 {{- end}}
 }

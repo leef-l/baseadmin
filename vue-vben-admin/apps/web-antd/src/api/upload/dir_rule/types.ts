@@ -16,6 +16,7 @@ export interface DirRuleItem {
 export interface DirRuleListParams {
   pageNum: number;
   pageSize: number;
+  keyword?: string;
   category?: number;
   status?: number;
 }

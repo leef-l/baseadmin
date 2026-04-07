@@ -18,11 +18,11 @@ func (c *cUsers) Create(ctx context.Context, req *v1.UsersCreateReq) (res *v1.Us
 		Username: req.Username,
 		Password: req.Password,
 		Nickname: req.Nickname,
-		Email: req.Email,
-		Avatar: req.Avatar,
-		Status: req.Status,
-		DeptID: req.DeptID,
-		RoleIDs: req.RoleIDs,
+		Email:    req.Email,
+		Avatar:   req.Avatar,
+		Status:   req.Status,
+		DeptID:   req.DeptID,
+		RoleIDs:  req.RoleIDs,
 	})
 	return
 }
@@ -30,15 +30,15 @@ func (c *cUsers) Create(ctx context.Context, req *v1.UsersCreateReq) (res *v1.Us
 // Update 更新用户表
 func (c *cUsers) Update(ctx context.Context, req *v1.UsersUpdateReq) (res *v1.UsersUpdateRes, err error) {
 	err = service.Users().Update(ctx, &model.UsersUpdateInput{
-		ID: req.ID,
+		ID:       req.ID,
 		Username: req.Username,
 		Password: req.Password,
 		Nickname: req.Nickname,
-		Email: req.Email,
-		Avatar: req.Avatar,
-		Status: req.Status,
-		DeptID: req.DeptID,
-		RoleIDs: req.RoleIDs,
+		Email:    req.Email,
+		Avatar:   req.Avatar,
+		Status:   req.Status,
+		DeptID:   req.DeptID,
+		RoleIDs:  req.RoleIDs,
 	})
 	return
 }
@@ -62,6 +62,7 @@ func (c *cUsers) List(ctx context.Context, req *v1.UsersListReq) (res *v1.UsersL
 	res.List, res.Total, err = service.Users().List(ctx, &model.UsersListInput{
 		PageNum:  req.PageNum,
 		PageSize: req.PageSize,
+		Keyword:  req.Keyword,
 		Username: req.Username,
 		Nickname: req.Nickname,
 		Email:    req.Email,
@@ -79,4 +80,3 @@ func (c *cUsers) ResetPassword(ctx context.Context, req *v1.UsersResetPasswordRe
 	})
 	return
 }
-

@@ -3,6 +3,7 @@ package parser
 import (
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -175,28 +176,45 @@ func (p *Parser) ParseTable(tableName string) (*TableMeta, error) {
 		}
 		// 推断关联表名：parent_id → 自身模块名，xxx_id → xxx
 		var refTable string
+		refTableDB := ""
+		displayField := ""
 		if f.IsParentID {
 			refTable = moduleName
 		} else {
 			refTable = strings.TrimSuffix(f.Name, "_id")
 		}
-		// 查找关联表的显示字段（先尝试带前缀的表名，再尝试不带前缀的）
-		displayField := ""
-		refTableDB := refTable
-		if appName != "" {
-			prefixed := appName + "_" + refTable
-			displayField = findDisplayField(db, dbName, prefixed)
-			if displayField != "" {
-				refTableDB = prefixed
+
+		if f.RefTableHint != "" {
+			refTableDB = f.RefTableHint
+			if idx := strings.Index(refTableDB, "_"); idx > 0 {
+				refTable = refTableDB[idx+1:]
+			} else {
+				refTable = refTableDB
 			}
-		}
-		if displayField == "" {
-			displayField = findDisplayField(db, dbName, refTable)
+			displayField = f.RefDisplayHint
+			if displayField == "" {
+				displayField = findDisplayField(db, dbName, refTableDB)
+			}
+		} else {
+			// 查找关联表的显示字段（先尝试带前缀的表名，再尝试不带前缀的）
+			refTableDB = refTable
+			if appName != "" {
+				prefixed := appName + "_" + refTable
+				displayField = findDisplayField(db, dbName, prefixed)
+				if displayField != "" {
+					refTableDB = prefixed
+				}
+			}
+			if displayField == "" {
+				displayField = findDisplayField(db, dbName, refTable)
+			}
 		}
 		// 关联表不存在或没有可用的显示字段 → 报错终止
 		if displayField == "" {
 			candidateTables := refTable
-			if appName != "" {
+			if f.RefTableHint != "" {
+				candidateTables = f.RefTableHint
+			} else if appName != "" {
 				candidateTables = appName + "_" + refTable + " 或 " + refTable
 			}
 			return nil, fmt.Errorf(
@@ -234,11 +252,16 @@ func (p *Parser) ParseTable(tableName string) (*TableMeta, error) {
 		f.RefFieldJSON = snakeToCamelLower(refTable) + snakeToCamel(displayField)
 		// 检查关联表是否有 parent_id（树形结构）
 		f.RefIsTree = tableHasColumn(db, dbName, refTableDB, "parent_id")
+		if f.SearchEnabled && (f.IsForeignKey || f.IsParentID) && f.RefIsTree && f.SearchModeHint != "select" {
+			f.SearchComponent = "TreeSelect"
+		}
 		// 记录 parent_id 的显示字段到 TableMeta
 		if f.IsParentID {
 			meta.ParentDisplayField = f.RefDisplayLower
 		}
 	}
+
+	finalizeSearchMeta(meta)
 
 	return meta, nil
 }
@@ -354,56 +377,82 @@ func buildFieldMeta(col columnInfo) FieldMeta {
 	isPassword := name == "password" || strings.HasSuffix(name, "_password") || strings.HasSuffix(name, "_pwd")
 
 	// 解析备注
-	label, shortLabel, tooltipText, enums := ParseComment(col.ColumnComment)
+	commentMeta := ParseCommentMeta(col.ColumnComment)
 	// 如果 comment 为空，回退为字段名的 CamelCase 形式作为 Label
-	if label == "" {
-		label = snakeToCamelDao(name)
-		shortLabel = label
+	if commentMeta.Label == "" {
+		commentMeta.Label = snakeToCamelDao(name)
+		commentMeta.ShortLabel = commentMeta.Label
 	}
 
 	// 构建基础数据库类型（简化，去掉长度信息用于映射）
 	dbType := col.ColumnType
 
 	field := FieldMeta{
-		Name:         name,
-		NameCamel:    snakeToCamel(name),
-		NameDao:      snakeToCamelDao(name),
-		NameLower:    snakeToCamelLower(name),
-		DBType:       dbType,
-		GoType:       MapGoType(col.DataType, isID || isForeignKey || isParentID || name == "dept_id" || name == "created_by"),
-		TSType:       MapTSType(col.DataType, isID || isForeignKey || isParentID || name == "dept_id" || name == "created_by"),
-		Comment:      col.ColumnComment,
-		Label:        label,
-		ShortLabel:   shortLabel,
-		TooltipText:  tooltipText,
-		EnumValues:   enums,
-		IsRequired:   col.IsNullable == "NO" && !col.ColumnDefault.Valid && name != "id" && col.Extra != "auto_increment",
-		IsID:         isID,
-		IsParentID:   isParentID,
-		IsForeignKey: isForeignKey,
-		IsMultiFK:    isMultiFK,
-		IsTimeField:  strings.HasSuffix(name, "_at"),
-		IsHidden:     IsHiddenField(name),
-		IsEnum:       len(enums) > 0,
-		IsPassword:   isPassword,
-		DefaultValue: col.ColumnDefault.String,
+		Name:               name,
+		NameCamel:          snakeToCamel(name),
+		NameDao:            snakeToCamelDao(name),
+		NameLower:          snakeToCamelLower(name),
+		DBType:             dbType,
+		GoType:             MapGoType(col.DataType, isID || isForeignKey || isParentID || name == "dept_id" || name == "created_by"),
+		TSType:             MapTSType(col.DataType, isID || isForeignKey || isParentID || name == "dept_id" || name == "created_by"),
+		Comment:            col.ColumnComment,
+		Label:              commentMeta.Label,
+		ShortLabel:         commentMeta.ShortLabel,
+		TooltipText:        commentMeta.TooltipText,
+		EnumValues:         commentMeta.EnumValues,
+		IsRequired:         col.IsNullable == "NO" && !col.ColumnDefault.Valid && name != "id" && col.Extra != "auto_increment",
+		IsID:               isID,
+		IsParentID:         isParentID,
+		IsForeignKey:       isForeignKey,
+		IsMultiFK:          isMultiFK,
+		IsTimeField:        strings.HasSuffix(name, "_at"),
+		IsHidden:           IsHiddenField(name),
+		IsEnum:             len(commentMeta.EnumValues) > 0,
+		IsPassword:         isPassword,
+		DictType:           commentMeta.DictType,
+		DefaultValue:       col.ColumnDefault.String,
+		SearchFormField:    snakeToCamelLower(name),
+		SearchModeHint:     commentMeta.SearchMode,
+		KeywordModeHint:    commentMeta.KeywordMode,
+		SearchPriorityHint: commentMeta.SearchPriority,
+		RefTableHint:       commentMeta.RefTableHint,
+		RefDisplayHint:     commentMeta.RefDisplayHint,
 	}
 
 	// 判断是否可搜索的文本字段（用于关键词模糊查询）
 	searchableNames := map[string]bool{
 		"title": true, "name": true, "username": true, "nickname": true,
 		"phone": true, "mobile": true, "email": true, "real_name": true,
-		"order_no": true, "remark": true,
+		"order_no": true, "remark": true, "description": true, "summary": true,
+		"intro": true, "address": true, "contact": true, "contact_name": true,
+		"link_url": true, "url": true, "keyword": true,
 	}
 	goType := field.GoType
-	if searchableNames[name] || strings.HasSuffix(name, "_name") || strings.HasSuffix(name, "_title") || strings.HasSuffix(name, "_no") {
+	if searchableNames[name] ||
+		strings.HasSuffix(name, "_name") ||
+		strings.HasSuffix(name, "_title") ||
+		strings.HasSuffix(name, "_remark") ||
+		strings.HasSuffix(name, "_desc") ||
+		strings.HasSuffix(name, "_description") ||
+		strings.HasSuffix(name, "_summary") ||
+		strings.HasSuffix(name, "_intro") ||
+		strings.HasSuffix(name, "_phone") ||
+		strings.HasSuffix(name, "_mobile") ||
+		strings.HasSuffix(name, "_email") ||
+		strings.HasSuffix(name, "_address") ||
+		strings.HasSuffix(name, "_keyword") ||
+		strings.HasSuffix(name, "_no") {
 		if goType == "string" && !isID && !isForeignKey && !isPassword {
 			field.IsSearchable = true
 		}
 	}
 
 	// 判断是否精确搜索字段（编号类，用 = 而非 LIKE）
+	exactNames := map[string]bool{"no": true, "code": true, "sn": true}
 	exactSuffixes := []string{"_no", "_code", "_sn"}
+	if exactNames[name] {
+		field.IsExactSearch = true
+	}
 	for _, suffix := range exactSuffixes {
 		if strings.HasSuffix(name, suffix) {
 			field.IsExactSearch = true
@@ -427,11 +476,9 @@ func buildFieldMeta(col columnInfo) FieldMeta {
 		field.MaxLength = int(col.CharMaxLength.Int64)
 	}
 
-	// 字典类型检测：如果 EnumValues 有 __dict__ 标记，提取字典类型
-	if len(field.EnumValues) == 1 && field.EnumValues[0].Value == "__dict__" {
-		field.DictType = field.EnumValues[0].Label
-		field.EnumValues = nil // 清除标记
-		field.IsEnum = false   // 字典字段不算硬编码枚举
+	if field.DictType != "" {
+		field.EnumValues = nil
+		field.IsEnum = false
 	}
 
 	// 自动推导验证规则
@@ -450,6 +497,8 @@ func buildFieldMeta(col columnInfo) FieldMeta {
 	if field.IsHidden {
 		field.IsRequired = false
 	}
+
+	applySearchMeta(&field)
 
 	return field
 }
@@ -487,4 +536,287 @@ func buildValidationRules(f FieldMeta) (goRules []string, frontendRule string) {
 		goRules = append(goRules, "length:6,32")
 	}
 	return
+}
+
+func applySearchMeta(field *FieldMeta) {
+	field.SearchFormField = field.NameLower
+	if field.IsHidden || field.IsID || field.IsPassword {
+		return
+	}
+
+	switch field.SearchModeHint {
+	case "off":
+		field.SearchEnabled = false
+	case "eq":
+		field.SearchExplicit = true
+		applyExplicitEqSearchMeta(field)
+	case "like":
+		field.SearchExplicit = true
+		setInputSearch(field, "like")
+	case "range":
+		field.SearchExplicit = true
+		setRangeSearch(field)
+	case "select":
+		field.SearchExplicit = true
+		setSelectSearch(field)
+	case "tree":
+		field.SearchExplicit = true
+		setTreeSearch(field)
+	case "on":
+		field.SearchExplicit = true
+		applyHeuristicSearchMeta(field)
+	default:
+		applyHeuristicSearchMeta(field)
+	}
+
+	if field.SearchEnabled {
+		field.SearchPriority = inferSearchPriority(*field)
+	}
+	if field.SearchPriorityHint > 0 {
+		field.SearchPriority = field.SearchPriorityHint
+	}
+	applyKeywordMeta(field)
+	if field.KeywordOnly {
+		field.SearchEnabled = false
+	}
+}
+
+func shouldAutoSearchTextField(field FieldMeta) bool {
+	if field.GoType != "string" {
+		return false
+	}
+	switch field.Component {
+	case ComponentImageUpload, ComponentFileUpload, ComponentRichText, ComponentJsonEditor, ComponentPassword:
+		return false
+	}
+	if field.IsSearchable {
+		return true
+	}
+
+	exactNames := map[string]bool{
+		"no": true, "code": true, "sn": true,
+	}
+	fuzzyNames := map[string]bool{
+		"title": true, "name": true, "username": true, "nickname": true,
+		"real_name": true, "phone": true, "mobile": true, "email": true,
+		"remark": true, "description": true, "summary": true, "intro": true,
+		"address": true, "contact": true, "contact_name": true, "keyword": true,
+		"url": true, "link_url": true,
+	}
+	for name := range exactNames {
+		if field.Name == name {
+			return true
+		}
+	}
+	if fuzzyNames[field.Name] {
+		return true
+	}
+
+	exactSuffixes := []string{"_no", "_code", "_sn"}
+	for _, suffix := range exactSuffixes {
+		if strings.HasSuffix(field.Name, suffix) {
+			return true
+		}
+	}
+
+	fuzzySuffixes := []string{
+		"_name", "_title", "_remark", "_desc", "_description", "_summary",
+		"_intro", "_phone", "_mobile", "_email", "_address", "_keyword",
+		"_url", "_link",
+	}
+	for _, suffix := range fuzzySuffixes {
+		if strings.HasSuffix(field.Name, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
+func applyHeuristicSearchMeta(field *FieldMeta) {
+	switch {
+	case field.IsTimeField:
+		setRangeSearch(field)
+	case field.IsForeignKey || field.IsParentID:
+		if field.Component == ComponentTreeSelectSingle || field.Component == ComponentTreeSelectMulti {
+			setTreeSearch(field)
+		} else {
+			setSelectSearch(field)
+		}
+	case field.IsEnum || field.DictType != "":
+		setSelectSearch(field)
+	case shouldAutoSearchTextField(*field):
+		if field.IsExactSearch {
+			setInputSearch(field, "eq")
+		} else {
+			setInputSearch(field, "like")
+		}
+	}
+}
+
+func applyExplicitEqSearchMeta(field *FieldMeta) {
+	switch {
+	case field.IsForeignKey || field.IsParentID:
+		if field.Component == ComponentTreeSelectSingle || field.Component == ComponentTreeSelectMulti {
+			setTreeSearch(field)
+		} else {
+			setSelectSearch(field)
+		}
+	case field.IsEnum || field.DictType != "":
+		setSelectSearch(field)
+	default:
+		setInputSearch(field, "eq")
+	}
+}
+
+func setRangeSearch(field *FieldMeta) {
+	field.SearchEnabled = true
+	field.SearchRange = true
+	field.SearchComponent = "RangePicker"
+	field.SearchOperator = "range"
+	field.SearchGoType = "string"
+	field.SearchTSType = "string"
+	field.SearchPointer = false
+	field.SearchFormField = field.NameLower + "Range"
+}
+
+func setSelectSearch(field *FieldMeta) {
+	field.SearchEnabled = true
+	field.SearchRange = false
+	field.SearchComponent = "Select"
+	field.SearchOperator = "eq"
+	field.SearchFormField = field.NameLower
+	if field.IsForeignKey || field.IsParentID {
+		field.SearchGoType = "snowflake.JsonInt64"
+		field.SearchTSType = "string"
+		field.SearchPointer = true
+		return
+	}
+	field.SearchGoType = field.GoType
+	field.SearchTSType = field.TSType
+	field.SearchPointer = true
+}
+
+func setTreeSearch(field *FieldMeta) {
+	setSelectSearch(field)
+	field.SearchComponent = "TreeSelect"
+}
+
+func setInputSearch(field *FieldMeta, operator string) {
+	field.SearchEnabled = true
+	field.SearchRange = false
+	field.SearchComponent = "Input"
+	field.SearchOperator = operator
+	field.SearchGoType = "string"
+	field.SearchTSType = "string"
+	field.SearchPointer = false
+	field.SearchFormField = field.NameLower
+}
+
+func applyKeywordMeta(field *FieldMeta) {
+	switch field.KeywordModeHint {
+	case "off":
+		field.KeywordEnabled = false
+		field.KeywordOnly = false
+		return
+	case "only":
+		field.KeywordEnabled = true
+		field.KeywordOnly = true
+		return
+	case "on":
+		field.KeywordEnabled = true
+		field.KeywordOnly = false
+		return
+	}
+	field.KeywordEnabled = field.SearchEnabled && field.SearchOperator == "like"
+}
+
+func inferSearchPriority(field FieldMeta) int {
+	switch {
+	case field.IsExactSearch:
+		return 100
+	case field.Name == "title" || field.Name == "name" || field.Name == "username" || field.Name == "nickname" || field.Name == "real_name":
+		return 95
+	case field.Name == "phone" || field.Name == "mobile" || field.Name == "email" || strings.HasSuffix(field.Name, "_phone") || strings.HasSuffix(field.Name, "_mobile") || strings.HasSuffix(field.Name, "_email"):
+		return 90
+	case field.IsForeignKey || field.IsParentID:
+		return 82
+	case field.IsEnum || field.DictType != "":
+		return 78
+	case field.IsTimeField:
+		return 60
+	case field.SearchOperator == "like":
+		return 70
+	default:
+		return 50
+	}
+}
+
+func finalizeSearchMeta(meta *TableMeta) {
+	type searchItem struct {
+		index int
+		field FieldMeta
+	}
+
+	sortItems := func(items []searchItem) {
+		sort.SliceStable(items, func(i, j int) bool {
+			if items[i].field.SearchPriority == items[j].field.SearchPriority {
+				return items[i].index < items[j].index
+			}
+			return items[i].field.SearchPriority > items[j].field.SearchPriority
+		})
+	}
+
+	direct := make([]searchItem, 0)
+	keyword := make([]searchItem, 0)
+	for i, field := range meta.Fields {
+		if field.SearchEnabled {
+			direct = append(direct, searchItem{index: i, field: field})
+		}
+		if field.KeywordEnabled {
+			keyword = append(keyword, searchItem{index: i, field: field})
+		}
+	}
+
+	sortItems(direct)
+	sortItems(keyword)
+
+	visible := make([]FieldMeta, 0, len(direct))
+	fuzzyDirectCount := 0
+	for _, item := range direct {
+		field := item.field
+		if field.KeywordOnly {
+			continue
+		}
+		if field.SearchOperator == "like" && field.KeywordEnabled && !field.SearchExplicit {
+			if fuzzyDirectCount >= 2 {
+				continue
+			}
+			fuzzyDirectCount++
+		}
+		visible = append(visible, field)
+	}
+
+	meta.SearchFields = visible
+
+	if len(keyword) == 0 {
+		return
+	}
+
+	keywordFields := make([]FieldMeta, 0, len(keyword))
+	keywordSeen := make(map[string]struct{}, len(keyword))
+	for _, item := range keyword {
+		if _, ok := keywordSeen[item.field.Name]; ok {
+			continue
+		}
+		keywordSeen[item.field.Name] = struct{}{}
+		keywordFields = append(keywordFields, item.field)
+	}
+	meta.KeywordSearchFields = keywordFields
+	meta.HasKeywordSearch = len(keywordFields) > 1
+	for _, field := range keywordFields {
+		if field.KeywordOnly {
+			meta.HasKeywordSearch = true
+			break
+		}
+	}
 }

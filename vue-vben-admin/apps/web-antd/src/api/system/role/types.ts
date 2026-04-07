@@ -19,6 +19,14 @@ export interface RoleItem {
 export interface RoleListParams {
   pageNum: number;
   pageSize: number;
+  keyword?: string;
+  dataScope?: number;
+  status?: number;
+}
+
+/** 角色表树形查询参数 */
+export interface RoleTreeParams {
+  keyword?: string;
   dataScope?: number;
   status?: number;
 }

@@ -3,10 +3,12 @@ package dept
 import (
 	"context"
 
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/system/internal/dao"
+	authlogic "gbaseadmin/app/system/internal/logic/auth"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
 	"gbaseadmin/utility/snowflake"
@@ -24,41 +26,59 @@ type sDept struct{}
 
 // Create 创建部门表
 func (s *sDept) Create(ctx context.Context, in *model.DeptCreateInput) error {
+	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
+		return err
+	}
 	id := snowflake.Generate()
 	_, err := dao.Dept.Ctx(ctx).Data(g.Map{
 		dao.Dept.Columns().Id:        id,
-		dao.Dept.Columns().ParentId: in.ParentID,
-		dao.Dept.Columns().Title: in.Title,
-		dao.Dept.Columns().Username: in.Username,
-		dao.Dept.Columns().Email: in.Email,
-		dao.Dept.Columns().Sort: in.Sort,
-		dao.Dept.Columns().Status: in.Status,
+		dao.Dept.Columns().ParentId:  in.ParentID,
+		dao.Dept.Columns().Title:     in.Title,
+		dao.Dept.Columns().Username:  in.Username,
+		dao.Dept.Columns().Email:     in.Email,
+		dao.Dept.Columns().Sort:      in.Sort,
+		dao.Dept.Columns().Status:    in.Status,
 		dao.Dept.Columns().CreatedAt: gtime.Now(),
 		dao.Dept.Columns().UpdatedAt: gtime.Now(),
 	}).Insert()
+	if err == nil {
+		authlogic.ClearAllUserCaches(ctx)
+	}
 	return err
 }
 
 // Update 更新部门表
 func (s *sDept) Update(ctx context.Context, in *model.DeptUpdateInput) error {
+	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
+		return err
+	}
 	data := g.Map{
-		dao.Dept.Columns().ParentId: in.ParentID,
-		dao.Dept.Columns().Title: in.Title,
-		dao.Dept.Columns().Username: in.Username,
-		dao.Dept.Columns().Email: in.Email,
-		dao.Dept.Columns().Sort: in.Sort,
-		dao.Dept.Columns().Status: in.Status,
+		dao.Dept.Columns().ParentId:  in.ParentID,
+		dao.Dept.Columns().Title:     in.Title,
+		dao.Dept.Columns().Username:  in.Username,
+		dao.Dept.Columns().Email:     in.Email,
+		dao.Dept.Columns().Sort:      in.Sort,
+		dao.Dept.Columns().Status:    in.Status,
 		dao.Dept.Columns().UpdatedAt: gtime.Now(),
 	}
 	_, err := dao.Dept.Ctx(ctx).Where(dao.Dept.Columns().Id, in.ID).Data(data).Update()
+	if err == nil {
+		authlogic.ClearAllUserCaches(ctx)
+	}
 	return err
 }
 
 // Delete 软删除部门表
 func (s *sDept) Delete(ctx context.Context, id snowflake.JsonInt64) error {
+	if err := s.ensureDeptDeletable(ctx, id); err != nil {
+		return err
+	}
 	_, err := dao.Dept.Ctx(ctx).Where(dao.Dept.Columns().Id, id).Data(g.Map{
 		dao.Dept.Columns().DeletedAt: gtime.Now(),
 	}).Update()
+	if err == nil {
+		authlogic.ClearAllUserCaches(ctx)
+	}
 	return err
 }
 
@@ -80,8 +100,15 @@ func (s *sDept) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.
 // List 获取部门表列表
 func (s *sDept) List(ctx context.Context, in *model.DeptListInput) (list []*model.DeptListOutput, total int, err error) {
 	m := dao.Dept.Ctx(ctx).Where(dao.Dept.Columns().DeletedAt, nil)
-	if in.Status > 0 {
-		m = m.Where(dao.Dept.Columns().Status, in.Status)
+	if in.Keyword != "" {
+		keywordBuilder := m.Builder().
+			WhereLike(dao.Dept.Columns().Title, "%"+in.Keyword+"%").
+			WhereOrLike(dao.Dept.Columns().Username, "%"+in.Keyword+"%").
+			WhereOrLike(dao.Dept.Columns().Email, "%"+in.Keyword+"%")
+		m = m.Where(keywordBuilder)
+	}
+	if in.Status != nil {
+		m = m.Where(dao.Dept.Columns().Status, *in.Status)
 	}
 	total, err = m.Count()
 	if err != nil {
@@ -91,20 +118,27 @@ func (s *sDept) List(ctx context.Context, in *model.DeptListInput) (list []*mode
 	if err != nil {
 		return
 	}
-	// 填充关联显示字段
-	for _, item := range list {
-		if item.ParentID != 0 {
-			val, _ := g.DB().Ctx(ctx).Model("system_dept").Where("id", item.ParentID).Where("deleted_at", nil).Value("title")
-			item.DeptTitle = val.String()
-		}
-	}
+	s.fillParentTitles(ctx, list)
 	return
 }
 
 // Tree 获取部门表树形结构
-func (s *sDept) Tree(ctx context.Context) (tree []*model.DeptTreeOutput, err error) {
+func (s *sDept) Tree(ctx context.Context, in *model.DeptTreeInput) (tree []*model.DeptTreeOutput, err error) {
 	var list []*model.DeptTreeOutput
-	err = dao.Dept.Ctx(ctx).Where(dao.Dept.Columns().DeletedAt, nil).OrderAsc(dao.Dept.Columns().Sort).Scan(&list)
+	m := dao.Dept.Ctx(ctx).Where(dao.Dept.Columns().DeletedAt, nil)
+	if in != nil {
+		if in.Keyword != "" {
+			keywordBuilder := m.Builder().
+				WhereLike(dao.Dept.Columns().Title, "%"+in.Keyword+"%").
+				WhereOrLike(dao.Dept.Columns().Username, "%"+in.Keyword+"%").
+				WhereOrLike(dao.Dept.Columns().Email, "%"+in.Keyword+"%")
+			m = m.Where(keywordBuilder)
+		}
+		if in.Status != nil {
+			m = m.Where(dao.Dept.Columns().Status, *in.Status)
+		}
+	}
+	err = m.OrderAsc(dao.Dept.Columns().Sort).Scan(&list)
 	if err != nil {
 		return
 	}
@@ -122,8 +156,122 @@ func (s *sDept) Tree(ctx context.Context) (tree []*model.DeptTreeOutput, err err
 			tree = append(tree, item)
 		} else if parent, ok := nodeMap[int64(item.ParentID)]; ok {
 			parent.Children = append(parent.Children, item)
+		} else {
+			tree = append(tree, item)
 		}
 	}
 	return
 }
 
+func (s *sDept) fillParentTitles(ctx context.Context, list []*model.DeptListOutput) {
+	parentSet := make(map[int64]struct{})
+	for _, item := range list {
+		if item.ParentID != 0 {
+			parentSet[int64(item.ParentID)] = struct{}{}
+		}
+	}
+	if len(parentSet) == 0 {
+		return
+	}
+	parentIDs := make([]int64, 0, len(parentSet))
+	for id := range parentSet {
+		parentIDs = append(parentIDs, id)
+	}
+	rows, err := g.DB().Ctx(ctx).Model("system_dept").
+		Fields("id", "title").
+		Where("deleted_at", nil).
+		WhereIn("id", parentIDs).
+		All()
+	if err != nil {
+		return
+	}
+	parentMap := make(map[int64]string, len(rows))
+	for _, row := range rows {
+		parentMap[row["id"].Int64()] = row["title"].String()
+	}
+	for _, item := range list {
+		item.DeptTitle = parentMap[int64(item.ParentID)]
+	}
+}
+
+func (s *sDept) ensureDeptDeletable(ctx context.Context, id snowflake.JsonInt64) error {
+	childCount, err := dao.Dept.Ctx(ctx).
+		Where(dao.Dept.Columns().ParentId, id).
+		Where(dao.Dept.Columns().DeletedAt, nil).
+		Count()
+	if err != nil {
+		return err
+	}
+	if childCount > 0 {
+		return gerror.New("当前部门下存在子部门，不能直接删除")
+	}
+	userCount, err := dao.Users.Ctx(ctx).
+		Where(dao.Users.Columns().DeptId, id).
+		Where(dao.Users.Columns().DeletedAt, nil).
+		Count()
+	if err != nil {
+		return err
+	}
+	if userCount > 0 {
+		return gerror.New("当前部门下仍有关联用户，不能直接删除")
+	}
+	roleDeptCount, err := dao.RoleDept.Ctx(ctx).
+		Where(dao.RoleDept.Columns().DeptId, id).
+		Count()
+	if err != nil {
+		return err
+	}
+	if roleDeptCount > 0 {
+		return gerror.New("当前部门仍被角色数据权限引用，不能直接删除")
+	}
+	return nil
+}
+
+func (s *sDept) ensureParentValid(ctx context.Context, parentID, currentID snowflake.JsonInt64) error {
+	if parentID == 0 {
+		return nil
+	}
+	if currentID != 0 && parentID == currentID {
+		return gerror.New("上级部门不能选择自己")
+	}
+	var parent struct {
+		Id       int64 `json:"id"`
+		ParentId int64 `json:"parentId"`
+	}
+	if err := dao.Dept.Ctx(ctx).
+		Fields(dao.Dept.Columns().Id, dao.Dept.Columns().ParentId).
+		Where(dao.Dept.Columns().Id, parentID).
+		Where(dao.Dept.Columns().DeletedAt, nil).
+		Scan(&parent); err != nil {
+		return err
+	}
+	if parent.Id == 0 {
+		return gerror.New("上级部门不存在或已删除")
+	}
+	seen := map[int64]struct{}{int64(parentID): {}}
+	for parent.ParentId != 0 {
+		if currentID != 0 && parent.ParentId == int64(currentID) {
+			return gerror.New("不能将部门移动到自己的子级下")
+		}
+		if _, ok := seen[parent.ParentId]; ok {
+			return gerror.New("部门层级存在循环引用")
+		}
+		seen[parent.ParentId] = struct{}{}
+		next := struct {
+			Id       int64 `json:"id"`
+			ParentId int64 `json:"parentId"`
+		}{}
+		if err := dao.Dept.Ctx(ctx).
+			Fields(dao.Dept.Columns().Id, dao.Dept.Columns().ParentId).
+			Where(dao.Dept.Columns().Id, parent.ParentId).
+			Where(dao.Dept.Columns().DeletedAt, nil).
+			Scan(&next); err != nil {
+			return err
+		}
+		if next.Id == 0 {
+			return gerror.New("上级部门链路中存在无效节点")
+		}
+		parent = next
+	}
+	return nil
+}

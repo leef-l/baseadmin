@@ -12,7 +12,7 @@ type IDept interface {
 	Delete(ctx context.Context, id snowflake.JsonInt64) error
 	Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.DeptDetailOutput, err error)
 	List(ctx context.Context, in *model.DeptListInput) (list []*model.DeptListOutput, total int, err error)
-	Tree(ctx context.Context) (tree []*model.DeptTreeOutput, err error)
+	Tree(ctx context.Context, in *model.DeptTreeInput) (tree []*model.DeptTreeOutput, err error)
 }
 
 var localDept IDept

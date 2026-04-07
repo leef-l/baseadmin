@@ -3,6 +3,7 @@ import { requestClient } from '#/api/request';
 import type {
   RoleItem,
   RoleListParams,
+  RoleTreeParams,
   RoleCreateParams,
   RoleUpdateParams,
   RoleGrantMenuParams,
@@ -43,7 +44,7 @@ export function deleteRole(id: string) {
 }
 
 /** 获取角色表树形结构 */
-export async function getRoleTree(params?: Record<string, any>) {
+export async function getRoleTree(params?: RoleTreeParams) {
   const res = await requestClient.get<{ list: RoleItem[] }>(
     `${PREFIX}/tree`,
     { params },

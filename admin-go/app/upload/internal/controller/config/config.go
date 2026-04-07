@@ -15,20 +15,20 @@ type cConfig struct{}
 // Create 创建上传配置
 func (c *cConfig) Create(ctx context.Context, req *v1.ConfigCreateReq) (res *v1.ConfigCreateRes, err error) {
 	err = service.Config().Create(ctx, &model.ConfigCreateInput{
-		Name: req.Name,
-		Storage: req.Storage,
-		IsDefault: req.IsDefault,
-		LocalPath: req.LocalPath,
-		OssEndpoint: req.OssEndpoint,
-		OssBucket: req.OssBucket,
+		Name:         req.Name,
+		Storage:      req.Storage,
+		IsDefault:    req.IsDefault,
+		LocalPath:    req.LocalPath,
+		OssEndpoint:  req.OssEndpoint,
+		OssBucket:    req.OssBucket,
 		OssAccessKey: req.OssAccessKey,
 		OssSecretKey: req.OssSecretKey,
-		CosRegion: req.CosRegion,
-		CosBucket: req.CosBucket,
-		CosSecretID: req.CosSecretID,
+		CosRegion:    req.CosRegion,
+		CosBucket:    req.CosBucket,
+		CosSecretID:  req.CosSecretID,
 		CosSecretKey: req.CosSecretKey,
-		MaxSize: req.MaxSize,
-		Status: req.Status,
+		MaxSize:      req.MaxSize,
+		Status:       req.Status,
 	})
 	return
 }
@@ -36,21 +36,21 @@ func (c *cConfig) Create(ctx context.Context, req *v1.ConfigCreateReq) (res *v1.
 // Update 更新上传配置
 func (c *cConfig) Update(ctx context.Context, req *v1.ConfigUpdateReq) (res *v1.ConfigUpdateRes, err error) {
 	err = service.Config().Update(ctx, &model.ConfigUpdateInput{
-		ID: req.ID,
-		Name: req.Name,
-		Storage: req.Storage,
-		IsDefault: req.IsDefault,
-		LocalPath: req.LocalPath,
-		OssEndpoint: req.OssEndpoint,
-		OssBucket: req.OssBucket,
+		ID:           req.ID,
+		Name:         req.Name,
+		Storage:      req.Storage,
+		IsDefault:    req.IsDefault,
+		LocalPath:    req.LocalPath,
+		OssEndpoint:  req.OssEndpoint,
+		OssBucket:    req.OssBucket,
 		OssAccessKey: req.OssAccessKey,
 		OssSecretKey: req.OssSecretKey,
-		CosRegion: req.CosRegion,
-		CosBucket: req.CosBucket,
-		CosSecretID: req.CosSecretID,
+		CosRegion:    req.CosRegion,
+		CosBucket:    req.CosBucket,
+		CosSecretID:  req.CosSecretID,
 		CosSecretKey: req.CosSecretKey,
-		MaxSize: req.MaxSize,
-		Status: req.Status,
+		MaxSize:      req.MaxSize,
+		Status:       req.Status,
 	})
 	return
 }
@@ -72,12 +72,12 @@ func (c *cConfig) Detail(ctx context.Context, req *v1.ConfigDetailReq) (res *v1.
 func (c *cConfig) List(ctx context.Context, req *v1.ConfigListReq) (res *v1.ConfigListRes, err error) {
 	res = &v1.ConfigListRes{}
 	res.List, res.Total, err = service.Config().List(ctx, &model.ConfigListInput{
-		PageNum:  req.PageNum,
-		PageSize: req.PageSize,
-		Storage: req.Storage,
+		PageNum:   req.PageNum,
+		PageSize:  req.PageSize,
+		Keyword:   req.Keyword,
+		Storage:   req.Storage,
 		IsDefault: req.IsDefault,
-		Status: req.Status,
+		Status:    req.Status,
 	})
 	return
 }
-

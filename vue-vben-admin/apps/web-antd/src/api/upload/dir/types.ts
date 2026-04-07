@@ -18,6 +18,13 @@ export interface DirItem {
 export interface DirListParams {
   pageNum: number;
   pageSize: number;
+  keyword?: string;
+  status?: number;
+}
+
+/** 文件目录树形查询参数 */
+export interface DirTreeParams {
+  keyword?: string;
   status?: number;
 }
 

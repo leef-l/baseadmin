@@ -25,6 +25,7 @@ export interface ConfigItem {
 export interface ConfigListParams {
   pageNum: number;
   pageSize: number;
+  keyword?: string;
   storage?: number;
   isDefault?: number;
   status?: number;

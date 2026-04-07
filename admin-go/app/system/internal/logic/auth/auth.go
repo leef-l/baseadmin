@@ -2,15 +2,20 @@ package auth
 
 import (
 	"context"
+	"fmt"
+	"strings"
+	"time"
 
-	"github.com/gogf/gf/v2/crypto/gsha256"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/system/internal/dao"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
+	"gbaseadmin/utility/cache"
 	"gbaseadmin/utility/jwt"
+	"gbaseadmin/utility/password"
 	"gbaseadmin/utility/snowflake"
 )
 
@@ -24,8 +29,19 @@ func New() *sAuth {
 
 type sAuth struct{}
 
+const (
+	authLoginFailLimit  = 5
+	authLoginFailWindow = 10 * time.Minute
+	authInfoCacheTTL    = time.Minute
+	authMenusCacheTTL   = time.Minute
+)
+
 // Login 用户登录
 func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model.AuthLoginOutput, err error) {
+	if s.isLoginRateLimited(ctx, in.Username) {
+		return nil, gerror.New("登录失败次数过多，请10分钟后再试")
+	}
+
 	// 查询用户
 	var user struct {
 		Id       int64  `json:"id"`
@@ -43,15 +59,12 @@ func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model
 		Scan(&user)
 
 	if err != nil {
-		g.Log().Errorf(ctx, "查询用户失败: %v", err)
 		return nil, gerror.New("用户名或密码错误")
 	}
 	if user.Id == 0 {
-		g.Log().Infof(ctx, "用户不存在: %s", in.Username)
+		s.recordLoginFailure(ctx, in.Username)
 		return nil, gerror.New("用户名或密码错误")
 	}
-
-	g.Log().Infof(ctx, "查询用户成功 - 用户名: %s, ID: %d, 密码长度: %d", in.Username, user.Id, len(user.Password))
 
 	// 校验状态
 	if user.Status == 0 {
@@ -59,10 +72,21 @@ func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model
 	}
 
 	// 校验密码
-	hashedInput := gsha256.Encrypt(in.Password)
-	if user.Password != hashedInput {
-		g.Log().Errorf(ctx, "密码验证失败 - 输入: %s, 数据库: %s", hashedInput, user.Password)
+	if !password.Verify(user.Password, in.Password) {
+		s.recordLoginFailure(ctx, in.Username)
 		return nil, gerror.New("用户名或密码错误")
+	}
+	s.clearLoginFailures(ctx, in.Username)
+	if password.NeedsRehash(user.Password) {
+		if upgraded, hashErr := password.Hash(in.Password); hashErr == nil {
+			_, _ = dao.Users.Ctx(ctx).
+				Where(dao.Users.Columns().Id, user.Id).
+				Data(g.Map{
+					dao.Users.Columns().Password:  upgraded,
+					dao.Users.Columns().UpdatedAt: gtime.Now(),
+				}).
+				Update()
+		}
 	}
 
 	// 生成 Token
@@ -83,6 +107,19 @@ func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model
 
 // Info 获取当前用户信息
 func (s *sAuth) Info(ctx context.Context, userID snowflake.JsonInt64) (out *model.AuthInfoOutput, err error) {
+	if cached, ok := s.getCachedInfo(ctx, userID); ok {
+		return cached, nil
+	}
+
+	out, err = s.loadInfo(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	s.setCachedInfo(ctx, userID, out)
+	return out, nil
+}
+
+func (s *sAuth) loadInfo(ctx context.Context, userID snowflake.JsonInt64) (out *model.AuthInfoOutput, err error) {
 	var user struct {
 		Id       int64  `json:"id"`
 		Username string `json:"username"`
@@ -202,7 +239,7 @@ func (s *sAuth) Info(ctx context.Context, userID snowflake.JsonInt64) (out *mode
 // ChangePassword 修改密码
 func (s *sAuth) ChangePassword(ctx context.Context, in *model.AuthChangePasswordInput) error {
 	// 查询当前密码
-	password, err := dao.Users.Ctx(ctx).
+	currentPassword, err := dao.Users.Ctx(ctx).
 		Where(dao.Users.Columns().Id, in.UserID).
 		Value(dao.Users.Columns().Password)
 	if err != nil {
@@ -210,24 +247,42 @@ func (s *sAuth) ChangePassword(ctx context.Context, in *model.AuthChangePassword
 	}
 
 	// 校验旧密码
-	hashedOld := gsha256.Encrypt(in.OldPassword)
-	if password.String() != hashedOld {
+	if !password.Verify(currentPassword.String(), in.OldPassword) {
 		return gerror.New("旧密码错误")
 	}
 
 	// 加密新密码
-	hashedNew := gsha256.Encrypt(in.NewPassword)
+	hashedNew, err := password.Hash(in.NewPassword)
+	if err != nil {
+		return err
+	}
 
 	// 更新密码
 	_, err = dao.Users.Ctx(ctx).
 		Where(dao.Users.Columns().Id, in.UserID).
 		Data(dao.Users.Columns().Password, hashedNew).
 		Update()
+	if err == nil {
+		s.clearAuthCache(ctx, int64(in.UserID))
+	}
 	return err
 }
 
 // Menus 获取当前用户的菜单树（动态路由）
 func (s *sAuth) Menus(ctx context.Context, userID snowflake.JsonInt64) ([]*model.AuthMenuOutput, error) {
+	if cached, ok := s.getCachedMenus(ctx, userID); ok {
+		return cached, nil
+	}
+
+	menus, err := s.loadMenus(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	s.setCachedMenus(ctx, userID, menus)
+	return menus, nil
+}
+
+func (s *sAuth) loadMenus(ctx context.Context, userID snowflake.JsonInt64) ([]*model.AuthMenuOutput, error) {
 	// 查询用户角色
 	var userRoles []struct {
 		RoleId int64 `json:"roleId"`
@@ -340,4 +395,114 @@ func (s *sAuth) Menus(ctx context.Context, userID snowflake.JsonInt64) ([]*model
 		}
 	}
 	return tree, nil
+}
+
+func (s *sAuth) isLoginRateLimited(ctx context.Context, username string) bool {
+	count, err := cache.GetInt64(ctx, s.loginFailKey(ctx, username))
+	return err == nil && count >= authLoginFailLimit
+}
+
+func (s *sAuth) recordLoginFailure(ctx context.Context, username string) {
+	_, _ = cache.IncrWithTTL(ctx, s.loginFailKey(ctx, username), authLoginFailWindow)
+}
+
+func (s *sAuth) clearLoginFailures(ctx context.Context, username string) {
+	_ = cache.Delete(ctx, s.loginFailKey(ctx, username))
+}
+
+func (s *sAuth) getCachedInfo(ctx context.Context, userID snowflake.JsonInt64) (*model.AuthInfoOutput, bool) {
+	var out model.AuthInfoOutput
+	ok, err := cache.GetJSON(ctx, s.infoCacheKey(userID), &out)
+	if err != nil || !ok {
+		return nil, false
+	}
+	return &out, true
+}
+
+func (s *sAuth) setCachedInfo(ctx context.Context, userID snowflake.JsonInt64, out *model.AuthInfoOutput) {
+	if out == nil {
+		return
+	}
+	_ = cache.SetJSON(ctx, s.infoCacheKey(userID), out, authInfoCacheTTL)
+}
+
+func (s *sAuth) getCachedMenus(ctx context.Context, userID snowflake.JsonInt64) ([]*model.AuthMenuOutput, bool) {
+	var menus []*model.AuthMenuOutput
+	ok, err := cache.GetJSON(ctx, s.menusCacheKey(userID), &menus)
+	if err != nil || !ok {
+		return nil, false
+	}
+	return menus, true
+}
+
+func (s *sAuth) setCachedMenus(ctx context.Context, userID snowflake.JsonInt64, menus []*model.AuthMenuOutput) {
+	if menus == nil {
+		menus = make([]*model.AuthMenuOutput, 0)
+	}
+	_ = cache.SetJSON(ctx, s.menusCacheKey(userID), menus, authMenusCacheTTL)
+}
+
+func (s *sAuth) clearAuthCache(ctx context.Context, userID int64) {
+	_ = cache.Delete(
+		ctx,
+		fmt.Sprintf("system:auth:info:%d", userID),
+		fmt.Sprintf("system:auth:menus:%d", userID),
+	)
+}
+
+func ClearUserCaches(ctx context.Context, userIDs ...int64) {
+	if len(userIDs) == 0 {
+		return
+	}
+	keys := make([]string, 0, len(userIDs)*2)
+	seen := make(map[int64]struct{}, len(userIDs))
+	for _, userID := range userIDs {
+		if userID <= 0 {
+			continue
+		}
+		if _, ok := seen[userID]; ok {
+			continue
+		}
+		seen[userID] = struct{}{}
+		keys = append(keys,
+			fmt.Sprintf("system:auth:info:%d", userID),
+			fmt.Sprintf("system:auth:menus:%d", userID),
+		)
+	}
+	_ = cache.Delete(ctx, keys...)
+}
+
+func ClearAllUserCaches(ctx context.Context) {
+	var users []struct {
+		Id int64 `json:"id"`
+	}
+	if err := dao.Users.Ctx(ctx).
+		Fields(dao.Users.Columns().Id).
+		Where(dao.Users.Columns().DeletedAt, nil).
+		Scan(&users); err != nil {
+		return
+	}
+	userIDs := make([]int64, 0, len(users))
+	for _, item := range users {
+		userIDs = append(userIDs, item.Id)
+	}
+	ClearUserCaches(ctx, userIDs...)
+}
+
+func (s *sAuth) loginFailKey(ctx context.Context, username string) string {
+	ip := "unknown"
+	if req := g.RequestFromCtx(ctx); req != nil {
+		if clientIP := strings.TrimSpace(req.GetClientIp()); clientIP != "" {
+			ip = clientIP
+		}
+	}
+	return fmt.Sprintf("system:auth:login_fail:%s:%s", strings.ToLower(strings.TrimSpace(username)), ip)
+}
+
+func (s *sAuth) infoCacheKey(userID snowflake.JsonInt64) string {
+	return fmt.Sprintf("system:auth:info:%d", int64(userID))
+}
+
+func (s *sAuth) menusCacheKey(userID snowflake.JsonInt64) string {
+	return fmt.Sprintf("system:auth:menus:%d", int64(userID))
 }

@@ -99,18 +99,18 @@ const [Form, formApi] = useVbenForm({
       componentProps: { placeholder: '请输入OSS Bucket', maxlength: 255 },
     },
     {
-      component: 'Input',
+      component: 'InputPassword',
       fieldName: 'ossAccessKey',
       label: 'OSS AccessKey',
       dependencies: ossDeps,
-      componentProps: { placeholder: '请输入OSS AccessKey', maxlength: 255 },
+      componentProps: { placeholder: '编辑时留空表示保持现有 AccessKey', maxlength: 255 },
     },
     {
-      component: 'Input',
+      component: 'InputPassword',
       fieldName: 'ossSecretKey',
       label: 'OSS SecretKey',
       dependencies: ossDeps,
-      componentProps: { placeholder: '请输入OSS SecretKey', maxlength: 255 },
+      componentProps: { placeholder: '编辑时留空表示保持现有 SecretKey', maxlength: 255 },
     },
     // === 腾讯云COS ===
     {
@@ -128,18 +128,18 @@ const [Form, formApi] = useVbenForm({
       componentProps: { placeholder: '请输入COS Bucket', maxlength: 255 },
     },
     {
-      component: 'Input',
+      component: 'InputPassword',
       fieldName: 'cosSecretID',
       label: 'COS SecretId',
       dependencies: cosDeps,
-      componentProps: { placeholder: '请输入COS SecretId', maxlength: 255 },
+      componentProps: { placeholder: '编辑时留空表示保持现有 SecretId', maxlength: 255 },
     },
     {
-      component: 'Input',
+      component: 'InputPassword',
       fieldName: 'cosSecretKey',
       label: 'COS SecretKey',
       dependencies: cosDeps,
-      componentProps: { placeholder: '请输入COS SecretKey', maxlength: 255 },
+      componentProps: { placeholder: '编辑时留空表示保持现有 SecretKey', maxlength: 255 },
     },
     // === 公共字段 ===
     {

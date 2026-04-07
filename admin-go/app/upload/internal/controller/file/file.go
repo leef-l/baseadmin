@@ -62,6 +62,7 @@ func (c *cFile) List(ctx context.Context, req *v1.FileListReq) (res *v1.FileList
 	res.List, res.Total, err = service.File().List(ctx, &model.FileListInput{
 		PageNum:  req.PageNum,
 		PageSize: req.PageSize,
+		Keyword:  req.Keyword,
 		DirID:    req.DirID,
 		Name:     req.Name,
 		Storage:  req.Storage,

@@ -109,6 +109,15 @@ const formOptions: VbenFormProps = {
   submitOnEnter: true,
   schema: [
     {
+      component: 'Input',
+      componentProps: {
+        allowClear: true,
+        placeholder: '请输入菜单名称/路由/权限标识',
+      },
+      fieldName: 'keyword',
+      label: '关键词',
+    },
+    {
       component: 'Select',
       componentProps: {
         allowClear: true,

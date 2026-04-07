@@ -16,10 +16,10 @@ type cDir struct{}
 func (c *cDir) Create(ctx context.Context, req *v1.DirCreateReq) (res *v1.DirCreateRes, err error) {
 	err = service.Dir().Create(ctx, &model.DirCreateInput{
 		ParentID: req.ParentID,
-		Name: req.Name,
-		Path: req.Path,
-		Sort: req.Sort,
-		Status: req.Status,
+		Name:     req.Name,
+		Path:     req.Path,
+		Sort:     req.Sort,
+		Status:   req.Status,
 	})
 	return
 }
@@ -27,12 +27,12 @@ func (c *cDir) Create(ctx context.Context, req *v1.DirCreateReq) (res *v1.DirCre
 // Update 更新文件目录
 func (c *cDir) Update(ctx context.Context, req *v1.DirUpdateReq) (res *v1.DirUpdateRes, err error) {
 	err = service.Dir().Update(ctx, &model.DirUpdateInput{
-		ID: req.ID,
+		ID:       req.ID,
 		ParentID: req.ParentID,
-		Name: req.Name,
-		Path: req.Path,
-		Sort: req.Sort,
-		Status: req.Status,
+		Name:     req.Name,
+		Path:     req.Path,
+		Sort:     req.Sort,
+		Status:   req.Status,
 	})
 	return
 }
@@ -56,7 +56,8 @@ func (c *cDir) List(ctx context.Context, req *v1.DirListReq) (res *v1.DirListRes
 	res.List, res.Total, err = service.Dir().List(ctx, &model.DirListInput{
 		PageNum:  req.PageNum,
 		PageSize: req.PageSize,
-		Status: req.Status,
+		Keyword:  req.Keyword,
+		Status:   req.Status,
 	})
 	return
 }
@@ -64,7 +65,9 @@ func (c *cDir) List(ctx context.Context, req *v1.DirListReq) (res *v1.DirListRes
 // Tree 获取文件目录树形结构
 func (c *cDir) Tree(ctx context.Context, req *v1.DirTreeReq) (res *v1.DirTreeRes, err error) {
 	res = &v1.DirTreeRes{}
-	res.List, err = service.Dir().Tree(ctx)
+	res.List, err = service.Dir().Tree(ctx, &model.DirTreeInput{
+		Keyword: req.Keyword,
+		Status:  req.Status,
+	})
 	return
 }
-

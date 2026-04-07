@@ -3,6 +3,7 @@ import { requestClient } from '#/api/request';
 import type {
   DeptItem,
   DeptListParams,
+  DeptTreeParams,
   DeptCreateParams,
   DeptUpdateParams,
 } from './types';
@@ -41,7 +42,7 @@ export function deleteDept(id: string) {
 }
 
 /** 获取部门表树形结构 */
-export async function getDeptTree(params?: Record<string, any>) {
+export async function getDeptTree(params?: DeptTreeParams) {
   const res = await requestClient.get<{ list: DeptItem[] }>(
     `${PREFIX}/tree`,
     { params },

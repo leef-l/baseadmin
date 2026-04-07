@@ -12,7 +12,7 @@ type IDir interface {
 	Delete(ctx context.Context, id snowflake.JsonInt64) error
 	Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.DirDetailOutput, err error)
 	List(ctx context.Context, in *model.DirListInput) (list []*model.DirListOutput, total int, err error)
-	Tree(ctx context.Context) (tree []*model.DirTreeOutput, err error)
+	Tree(ctx context.Context, in *model.DirTreeInput) (tree []*model.DirTreeOutput, err error)
 }
 
 var localDir IDir

@@ -85,13 +85,14 @@ func (c *c{{.ModelName}}) List(ctx context.Context, req *v1.{{.ModelName}}ListRe
 		OrderDir:  req.OrderDir,
 		StartTime: req.StartTime,
 		EndTime:   req.EndTime,
-{{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
-		{{.NameCamel}}: req.{{.NameCamel}},
+{{- if .HasKeywordSearch}}
+		Keyword: req.Keyword,
 {{- end}}
-{{- end}}
-{{- range .Fields}}
-{{- if .IsSearchable}}
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+		{{.NameCamel}}Start: req.{{.NameCamel}}Start,
+		{{.NameCamel}}End: req.{{.NameCamel}}End,
+{{- else}}
 		{{.NameCamel}}: req.{{.NameCamel}},
 {{- end}}
 {{- end}}
@@ -103,13 +104,14 @@ func (c *c{{.ModelName}}) Export(ctx context.Context, req *v1.{{.ModelName}}Expo
 	list, err := service.{{.ModelName}}().Export(ctx, &model.{{.ModelName}}ListInput{
 		StartTime: req.StartTime,
 		EndTime:   req.EndTime,
-{{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
-		{{.NameCamel}}: req.{{.NameCamel}},
+{{- if .HasKeywordSearch}}
+		Keyword: req.Keyword,
 {{- end}}
-{{- end}}
-{{- range .Fields}}
-{{- if .IsSearchable}}
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+		{{.NameCamel}}Start: req.{{.NameCamel}}Start,
+		{{.NameCamel}}End: req.{{.NameCamel}}End,
+{{- else}}
 		{{.NameCamel}}: req.{{.NameCamel}},
 {{- end}}
 {{- end}}
@@ -184,13 +186,14 @@ func (c *c{{.ModelName}}) Tree(ctx context.Context, req *v1.{{.ModelName}}TreeRe
 	res.List, err = service.{{.ModelName}}().Tree(ctx, &model.{{.ModelName}}TreeInput{
 		StartTime: req.StartTime,
 		EndTime:   req.EndTime,
-{{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (not .IsParentID) (.IsEnum)}}
-		{{.NameCamel}}: req.{{.NameCamel}},
+{{- if .HasKeywordSearch}}
+		Keyword: req.Keyword,
 {{- end}}
-{{- end}}
-{{- range .Fields}}
-{{- if .IsSearchable}}
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+		{{.NameCamel}}Start: req.{{.NameCamel}}Start,
+		{{.NameCamel}}End: req.{{.NameCamel}}End,
+{{- else}}
 		{{.NameCamel}}: req.{{.NameCamel}},
 {{- end}}
 {{- end}}

@@ -15,10 +15,10 @@ type cDirRule struct{}
 // Create 创建文件目录规则
 func (c *cDirRule) Create(ctx context.Context, req *v1.DirRuleCreateReq) (res *v1.DirRuleCreateRes, err error) {
 	err = service.DirRule().Create(ctx, &model.DirRuleCreateInput{
-		DirID: req.DirID,
+		DirID:    req.DirID,
 		Category: req.Category,
 		SavePath: req.SavePath,
-		Status: req.Status,
+		Status:   req.Status,
 	})
 	return
 }
@@ -26,11 +26,11 @@ func (c *cDirRule) Create(ctx context.Context, req *v1.DirRuleCreateReq) (res *v
 // Update 更新文件目录规则
 func (c *cDirRule) Update(ctx context.Context, req *v1.DirRuleUpdateReq) (res *v1.DirRuleUpdateRes, err error) {
 	err = service.DirRule().Update(ctx, &model.DirRuleUpdateInput{
-		ID: req.ID,
-		DirID: req.DirID,
+		ID:       req.ID,
+		DirID:    req.DirID,
 		Category: req.Category,
 		SavePath: req.SavePath,
-		Status: req.Status,
+		Status:   req.Status,
 	})
 	return
 }
@@ -54,9 +54,9 @@ func (c *cDirRule) List(ctx context.Context, req *v1.DirRuleListReq) (res *v1.Di
 	res.List, res.Total, err = service.DirRule().List(ctx, &model.DirRuleListInput{
 		PageNum:  req.PageNum,
 		PageSize: req.PageSize,
+		Keyword:  req.Keyword,
 		Category: req.Category,
-		Status: req.Status,
+		Status:   req.Status,
 	})
 	return
 }
-

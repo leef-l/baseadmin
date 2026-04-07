@@ -69,10 +69,11 @@ type FileListOutput struct {
 type FileListInput struct {
 	PageNum  int                 `json:"pageNum"`
 	PageSize int                 `json:"pageSize"`
+	Keyword  string              `json:"keyword"`
 	DirID    snowflake.JsonInt64 `json:"dirID"`
 	Name     string              `json:"name"`
 	Storage  int                 `json:"storage"`
-	IsImage  int                 `json:"isImage"`
+	IsImage  *int                `json:"isImage"`
 }
 
 // UploadOutput 上传文件输出

@@ -67,6 +67,15 @@ const formOptions: VbenFormProps = {
   submitOnEnter: true,
   schema: [
     {
+      component: 'Input',
+      componentProps: {
+        allowClear: true,
+        placeholder: '请输入文件名/地址/类型',
+      },
+      fieldName: 'keyword',
+      label: '关键词',
+    },
+    {
       component: 'Select',
       componentProps: {
         allowClear: true,

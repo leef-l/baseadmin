@@ -1,5 +1,13 @@
 # GBaseAdmin 代码生成器
 
+## 铁律
+
+- 本机资源受限，当前机器允许直接执行 `gf`、`go` 和数据库访问
+- 本机禁止直接执行 `npm`、`pnpm`，也禁止使用 Docker
+- 代码生成、DAO 生成、菜单写入、离线验证可以走本机 `gf` / `go` 链路；前端依赖安装与构建需放到其他执行环境
+- 下文 CLI 既描述参数语义，也允许在当前机器按 `gf` / `go` 链路执行
+- `sql/init.sql` 是手工维护的精简初始化脚本，只保留当前仓库 `system` / `upload` 相关表和最小种子数据
+
 ## 表名规范
 
 所有数据库表必须使用 `{应用名}_{模块名}` 格式命名：
@@ -124,9 +132,6 @@ menu_apps:                    # 菜单应用目录配置（新增应用在此添
   upload:
     title: 上传管理
     icon: CloudUploadOutlined
-  play:
-    title: 陪玩管理
-    icon: "game-icons:joystick"
 ```
 
 ### 环境变量支持
@@ -187,6 +192,30 @@ database:
 
 > 括号语法和枚举语法可以组合使用：`排序（升序）:0=默认,1=热门` → 精简标签="排序"，Tooltip="升序"，枚举=[{0,"默认"},{1,"热门"}]
 
+### 搜索指令
+
+字段注释还支持通过 `|` 追加搜索指令，覆盖默认的智能识别规则：
+
+```sql
+`summary` varchar(255) COMMENT '摘要|search:off|keyword:only|priority:95'
+`order_no` varchar(64) COMMENT '订单号|search:eq'
+`category_id` bigint COMMENT '分类|search:tree'
+```
+
+可用指令：
+
+- `search:off`：不生成独立搜索控件
+- `search:on`：启用智能识别
+- `search:eq`：强制精确搜索
+- `search:like`：强制模糊搜索
+- `search:range`：强制区间搜索
+- `search:select`：强制下拉搜索
+- `search:tree`：强制树形下拉搜索
+- `keyword:on`：加入全局关键词搜索
+- `keyword:off`：不加入全局关键词搜索
+- `keyword:only`：只加入全局关键词搜索，不单独生成控件
+- `priority:90`：指定搜索优先级，值越大越靠前
+
 ### 枚举格式
 
 示例：
@@ -198,6 +227,24 @@ database:
 | `类型:1=普通,2=VIP,3=管理员` | 标签="类型"，枚举=[{1,"普通"},{2,"VIP"},{3,"管理员"}] |
 
 枚举字段会自动在后端生成 Go 常量（`internal/consts/{module}.go`），前端生成对应的 options 数组。
+
+### 外键显式声明
+
+默认情况下，`*_id` 会优先按“当前应用同名前缀表”推断关联表，例如 `demo_article.category_id -> demo_category`。
+
+如果字段需要指向跨应用表，或字段名不足以唯一推断关联表，可以在字段注释后追加 `|ref:` 指令：
+
+```sql
+`user_id` BIGINT UNSIGNED NOT NULL COMMENT '作者|ref:system_users.username'
+```
+
+- `system_users` 表示关联表名
+- `username` 表示显示字段；省略时会按默认优先级自动查找显示字段
+
+生成器会据此：
+- 后端按 `system_users` 填充关联展示字段
+- 前端自动导入对应应用的列表 API
+- 搜索表单自动生成外键下拉
 
 ## 前端组件自动映射
 

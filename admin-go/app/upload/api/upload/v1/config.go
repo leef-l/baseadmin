@@ -88,11 +88,12 @@ type ConfigDetailRes struct {
 // ConfigListReq 获取上传配置列表请求
 type ConfigListReq struct {
 	g.Meta    `path:"/config/list" method:"get" tags:"上传配置" summary:"获取上传配置列表"`
-	PageNum   int  `json:"pageNum" d:"1" dc:"页码"`
-	PageSize  int  `json:"pageSize" d:"10" dc:"每页数量"`
-	Storage   *int `json:"storage" dc:"存储类型"`
-	IsDefault *int `json:"isDefault" dc:"是否默认"`
-	Status    *int `json:"status" dc:"状态"`
+	PageNum   int    `json:"pageNum" d:"1" dc:"页码"`
+	PageSize  int    `json:"pageSize" d:"10" dc:"每页数量"`
+	Keyword   string `json:"keyword" dc:"关键词"`
+	Storage   *int   `json:"storage" dc:"存储类型"`
+	IsDefault *int   `json:"isDefault" dc:"是否默认"`
+	Status    *int   `json:"status" dc:"状态"`
 }
 
 // ConfigListRes 获取上传配置列表响应

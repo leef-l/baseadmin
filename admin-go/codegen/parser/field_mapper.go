@@ -220,6 +220,11 @@ func MapComponent(field FieldMeta) string {
 		name == "password" {
 		return ComponentPassword
 	}
+	if strings.HasSuffix(name, "_secret") || strings.HasSuffix(name, "_secret_key") ||
+		strings.HasSuffix(name, "_secret_id") || strings.HasSuffix(name, "_access_key") ||
+		strings.HasSuffix(name, "_token") {
+		return ComponentPassword
+	}
 
 	// URL
 	if strings.HasSuffix(name, "_url") || strings.HasSuffix(name, "_link") {

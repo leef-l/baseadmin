@@ -15,12 +15,12 @@ type cRole struct{}
 // Create 创建角色表
 func (c *cRole) Create(ctx context.Context, req *v1.RoleCreateReq) (res *v1.RoleCreateRes, err error) {
 	err = service.Role().Create(ctx, &model.RoleCreateInput{
-		ParentID: req.ParentID,
-		Title: req.Title,
+		ParentID:  req.ParentID,
+		Title:     req.Title,
 		DataScope: req.DataScope,
-		Sort: req.Sort,
-		Status: req.Status,
-		IsAdmin: req.IsAdmin,
+		Sort:      req.Sort,
+		Status:    req.Status,
+		IsAdmin:   req.IsAdmin,
 	})
 	return
 }
@@ -28,13 +28,13 @@ func (c *cRole) Create(ctx context.Context, req *v1.RoleCreateReq) (res *v1.Role
 // Update 更新角色表
 func (c *cRole) Update(ctx context.Context, req *v1.RoleUpdateReq) (res *v1.RoleUpdateRes, err error) {
 	err = service.Role().Update(ctx, &model.RoleUpdateInput{
-		ID: req.ID,
-		ParentID: req.ParentID,
-		Title: req.Title,
+		ID:        req.ID,
+		ParentID:  req.ParentID,
+		Title:     req.Title,
 		DataScope: req.DataScope,
-		Sort: req.Sort,
-		Status: req.Status,
-		IsAdmin: req.IsAdmin,
+		Sort:      req.Sort,
+		Status:    req.Status,
+		IsAdmin:   req.IsAdmin,
 	})
 	return
 }
@@ -56,10 +56,11 @@ func (c *cRole) Detail(ctx context.Context, req *v1.RoleDetailReq) (res *v1.Role
 func (c *cRole) List(ctx context.Context, req *v1.RoleListReq) (res *v1.RoleListRes, err error) {
 	res = &v1.RoleListRes{}
 	res.List, res.Total, err = service.Role().List(ctx, &model.RoleListInput{
-		PageNum:  req.PageNum,
-		PageSize: req.PageSize,
+		PageNum:   req.PageNum,
+		PageSize:  req.PageSize,
+		Keyword:   req.Keyword,
 		DataScope: req.DataScope,
-		Status: req.Status,
+		Status:    req.Status,
 	})
 	return
 }
@@ -67,7 +68,11 @@ func (c *cRole) List(ctx context.Context, req *v1.RoleListReq) (res *v1.RoleList
 // Tree 获取角色表树形结构
 func (c *cRole) Tree(ctx context.Context, req *v1.RoleTreeReq) (res *v1.RoleTreeRes, err error) {
 	res = &v1.RoleTreeRes{}
-	res.List, err = service.Role().Tree(ctx)
+	res.List, err = service.Role().Tree(ctx, &model.RoleTreeInput{
+		Keyword:   req.Keyword,
+		DataScope: req.DataScope,
+		Status:    req.Status,
+	})
 	return
 }
 
@@ -103,4 +108,3 @@ func (c *cRole) GetDeptIDs(ctx context.Context, req *v1.RoleGetDeptIDsReq) (res 
 	res.DeptIDs, err = service.Role().GetDeptIDs(ctx, req.ID)
 	return
 }
-

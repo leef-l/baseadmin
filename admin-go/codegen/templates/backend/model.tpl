@@ -65,14 +65,17 @@ type {{.ModelName}}ListInput struct {
 	OrderDir  string `json:"orderDir"`
 	StartTime string `json:"startTime"`
 	EndTime   string `json:"endTime"`
-{{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
-	{{.NameCamel}} *{{.GoType}} `json:"{{.NameLower}}"`
+{{- if .HasKeywordSearch}}
+	Keyword string `json:"keyword"`
 {{- end}}
-{{- end}}
-{{- range .Fields}}
-{{- if .IsSearchable}}
-	{{.NameCamel}} string `json:"{{.NameLower}}"`
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+	{{.NameCamel}}Start string `json:"{{.NameLower}}Start"`
+	{{.NameCamel}}End string `json:"{{.NameLower}}End"`
+{{- else if .SearchPointer}}
+	{{.NameCamel}} *{{.SearchGoType}} `json:"{{.NameLower}}"`
+{{- else}}
+	{{.NameCamel}} {{.SearchGoType}} `json:"{{.NameLower}}"`
 {{- end}}
 {{- end}}
 }
@@ -82,14 +85,17 @@ type {{.ModelName}}ListInput struct {
 type {{.ModelName}}TreeInput struct {
 	StartTime string `json:"startTime"`
 	EndTime   string `json:"endTime"`
-{{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (not .IsParentID) (.IsEnum)}}
-	{{.NameCamel}} *{{.GoType}} `json:"{{.NameLower}}"`
+{{- if .HasKeywordSearch}}
+	Keyword string `json:"keyword"`
 {{- end}}
-{{- end}}
-{{- range .Fields}}
-{{- if .IsSearchable}}
-	{{.NameCamel}} string `json:"{{.NameLower}}"`
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+	{{.NameCamel}}Start string `json:"{{.NameLower}}Start"`
+	{{.NameCamel}}End string `json:"{{.NameLower}}End"`
+{{- else if .SearchPointer}}
+	{{.NameCamel}} *{{.SearchGoType}} `json:"{{.NameLower}}"`
+{{- else}}
+	{{.NameCamel}} {{.SearchGoType}} `json:"{{.NameLower}}"`
 {{- end}}
 {{- end}}
 }

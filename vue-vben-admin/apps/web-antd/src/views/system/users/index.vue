@@ -94,28 +94,10 @@ const formOptions: VbenFormProps = {
       component: 'Input',
       componentProps: {
         allowClear: true,
-        placeholder: '请输入登录用户名',
+        placeholder: '请输入用户名/昵称/邮箱',
       },
-      fieldName: 'username',
-      label: '用户名',
-    },
-    {
-      component: 'Input',
-      componentProps: {
-        allowClear: true,
-        placeholder: '请输入昵称',
-      },
-      fieldName: 'nickname',
-      label: '昵称',
-    },
-    {
-      component: 'Input',
-      componentProps: {
-        allowClear: true,
-        placeholder: '请输入邮箱',
-      },
-      fieldName: 'email',
-      label: '邮箱',
+      fieldName: 'keyword',
+      label: '关键词',
     },
     {
       component: 'Select',

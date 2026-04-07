@@ -40,7 +40,7 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 
 	// 读取默认上传配置
 	maxSize := int64(10 * 1024 * 1024) // 默认10MB
-	storageType := 1                    // 默认本地
+	storageType := 1                   // 默认本地
 	localPath := "resource/upload"
 
 	var configRecord map[string]interface{}
@@ -84,6 +84,18 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 
 	// 获取目录ID
 	dirId := r.Get("dirId").Int64()
+	if dirId > 0 {
+		dirCount, err := dao.UploadDir.Ctx(ctx).
+			Where(dao.UploadDir.Columns().Id, dirId).
+			Where(dao.UploadDir.Columns().DeletedAt, nil).
+			Count()
+		if err != nil {
+			return nil, err
+		}
+		if dirCount == 0 {
+			return nil, fmt.Errorf("所选目录不存在或已删除")
+		}
+	}
 
 	// 生成唯一文件名和对象路径
 	now := time.Now()
@@ -162,7 +174,29 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 	if err != nil {
 		// 本地存储时回滚物理文件
 		if storageType == 1 {
-			os.Remove(fullPath)
+			_ = os.Remove(fullPath)
+		}
+		if storageType == 2 {
+			cfg := ossConfig{
+				Endpoint:  getString(configRecord, "oss_endpoint"),
+				Bucket:    getString(configRecord, "oss_bucket"),
+				AccessKey: getString(configRecord, "oss_access_key"),
+				SecretKey: getString(configRecord, "oss_secret_key"),
+			}
+			if delErr := deleteFromOSS(cfg, objectKey); delErr != nil {
+				g.Log().Warningf(ctx, "回滚OSS文件失败: objectKey=%s, err=%v", objectKey, delErr)
+			}
+		}
+		if storageType == 3 {
+			cfg := cosConfig{
+				Region:    getString(configRecord, "cos_region"),
+				Bucket:    getString(configRecord, "cos_bucket"),
+				SecretId:  getString(configRecord, "cos_secret_id"),
+				SecretKey: getString(configRecord, "cos_secret_key"),
+			}
+			if delErr := deleteFromCOS(cfg, objectKey); delErr != nil {
+				g.Log().Warningf(ctx, "回滚COS文件失败: objectKey=%s, err=%v", objectKey, delErr)
+			}
 		}
 		return nil, fmt.Errorf("保存文件记录失败: %v", err)
 	}

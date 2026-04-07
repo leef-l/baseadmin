@@ -78,10 +78,11 @@ type FileListReq struct {
 	g.Meta   `path:"/file/list" method:"get" tags:"文件记录" summary:"获取文件记录列表"`
 	PageNum  int                 `json:"pageNum" d:"1" dc:"页码"`
 	PageSize int                 `json:"pageSize" d:"10" dc:"每页数量"`
+	Keyword  string              `json:"keyword" dc:"关键词"`
 	DirID    snowflake.JsonInt64 `json:"dirID" dc:"所属目录"`
 	Name     string              `json:"name" dc:"文件名称"`
 	Storage  int                 `json:"storage" dc:"存储类型"`
-	IsImage  int                 `json:"isImage" dc:"是否图片"`
+	IsImage  *int                `json:"isImage" dc:"是否图片"`
 }
 
 // FileListRes 获取文件记录列表响应

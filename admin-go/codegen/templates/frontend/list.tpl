@@ -1,6 +1,9 @@
 <script setup lang="ts">
 {{- if .HasTooltip}}
-import { h } from 'vue';
+import { h, onMounted } from 'vue';
+{{- end}}
+{{- if not .HasTooltip}}
+import { onMounted } from 'vue';
 {{- end}}
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
@@ -18,6 +21,18 @@ import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { get{{.ModelName}}Tree, delete{{.ModelName}}, export{{.ModelName}}{{if .HasImport}}, import{{.ModelName}}, downloadImportTemplate{{.ModelName}}{{end}} } from '#/api/{{.AppName}}/{{.ModuleName}}';
 {{- else}}
 import { get{{.ModelName}}List, delete{{.ModelName}}, batchDelete{{.ModelName}}, export{{.ModelName}}{{if .HasImport}}, import{{.ModelName}}, downloadImportTemplate{{.ModelName}}{{end}}{{if .HasBatchEdit}}, batchUpdate{{.ModelName}}{{end}} } from '#/api/{{.AppName}}/{{.ModuleName}}';
+{{- end}}
+{{- if .HasDict}}
+import { getDictByType } from '#/api/system/dict';
+{{- end}}
+{{- range .SearchFields}}
+{{- if and .IsForeignKey .RefTable}}
+{{- if .RefIsTree}}
+import { get{{.RefTableCamel}}Tree } from '#/api/{{.RefTableApp}}/{{.RefTable}}';
+{{- else}}
+import { get{{.RefTableCamel}}List } from '#/api/{{.RefTableApp}}/{{.RefTable}}';
+{{- end}}
+{{- end}}
 {{- end}}
 import type { {{.ModelName}}Item } from '#/api/{{.AppName}}/{{.ModuleName}}/types';
 import FormModal from './modules/form.vue';
@@ -82,27 +97,62 @@ const formOptions: VbenFormProps = {
   submitOnChange: false,
   submitOnEnter: true,
   schema: [
-{{- range .Fields}}
-{{- if .IsSearchable}}
+{{- if .HasKeywordSearch}}
+    {
+      component: 'Input',
+      componentProps: { placeholder: '请输入关键词', allowClear: true },
+      fieldName: 'keyword',
+      label: '关键词',
+    },
+{{- end}}
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+    {
+      component: 'RangePicker',
+      fieldName: '{{.SearchFormField}}',
+      label: '{{.ShortLabel}}',
+      componentProps: {
+        showTime: true,
+        format: 'YYYY-MM-DD HH:mm:ss',
+        valueFormat: 'YYYY-MM-DD HH:mm:ss',
+        class: 'w-full',
+      },
+    },
+{{- else if eq .SearchComponent "Input"}}
     {
       component: 'Input',
       componentProps: { placeholder: '请输入{{.ShortLabel}}', allowClear: true },
-      fieldName: '{{.NameLower}}',
+      fieldName: '{{.SearchFormField}}',
       label: '{{.ShortLabel}}',
     },
-{{- end}}
-{{- end}}
-{{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
+{{- else if eq .SearchComponent "Select"}}
     {
       component: 'Select',
       componentProps: {
         allowClear: true,
+{{- if .IsEnum}}
         options: {{.NameLower}}Options,
+{{- else}}
+        options: [],
+{{- end}}
         placeholder: '请选择{{.Label}}',
         class: 'w-full',
       },
-      fieldName: '{{.NameLower}}',
+      fieldName: '{{.SearchFormField}}',
+      label: '{{.ShortLabel}}',
+    },
+{{- else if eq .SearchComponent "TreeSelect"}}
+    {
+      component: 'TreeSelect',
+      componentProps: {
+        treeData: [],
+        fieldNames: { label: '{{if .RefDisplayField}}{{.RefDisplayLower}}{{else}}title{{end}}', value: 'id', children: 'children' },
+        placeholder: '请选择{{.Label}}',
+        allowClear: true,
+        treeDefaultExpandAll: true,
+        class: 'w-full',
+      },
+      fieldName: '{{.SearchFormField}}',
       label: '{{.ShortLabel}}',
     },
 {{- end}}
@@ -172,12 +222,21 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
   proxyConfig: {
     ajax: {
       query: async (_params, formValues) => {
-        const { timeRange, ...rest } = formValues;
-        const params: Record<string, any> = { ...rest };
-        if (timeRange && timeRange.length === 2) {
-          params.startTime = timeRange[0];
-          params.endTime = timeRange[1];
+        const params: Record<string, any> = { ...formValues };
+        if (params.timeRange && params.timeRange.length === 2) {
+          params.startTime = params.timeRange[0];
+          params.endTime = params.timeRange[1];
         }
+        delete params.timeRange;
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+        if (params.{{.SearchFormField}} && params.{{.SearchFormField}}.length === 2) {
+          params.{{.NameLower}}Start = params.{{.SearchFormField}}[0];
+          params.{{.NameLower}}End = params.{{.SearchFormField}}[1];
+        }
+        delete params.{{.SearchFormField}};
+{{- end}}
+{{- end}}
         return await get{{.ModelName}}Tree(params as any) ?? [];
       },
     },
@@ -188,16 +247,25 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
   proxyConfig: {
     ajax: {
       query: async ({ page, sorts }, formValues) => {
-        const { timeRange, ...rest } = formValues;
         const params: Record<string, any> = {
           pageNum: page.currentPage,
           pageSize: page.pageSize,
-          ...rest,
+          ...formValues,
         };
-        if (timeRange && timeRange.length === 2) {
-          params.startTime = timeRange[0];
-          params.endTime = timeRange[1];
+        if (params.timeRange && params.timeRange.length === 2) {
+          params.startTime = params.timeRange[0];
+          params.endTime = params.timeRange[1];
         }
+        delete params.timeRange;
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+        if (params.{{.SearchFormField}} && params.{{.SearchFormField}}.length === 2) {
+          params.{{.NameLower}}Start = params.{{.SearchFormField}}[0];
+          params.{{.NameLower}}End = params.{{.SearchFormField}}[1];
+        }
+        delete params.{{.SearchFormField}};
+{{- end}}
+{{- end}}
         if (sorts && sorts.length > 0) {
           const sort = sorts[0];
           if (sort && sort.field && sort.order) {
@@ -226,6 +294,86 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions,
   gridOptions,
+});
+
+async function initSearchOptions() {
+{{- range .SearchFields}}
+{{- if .IsParentID}}
+  try {
+    const treeRes = await get{{$.ModelName}}Tree();
+    gridApi.formApi.updateSchema([
+      {
+        fieldName: '{{.SearchFormField}}',
+        componentProps: {
+          treeData: [
+            { id: '0', {{if .RefDisplayLower}}{{.RefDisplayLower}}{{else}}title{{end}}: '顶级节点', children: treeRes ?? [] },
+          ],
+        },
+      },
+    ]);
+  } catch {
+    // ignore
+  }
+{{- end}}
+{{- end}}
+{{- range .SearchFields}}
+{{- if and .IsForeignKey .RefTable}}
+{{- if .RefIsTree}}
+  try {
+    const {{.NameLower}}Tree = await get{{.RefTableCamel}}Tree();
+    gridApi.formApi.updateSchema([
+      {
+        fieldName: '{{.SearchFormField}}',
+        componentProps: { treeData: {{.NameLower}}Tree ?? [] },
+      },
+    ]);
+  } catch {
+    // ignore
+  }
+{{- else}}
+  try {
+    const {{.NameLower}}Res = await get{{.RefTableCamel}}List({ pageNum: 1, pageSize: 1000 });
+    gridApi.formApi.updateSchema([
+      {
+        fieldName: '{{.SearchFormField}}',
+        componentProps: {
+          options: ({{.NameLower}}Res?.list ?? []).map((item: any) => ({
+            label: item.{{.RefDisplayLower}} || item.id,
+            value: item.id,
+          })),
+        },
+      },
+    ]);
+  } catch {
+    // ignore
+  }
+{{- end}}
+{{- end}}
+{{- end}}
+{{- range .SearchFields}}
+{{- if .DictType}}
+  try {
+    const {{.NameLower}}Dict = await getDictByType('{{.DictType}}');
+    gridApi.formApi.updateSchema([
+      {
+        fieldName: '{{.SearchFormField}}',
+        componentProps: {
+          options: ({{.NameLower}}Dict ?? []).map((item: any) => ({
+            label: item.label,
+            value: item.value,
+          })),
+        },
+      },
+    ]);
+  } catch {
+    // ignore
+  }
+{{- end}}
+{{- end}}
+}
+
+onMounted(() => {
+  void initSearchOptions();
 });
 
 /** 新建 */
@@ -286,8 +434,17 @@ async function handleExport() {
     if (params.timeRange && params.timeRange.length === 2) {
       params.startTime = params.timeRange[0];
       params.endTime = params.timeRange[1];
-      delete params.timeRange;
     }
+    delete params.timeRange;
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+    if (params.{{.SearchFormField}} && params.{{.SearchFormField}}.length === 2) {
+      params.{{.NameLower}}Start = params.{{.SearchFormField}}[0];
+      params.{{.NameLower}}End = params.{{.SearchFormField}}[1];
+    }
+    delete params.{{.SearchFormField}};
+{{- end}}
+{{- end}}
     const blob = await export{{.ModelName}}(params);
     const url = URL.createObjectURL(blob as any);
     const a = document.createElement('a');

@@ -16,11 +16,11 @@ type cDept struct{}
 func (c *cDept) Create(ctx context.Context, req *v1.DeptCreateReq) (res *v1.DeptCreateRes, err error) {
 	err = service.Dept().Create(ctx, &model.DeptCreateInput{
 		ParentID: req.ParentID,
-		Title: req.Title,
+		Title:    req.Title,
 		Username: req.Username,
-		Email: req.Email,
-		Sort: req.Sort,
-		Status: req.Status,
+		Email:    req.Email,
+		Sort:     req.Sort,
+		Status:   req.Status,
 	})
 	return
 }
@@ -28,13 +28,13 @@ func (c *cDept) Create(ctx context.Context, req *v1.DeptCreateReq) (res *v1.Dept
 // Update 更新部门表
 func (c *cDept) Update(ctx context.Context, req *v1.DeptUpdateReq) (res *v1.DeptUpdateRes, err error) {
 	err = service.Dept().Update(ctx, &model.DeptUpdateInput{
-		ID: req.ID,
+		ID:       req.ID,
 		ParentID: req.ParentID,
-		Title: req.Title,
+		Title:    req.Title,
 		Username: req.Username,
-		Email: req.Email,
-		Sort: req.Sort,
-		Status: req.Status,
+		Email:    req.Email,
+		Sort:     req.Sort,
+		Status:   req.Status,
 	})
 	return
 }
@@ -58,7 +58,8 @@ func (c *cDept) List(ctx context.Context, req *v1.DeptListReq) (res *v1.DeptList
 	res.List, res.Total, err = service.Dept().List(ctx, &model.DeptListInput{
 		PageNum:  req.PageNum,
 		PageSize: req.PageSize,
-		Status: req.Status,
+		Keyword:  req.Keyword,
+		Status:   req.Status,
 	})
 	return
 }
@@ -66,7 +67,9 @@ func (c *cDept) List(ctx context.Context, req *v1.DeptListReq) (res *v1.DeptList
 // Tree 获取部门表树形结构
 func (c *cDept) Tree(ctx context.Context, req *v1.DeptTreeReq) (res *v1.DeptTreeRes, err error) {
 	res = &v1.DeptTreeRes{}
-	res.List, err = service.Dept().Tree(ctx)
+	res.List, err = service.Dept().Tree(ctx, &model.DeptTreeInput{
+		Keyword: req.Keyword,
+		Status:  req.Status,
+	})
 	return
 }
-

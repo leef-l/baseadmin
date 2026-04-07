@@ -3,6 +3,7 @@ import { requestClient } from '#/api/request';
 import type {
   MenuItem,
   MenuListParams,
+  MenuTreeParams,
   MenuCreateParams,
   MenuUpdateParams,
 } from './types';
@@ -41,7 +42,7 @@ export function deleteMenu(id: string) {
 }
 
 /** 获取菜单表树形结构 */
-export async function getMenuTree(params?: Record<string, any>) {
+export async function getMenuTree(params?: MenuTreeParams) {
   const res = await requestClient.get<{ list: MenuItem[] }>(
     `${PREFIX}/tree`,
     { params },

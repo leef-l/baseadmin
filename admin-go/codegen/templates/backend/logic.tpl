@@ -225,17 +225,34 @@ func (s *s{{.ModelName}}) Detail(ctx context.Context, id snowflake.JsonInt64) (o
 // applyListFilter 应用列表通用过滤条件
 func (s *s{{.ModelName}}) applyListFilter(ctx context.Context, in *model.{{.ModelName}}ListInput) *gdb.Model {
 	m := dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().DeletedAt, nil)
-{{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
+{{- if .HasKeywordSearch}}
+	if in.Keyword != "" {
+		keywordBuilder := m.Builder()
+{{- range $index, $field := .KeywordSearchFields}}
+{{- if eq $index 0}}
+		keywordBuilder = keywordBuilder.WhereLike(dao.{{$.DaoName}}.Columns().{{.NameDao}}, "%"+in.Keyword+"%")
+{{- else}}
+		keywordBuilder = keywordBuilder.WhereOrLike(dao.{{$.DaoName}}.Columns().{{.NameDao}}, "%"+in.Keyword+"%")
+{{- end}}
+{{- end}}
+		m = m.Where(keywordBuilder)
+	}
+{{- end}}
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+	if in.{{.NameCamel}}Start != "" {
+		m = m.WhereGTE(dao.{{$.DaoName}}.Columns().{{.NameDao}}, in.{{.NameCamel}}Start)
+	}
+	if in.{{.NameCamel}}End != "" {
+		m = m.WhereLTE(dao.{{$.DaoName}}.Columns().{{.NameDao}}, in.{{.NameCamel}}End)
+	}
+{{- else if .SearchPointer}}
 	if in.{{.NameCamel}} != nil {
 		m = m.Where(dao.{{$.DaoName}}.Columns().{{.NameDao}}, *in.{{.NameCamel}})
 	}
-{{- end}}
-{{- end}}
-{{- range .Fields}}
-{{- if .IsSearchable}}
+{{- else}}
 	if in.{{.NameCamel}} != "" {
-{{- if .IsExactSearch}}
+{{- if eq .SearchOperator "eq"}}
 		m = m.Where(dao.{{$.DaoName}}.Columns().{{.NameDao}}, in.{{.NameCamel}})
 {{- else}}
 		m = m.WhereLike(dao.{{$.DaoName}}.Columns().{{.NameDao}}, "%"+in.{{.NameCamel}}+"%")
@@ -380,17 +397,34 @@ func (s *s{{.ModelName}}) Export(ctx context.Context, in *model.{{.ModelName}}Li
 func (s *s{{.ModelName}}) Tree(ctx context.Context, in *model.{{.ModelName}}TreeInput) (tree []*model.{{.ModelName}}TreeOutput, err error) {
 	var list []*model.{{.ModelName}}TreeOutput
 	m := dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().DeletedAt, nil)
-{{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (not .IsParentID) (.IsEnum)}}
+{{- if .HasKeywordSearch}}
+	if in.Keyword != "" {
+		keywordBuilder := m.Builder()
+{{- range $index, $field := .KeywordSearchFields}}
+{{- if eq $index 0}}
+		keywordBuilder = keywordBuilder.WhereLike(dao.{{$.DaoName}}.Columns().{{.NameDao}}, "%"+in.Keyword+"%")
+{{- else}}
+		keywordBuilder = keywordBuilder.WhereOrLike(dao.{{$.DaoName}}.Columns().{{.NameDao}}, "%"+in.Keyword+"%")
+{{- end}}
+{{- end}}
+		m = m.Where(keywordBuilder)
+	}
+{{- end}}
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+	if in.{{.NameCamel}}Start != "" {
+		m = m.WhereGTE(dao.{{$.DaoName}}.Columns().{{.NameDao}}, in.{{.NameCamel}}Start)
+	}
+	if in.{{.NameCamel}}End != "" {
+		m = m.WhereLTE(dao.{{$.DaoName}}.Columns().{{.NameDao}}, in.{{.NameCamel}}End)
+	}
+{{- else if .SearchPointer}}
 	if in.{{.NameCamel}} != nil {
 		m = m.Where(dao.{{$.DaoName}}.Columns().{{.NameDao}}, *in.{{.NameCamel}})
 	}
-{{- end}}
-{{- end}}
-{{- range .Fields}}
-{{- if .IsSearchable}}
+{{- else}}
 	if in.{{.NameCamel}} != "" {
-{{- if .IsExactSearch}}
+{{- if eq .SearchOperator "eq"}}
 		m = m.Where(dao.{{$.DaoName}}.Columns().{{.NameDao}}, in.{{.NameCamel}})
 {{- else}}
 		m = m.WhereLike(dao.{{$.DaoName}}.Columns().{{.NameDao}}, "%"+in.{{.NameCamel}}+"%")

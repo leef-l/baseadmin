@@ -20,6 +20,7 @@ export interface UsersItem {
 export interface UsersListParams {
   pageNum: number;
   pageSize: number;
+  keyword?: string;
   username?: string;
   nickname?: string;
   email?: string;

@@ -105,14 +105,17 @@ type {{.ModelName}}ListReq struct {
 	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
-{{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
-	{{.NameCamel}} *{{.GoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
+{{- if .HasKeywordSearch}}
+	Keyword string `json:"keyword" dc:"关键词"`
 {{- end}}
-{{- end}}
-{{- range .Fields}}
-{{- if .IsSearchable}}
-	{{.NameCamel}} string `json:"{{.NameLower}}" dc:"{{.Label}}"`
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+	{{.NameCamel}}Start string `json:"{{.NameLower}}Start" dc:"{{.Label}}开始时间"`
+	{{.NameCamel}}End string `json:"{{.NameLower}}End" dc:"{{.Label}}结束时间"`
+{{- else if .SearchPointer}}
+	{{.NameCamel}} *{{.SearchGoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
+{{- else}}
+	{{.NameCamel}} {{.SearchGoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
 {{- end}}
 {{- end}}
 }
@@ -128,14 +131,17 @@ type {{.ModelName}}ExportReq struct {
 	g.Meta    `path:"/{{.ModuleName}}/export" method:"get" tags:"{{.Comment}}" summary:"导出{{.Comment}}"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
-{{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
-	{{.NameCamel}} *{{.GoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
+{{- if .HasKeywordSearch}}
+	Keyword string `json:"keyword" dc:"关键词"`
 {{- end}}
-{{- end}}
-{{- range .Fields}}
-{{- if .IsSearchable}}
-	{{.NameCamel}} string `json:"{{.NameLower}}" dc:"{{.Label}}"`
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+	{{.NameCamel}}Start string `json:"{{.NameLower}}Start" dc:"{{.Label}}开始时间"`
+	{{.NameCamel}}End string `json:"{{.NameLower}}End" dc:"{{.Label}}结束时间"`
+{{- else if .SearchPointer}}
+	{{.NameCamel}} *{{.SearchGoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
+{{- else}}
+	{{.NameCamel}} {{.SearchGoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
 {{- end}}
 {{- end}}
 }
@@ -151,14 +157,17 @@ type {{.ModelName}}TreeReq struct {
 	g.Meta    `path:"/{{.ModuleName}}/tree" method:"get" tags:"{{.Comment}}" summary:"获取{{.Comment}}树形结构"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
-{{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (not .IsParentID) (.IsEnum)}}
-	{{.NameCamel}} *{{.GoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
+{{- if .HasKeywordSearch}}
+	Keyword string `json:"keyword" dc:"关键词"`
 {{- end}}
-{{- end}}
-{{- range .Fields}}
-{{- if .IsSearchable}}
-	{{.NameCamel}} string `json:"{{.NameLower}}" dc:"{{.Label}}"`
+{{- range .SearchFields}}
+{{- if .SearchRange}}
+	{{.NameCamel}}Start string `json:"{{.NameLower}}Start" dc:"{{.Label}}开始时间"`
+	{{.NameCamel}}End string `json:"{{.NameLower}}End" dc:"{{.Label}}结束时间"`
+{{- else if .SearchPointer}}
+	{{.NameCamel}} *{{.SearchGoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
+{{- else}}
+	{{.NameCamel}} {{.SearchGoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
 {{- end}}
 {{- end}}
 }

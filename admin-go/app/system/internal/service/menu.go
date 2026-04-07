@@ -12,7 +12,7 @@ type IMenu interface {
 	Delete(ctx context.Context, id snowflake.JsonInt64) error
 	Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.MenuDetailOutput, err error)
 	List(ctx context.Context, in *model.MenuListInput) (list []*model.MenuListOutput, total int, err error)
-	Tree(ctx context.Context) (tree []*model.MenuTreeOutput, err error)
+	Tree(ctx context.Context, in *model.MenuTreeInput) (tree []*model.MenuTreeOutput, err error)
 }
 
 var localMenu IMenu

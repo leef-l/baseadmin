@@ -3,6 +3,7 @@ import { requestClient } from '#/api/request';
 import type {
   DirItem,
   DirListParams,
+  DirTreeParams,
   DirCreateParams,
   DirUpdateParams,
 } from './types';
@@ -41,7 +42,7 @@ export function deleteDir(id: string) {
 }
 
 /** 获取文件目录树形结构 */
-export async function getDirTree(params?: Record<string, any>) {
+export async function getDirTree(params?: DirTreeParams) {
   const res = await requestClient.get<{ list: DirItem[] }>(`${PREFIX}/tree`, { params });
   return res?.list ?? [];
 }

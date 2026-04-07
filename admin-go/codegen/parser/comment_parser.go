@@ -1,6 +1,22 @@
 package parser
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
+
+type CommentMeta struct {
+	Label          string
+	ShortLabel     string
+	TooltipText    string
+	EnumValues     []EnumValue
+	DictType       string
+	RefTableHint   string
+	RefDisplayHint string
+	SearchMode     string
+	KeywordMode    string
+	SearchPriority int
+}
 
 // extractParentheses 从 label 中提取中文括号（）或英文括号()内的内容
 // "排序（升序）" → shortLabel="排序", tooltip="升序"
@@ -32,15 +48,54 @@ func extractParentheses(label string) (shortLabel string, tooltip string) {
 // 输出：label="排序（升序）", shortLabel="排序", tooltipText="升序", enums=[]
 // 输入：部门名称
 // 输出：label="部门名称", shortLabel="部门名称", tooltipText="", enums=[]
-func ParseComment(comment string) (label string, shortLabel string, tooltipText string, enums []EnumValue) {
+func ParseCommentMeta(comment string) CommentMeta {
 	comment = strings.TrimSpace(comment)
 	if comment == "" {
-		return "", "", "", nil
+		return CommentMeta{}
+	}
+
+	parts := strings.Split(comment, "|")
+	mainPart := strings.TrimSpace(parts[0])
+	meta := CommentMeta{}
+	for _, directive := range parts[1:] {
+		directive = strings.TrimSpace(directive)
+		if strings.HasPrefix(directive, "ref:") {
+			refValue := strings.TrimSpace(strings.TrimPrefix(directive, "ref:"))
+			if refValue == "" {
+				continue
+			}
+			if dotIdx := strings.LastIndex(refValue, "."); dotIdx > 0 && dotIdx < len(refValue)-1 {
+				meta.RefTableHint = strings.TrimSpace(refValue[:dotIdx])
+				meta.RefDisplayHint = strings.TrimSpace(refValue[dotIdx+1:])
+			} else {
+				meta.RefTableHint = refValue
+			}
+			continue
+		}
+		if strings.HasPrefix(directive, "search:") {
+			meta.SearchMode = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(directive, "search:")))
+			continue
+		}
+		if strings.HasPrefix(directive, "keyword:") {
+			meta.KeywordMode = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(directive, "keyword:")))
+			continue
+		}
+		if strings.HasPrefix(directive, "priority:") {
+			if v, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(directive, "priority:"))); err == nil {
+				meta.SearchPriority = v
+			}
+			continue
+		}
+		if strings.HasPrefix(directive, "search-priority:") {
+			if v, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(directive, "search-priority:"))); err == nil {
+				meta.SearchPriority = v
+			}
+		}
 	}
 
 	// 查找冒号分隔符（支持中文冒号和英文冒号）
 	sepIdx := -1
-	for i, ch := range comment {
+	for i, ch := range mainPart {
 		if ch == ':' || ch == '：' {
 			sepIdx = i
 			break
@@ -49,31 +104,30 @@ func ParseComment(comment string) (label string, shortLabel string, tooltipText 
 
 	// 没有冒号，整个备注就是 label
 	if sepIdx < 0 {
-		label = comment
-		shortLabel, tooltipText = extractParentheses(label)
-		return label, shortLabel, tooltipText, nil
+		meta.Label = mainPart
+		meta.ShortLabel, meta.TooltipText = extractParentheses(meta.Label)
+		return meta
 	}
 
-	label = strings.TrimSpace(comment[:sepIdx])
-	enumPart := strings.TrimSpace(comment[sepIdx+1:])
-	if len(label) == 0 {
-		label = comment
-		shortLabel, tooltipText = extractParentheses(label)
-		return label, shortLabel, tooltipText, nil
+	meta.Label = strings.TrimSpace(mainPart[:sepIdx])
+	enumPart := strings.TrimSpace(mainPart[sepIdx+1:])
+	if len(meta.Label) == 0 {
+		meta.Label = mainPart
+		meta.ShortLabel, meta.TooltipText = extractParentheses(meta.Label)
+		return meta
 	}
 
-	shortLabel, tooltipText = extractParentheses(label)
+	meta.ShortLabel, meta.TooltipText = extractParentheses(meta.Label)
 
 	// 解析枚举部分：0=关闭,1=开启
 	if enumPart == "" {
-		return label, shortLabel, tooltipText, nil
+		return meta
 	}
 
 	// 如果是字典引用（如 dict:gender），不解析枚举
 	if strings.HasPrefix(enumPart, "dict:") {
-		dictType := strings.TrimPrefix(enumPart, "dict:")
-		enums = []EnumValue{{Value: "__dict__", Label: dictType, NameIdent: ""}}
-		return label, shortLabel, tooltipText, enums
+		meta.DictType = strings.TrimSpace(strings.TrimPrefix(enumPart, "dict:"))
+		return meta
 	}
 
 	pairs := strings.Split(enumPart, ",")
@@ -89,11 +143,16 @@ func ParseComment(comment string) (label string, shortLabel string, tooltipText 
 		val := strings.TrimSpace(pair[:eqIdx])
 		lab := strings.TrimSpace(pair[eqIdx+1:])
 		if val != "" && lab != "" {
-			enums = append(enums, EnumValue{Value: val, Label: lab, NameIdent: labelToIdent(lab)})
+			meta.EnumValues = append(meta.EnumValues, EnumValue{Value: val, Label: lab, NameIdent: labelToIdent(lab)})
 		}
 	}
 
-	return label, shortLabel, tooltipText, enums
+	return meta
+}
+
+func ParseComment(comment string) (label string, shortLabel string, tooltipText string, enums []EnumValue) {
+	meta := ParseCommentMeta(comment)
+	return meta.Label, meta.ShortLabel, meta.TooltipText, meta.EnumValues
 }
 
 // labelToIdent 将中文枚举标签转为语义化 Go 标识符
