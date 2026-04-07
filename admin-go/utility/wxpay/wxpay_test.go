@@ -1,6 +1,11 @@
 package wxpay
 
 import (
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/base64"
 	"strings"
 	"testing"
 )
@@ -36,5 +41,41 @@ func TestRandomString(t *testing.T) {
 	}
 	if got := randomString(0); got != "" {
 		t.Fatalf("randomString(0) should return empty string, got %q", got)
+	}
+}
+
+func TestVerifySignatureFallbackWithoutPlatformKey(t *testing.T) {
+	client := &Client{}
+	if err := client.verifySignature([]byte("hello"), base64.StdEncoding.EncodeToString([]byte("sig"))); err != nil {
+		t.Fatalf("verifySignature fallback should accept valid base64: %v", err)
+	}
+}
+
+func TestVerifySignatureWithPlatformKey(t *testing.T) {
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("GenerateKey failed: %v", err)
+	}
+	message := []byte("timestamp\nnonce\nbody\n")
+	sum := sha256.Sum256(message)
+	sig, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, sum[:])
+	if err != nil {
+		t.Fatalf("SignPKCS1v15 failed: %v", err)
+	}
+
+	client := &Client{platformPublicKey: &privateKey.PublicKey}
+	if err := client.verifySignature(message, base64.StdEncoding.EncodeToString(sig)); err != nil {
+		t.Fatalf("verifySignature with platform key failed: %v", err)
+	}
+}
+
+func TestMerchantSummary(t *testing.T) {
+	client := &Client{cfg: Config{MchID: " mch123 "}}
+	if got := client.merchantSummary(); got != "mch123:false" {
+		t.Fatalf("merchantSummary mismatch without verifier: %q", got)
+	}
+	client.platformPublicKey = &rsa.PublicKey{}
+	if got := client.merchantSummary(); got != "mch123:true" {
+		t.Fatalf("merchantSummary mismatch with verifier: %q", got)
 	}
 }

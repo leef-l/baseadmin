@@ -20,6 +20,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,29 +29,32 @@ import (
 
 // Config 微信支付配置
 type Config struct {
-	AppID      string
-	MchID      string
-	APIKey     string // V3 APIKey（32字节）
-	SerialNo   string // 商户证书序列号
-	PrivateKey string // 商户私钥 PEM 字符串
-	NotifyURL  string
+	AppID        string
+	MchID        string
+	APIKey       string // V3 APIKey（32字节）
+	SerialNo     string // 商户证书序列号
+	PrivateKey   string // 商户私钥 PEM 字符串
+	NotifyURL    string
+	PlatformCert string // 微信支付平台证书 PEM 字符串
 }
 
 // Client 微信支付客户端
 type Client struct {
-	cfg        Config
-	privateKey *rsa.PrivateKey
+	cfg               Config
+	privateKey        *rsa.PrivateKey
+	platformPublicKey *rsa.PublicKey
 }
 
 // New 从 GoFrame 配置中创建微信支付客户端
 func New(ctx context.Context) (*Client, error) {
 	cfg := Config{
-		AppID:      g.Cfg().MustGet(ctx, "pay.wechat.appId").String(),
-		MchID:      g.Cfg().MustGet(ctx, "pay.wechat.mchId").String(),
-		APIKey:     g.Cfg().MustGet(ctx, "pay.wechat.apiKey").String(),
-		SerialNo:   g.Cfg().MustGet(ctx, "pay.wechat.serialNo").String(),
-		PrivateKey: g.Cfg().MustGet(ctx, "pay.wechat.privateKey").String(),
-		NotifyURL:  g.Cfg().MustGet(ctx, "pay.wechat.notifyUrl").String(),
+		AppID:        strings.TrimSpace(g.Cfg().MustGet(ctx, "pay.wechat.appId").String()),
+		MchID:        strings.TrimSpace(g.Cfg().MustGet(ctx, "pay.wechat.mchId").String()),
+		APIKey:       strings.TrimSpace(g.Cfg().MustGet(ctx, "pay.wechat.apiKey").String()),
+		SerialNo:     strings.TrimSpace(g.Cfg().MustGet(ctx, "pay.wechat.serialNo").String()),
+		PrivateKey:   strings.TrimSpace(g.Cfg().MustGet(ctx, "pay.wechat.privateKey").String()),
+		NotifyURL:    strings.TrimSpace(g.Cfg().MustGet(ctx, "pay.wechat.notifyUrl").String()),
+		PlatformCert: strings.TrimSpace(g.Cfg().MustGet(ctx, "pay.wechat.platformCert").String()),
 	}
 
 	c := &Client{cfg: cfg}
@@ -61,6 +65,13 @@ func New(ctx context.Context) (*Client, error) {
 			return nil, fmt.Errorf("wxpay: 解析私钥失败: %w", err)
 		}
 		c.privateKey = pk
+	}
+	if cfg.PlatformCert != "" {
+		pub, err := parsePlatformPublicKey(cfg.PlatformCert)
+		if err != nil {
+			return nil, fmt.Errorf("wxpay: 解析平台证书失败: %w", err)
+		}
+		c.platformPublicKey = pub
 	}
 
 	return c, nil
@@ -208,7 +219,14 @@ func (c *Client) doRequest(ctx context.Context, method, rawURL string, body []by
 		return nil, err
 	}
 	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("wxpay: http status %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+	return respBody, nil
 }
 
 // buildAuthorization 构造微信支付 V3 Authorization 头
@@ -258,13 +276,18 @@ func (c *Client) sign(message []byte) (string, error) {
 // verifySignature 预留验签接口（生产环境需要微信平台公钥）
 // devMode 下不会调用，生产对接时需补充平台证书加载逻辑
 func (c *Client) verifySignature(message []byte, signature string) error {
-	// TODO: 生产环境加载微信平台证书公钥验签
-	// 当前仅做基础格式校验
-	if signature == "" {
+	sig, err := base64.StdEncoding.DecodeString(strings.TrimSpace(signature))
+	if err != nil {
+		return err
+	}
+	if len(sig) == 0 {
 		return fmt.Errorf("签名为空")
 	}
-	_, err := base64.StdEncoding.DecodeString(signature)
-	return err
+	if c.platformPublicKey == nil {
+		return nil
+	}
+	sum := sha256.Sum256(message)
+	return rsa.VerifyPKCS1v15(c.platformPublicKey, crypto.SHA256, sum[:], sig)
 }
 
 // parsePrivateKey 解析 PEM 格式 RSA 私钥（兼容 PKCS8/PKCS1）
@@ -283,6 +306,29 @@ func parsePrivateKey(pemStr string) (*rsa.PrivateKey, error) {
 	}
 	// 降级尝试 PKCS1
 	return x509.ParsePKCS1PrivateKey(block.Bytes)
+}
+
+func parsePlatformPublicKey(pemStr string) (*rsa.PublicKey, error) {
+	block, _ := pem.Decode([]byte(pemStr))
+	if block == nil {
+		return nil, fmt.Errorf("无法解析 PEM 块")
+	}
+	if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
+		pub, ok := cert.PublicKey.(*rsa.PublicKey)
+		if !ok {
+			return nil, fmt.Errorf("不是 RSA 平台公钥")
+		}
+		return pub, nil
+	}
+	pubAny, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	pub, ok := pubAny.(*rsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("不是 RSA 平台公钥")
+	}
+	return pub, nil
 }
 
 // decryptAES256GCM 使用 AEAD_AES_256_GCM 解密微信回调资源
@@ -344,4 +390,15 @@ func randomString(n int) string {
 		return string(append(b, []byte(strings.Repeat("0", n-len(b)))...))
 	}
 	return string(b)
+}
+
+func (c *Client) hasPlatformVerifier() bool {
+	return c != nil && c.platformPublicKey != nil
+}
+
+func (c *Client) merchantSummary() string {
+	if c == nil {
+		return ""
+	}
+	return strings.TrimSpace(c.cfg.MchID) + ":" + strconv.FormatBool(c.hasPlatformVerifier())
 }
