@@ -10,7 +10,7 @@ data:
         level:  "all"
         stdout: true
       default:
-        link:  "mysql:root:12345678&@tcp(127.0.0.1:3306)/gf?loc=Local&parseTime=true"
+        link:  "mysql:root:change_me@tcp(127.0.0.1:3306)/gf?loc=Local&parseTime=true"
         debug: true
 
     # Logger configuration.

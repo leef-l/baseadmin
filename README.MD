@@ -1,5 +1,5 @@
 # GBaseAdmin
-a
+
 这是一个精简后的后台基础框架仓库，只保留：
 
 - `admin-go/app/system`
@@ -12,7 +12,6 @@ a
 - [文档索引](docs/README.md)
 - [基础框架说明](docs/基础框架说明.md)
 - [Docker 开发说明](docs/Docker开发说明.md)
-- [EasyMVP 对接 OpenHands 与 Aider 引擎设计实现文档](docs/EasyMVP对接OpenHands与Aider引擎设计实现文档.md)
 
 Docker 开发入口已迁移到根目录：
 
@@ -26,8 +25,10 @@ Docker 开发入口已迁移到根目录：
 
 ### 启动前提
 
-- 已安装 Docker / Docker Compose
 - 从仓库根目录执行命令
+- 具备 Docker / Docker Compose 环境
+- 默认配置文件是 `docker/dev/.env`
+- 每次执行脚本都会同步覆盖 `admin-go/.env`
 
 ### Windows
 
@@ -75,6 +76,18 @@ Docker 开发入口已迁移到根目录：
 - 同步覆盖到 `admin-go/.env`
 - 自动选择 `docker/dev/docker-compose.yml` 或 `docker/dev/docker-compose.cn.yml`
 - 执行 `docker compose up -d --build`
+
+### 默认开发账号和连接
+
+- 登录账号：`admin`
+- 登录密码：`admin123`
+- MySQL：`127.0.0.1:40001`
+- Redis：`127.0.0.1:40002`
+
+### 初始化数据
+
+- `admin-go/codegen/sql/init.sql` 只保留 `system` / `upload` 当前相关表和最小种子数据
+- 默认初始化账号为 `admin` / `admin123`
 
 ### 默认开发端口
 

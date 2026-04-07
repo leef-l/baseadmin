@@ -11,7 +11,7 @@ gfcli:
 
   gen:
     dao:
-      - link: "mysql:root:gbaseadmin123@tcp(127.0.0.1:3306)/gbaseadmin?charset=utf8mb4"
+      - link: "mysql:gbaseadmin:gbaseadmin123@tcp(127.0.0.1:40001)/gbaseadmin?charset=utf8mb4"
         tables: "dept,role,role_dept,role_menu,menu,users,user_dept,user_role"
         descriptionTag: true
         noJsonTag: true

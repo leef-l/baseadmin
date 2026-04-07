@@ -1,33 +1,20 @@
--- MySQL dump 10.13  Distrib 8.0.45, for Linux (x86_64)
---
--- Host: localhost    Database: gbaseadmin
--- ------------------------------------------------------
--- Server version	8.0.45
+-- GBaseAdmin 精简初始化脚本
+-- 仅保留当前仓库 `system` / `upload` 相关表和最小种子数据
+-- 默认初始化账号: admin / admin123
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!50503 SET NAMES utf8mb4 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
-/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
 
---
--- Table structure for table `system_dept`
---
-
+-- ============================================================
+-- system: 部门
+-- ============================================================
 DROP TABLE IF EXISTS `system_dept`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `system_dept` (
   `id` bigint unsigned NOT NULL COMMENT '部门ID（Snowflake）',
   `parent_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '上级部门ID，0 表示顶级部门',
-  `title` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '部门名称',
-  `username` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '部门负责人姓名',
-  `email` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '负责人邮箱',
+  `title` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '部门名称',
+  `username` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '部门负责人姓名',
+  `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '负责人邮箱',
   `sort` int NOT NULL DEFAULT '0' COMMENT '排序（升序）',
   `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态:0=关闭,1=开启',
   `created_by` bigint unsigned DEFAULT NULL COMMENT '创建人ID',
@@ -39,72 +26,25 @@ CREATE TABLE `system_dept` (
   KEY `idx_parent_id` (`parent_id`),
   KEY `idx_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='部门表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `system_dept`
---
+INSERT INTO `system_dept` (
+  `id`, `parent_id`, `title`, `username`, `email`, `sort`, `status`,
+  `created_by`, `dept_id`, `created_at`, `updated_at`, `deleted_at`
+) VALUES (
+  1000000000000000001, 0, '总公司', 'admin', 'admin@example.com', 0, 1,
+  0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL
+);
 
-LOCK TABLES `system_dept` WRITE;
-/*!40000 ALTER TABLE `system_dept` DISABLE KEYS */;
-INSERT INTO `system_dept` VALUES (1000000000000000001,0,'总公司','admin','admin@example.com',0,1,0,0,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL);
-/*!40000 ALTER TABLE `system_dept` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `system_menu`
---
-
-DROP TABLE IF EXISTS `system_menu`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `system_menu` (
-  `id` bigint unsigned NOT NULL COMMENT '菜单ID（Snowflake）',
-  `parent_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '上级菜单ID，0 表示顶级菜单',
-  `title` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '菜单名称',
-  `type` tinyint NOT NULL DEFAULT '1' COMMENT '类型:1=目录,2=菜单,3=按钮,4=外链,5=内链',
-  `path` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '前端路由路径',
-  `component` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '前端组件路径',
-  `permission` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '权限标识（如 system:dept:list）',
-  `icon` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '菜单图标（图标名称）',
-  `sort` int NOT NULL DEFAULT '0' COMMENT '排序（升序）',
-  `is_show` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否显示:0=隐藏,1=显示',
-  `is_cache` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否缓存:0=不缓存,1=缓存',
-  `link_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '外链/内链地址（type=4或5时有效）',
-  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态:0=关闭,1=开启',
-  `created_by` bigint unsigned DEFAULT NULL COMMENT '创建人ID',
-  `dept_id` bigint unsigned DEFAULT NULL COMMENT '所属部门ID',
-  `created_at` datetime DEFAULT NULL COMMENT '创建时间',
-  `updated_at` datetime DEFAULT NULL COMMENT '更新时间',
-  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间，非 NULL 表示已删除',
-  PRIMARY KEY (`id`),
-  KEY `idx_parent_id` (`parent_id`),
-  KEY `idx_deleted_at` (`deleted_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='菜单表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `system_menu`
---
-
-LOCK TABLES `system_menu` WRITE;
-/*!40000 ALTER TABLE `system_menu` DISABLE KEYS */;
-INSERT INTO `system_menu` VALUES (314202735329153024,0,'upload管理',1,'/upload',NULL,'','AppstoreOutlined',50,1,0,NULL,1,0,0,'2026-03-31 07:02:49','2026-03-31 07:02:49',NULL),(314202735383678976,314202735329153024,'文件目录',2,'/upload/dir','upload/dir/index','upload:dir:list','',0,1,0,NULL,1,0,0,'2026-03-31 07:02:49','2026-03-31 07:29:22',NULL),(314202735413039104,314202735383678976,'文件目录新增',3,NULL,NULL,'upload:dir:create','',1,0,0,NULL,1,0,0,'2026-03-31 07:02:49','2026-03-31 07:29:22',NULL),(314202735450787840,314202735383678976,'文件目录修改',3,NULL,NULL,'upload:dir:update','',2,0,0,NULL,1,0,0,'2026-03-31 07:02:49','2026-03-31 07:29:22',NULL),(314202735484342272,314202735383678976,'文件目录删除',3,NULL,NULL,'upload:dir:delete','',3,0,0,NULL,1,0,0,'2026-03-31 07:02:49','2026-03-31 07:29:22',NULL),(314202735689863168,314202735329153024,'文件记录',2,'/upload/file','upload/file/index','upload:file:list','',0,1,0,NULL,1,0,0,'2026-03-31 07:02:49','2026-03-31 07:29:22',NULL),(314202735723417600,314202735689863168,'文件记录新增',3,NULL,NULL,'upload:file:create','',1,0,0,NULL,1,0,0,'2026-03-31 07:02:49','2026-03-31 07:29:22',NULL),(314202735748583424,314202735689863168,'文件记录修改',3,NULL,NULL,'upload:file:update','',2,0,0,NULL,1,0,0,'2026-03-31 07:02:49','2026-03-31 07:29:22',NULL),(314202735786332160,314202735689863168,'文件记录删除',3,NULL,NULL,'upload:file:delete','',3,0,0,NULL,1,0,0,'2026-03-31 07:02:49','2026-03-31 07:29:22',NULL),(314202736029601792,314202735329153024,'上传配置',2,'/upload/config','upload/config/index','upload:config:list','',0,1,0,NULL,1,0,0,'2026-03-31 07:02:50','2026-03-31 07:29:22',NULL),(314202736058961920,314202736029601792,'上传配置新增',3,NULL,NULL,'upload:config:create','',1,0,0,NULL,1,0,0,'2026-03-31 07:02:50','2026-03-31 07:29:22',NULL),(314202736088322048,314202736029601792,'上传配置修改',3,NULL,NULL,'upload:config:update','',2,0,0,NULL,1,0,0,'2026-03-31 07:02:50','2026-03-31 07:29:22',NULL),(314202736117682176,314202736029601792,'上传配置删除',3,NULL,NULL,'upload:config:delete','',3,0,0,NULL,1,0,0,'2026-03-31 07:02:50','2026-03-31 07:29:22',NULL),(314202736319008768,314202735329153024,'文件目录规则',2,'/upload/dir-rule','upload/dir_rule/index','upload:dir_rule:list','',0,1,0,NULL,1,0,0,'2026-03-31 07:02:50','2026-03-31 07:29:22',NULL),(314202736348368896,314202736319008768,'文件目录规则新增',3,NULL,NULL,'upload:dir_rule:create','',1,0,0,NULL,1,0,0,'2026-03-31 07:02:50','2026-03-31 07:29:22',NULL),(314202736373534720,314202736319008768,'文件目录规则修改',3,NULL,NULL,'upload:dir_rule:update','',2,0,0,NULL,1,0,0,'2026-03-31 07:02:50','2026-03-31 07:29:22',NULL),(314202736407089152,314202736319008768,'文件目录规则删除',3,NULL,NULL,'upload:dir_rule:delete','',3,0,0,NULL,1,0,0,'2026-03-31 07:02:50','2026-03-31 07:29:22',NULL),(1000000000000000010,0,'系统管理',1,'/system',NULL,'','SettingOutlined',100,1,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000011,1000000000000000010,'部门管理',2,'/system/dept','system/dept/index','system:dept:list','ApartmentOutlined',1,1,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000012,1000000000000000010,'角色管理',2,'/system/role','system/role/index','system:role:list','TeamOutlined',2,1,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000013,1000000000000000010,'菜单管理',2,'/system/menu','system/menu/index','system:menu:list','MenuOutlined',3,1,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000014,1000000000000000010,'用户管理',2,'/system/users','system/users/index','system:user:list','UserOutlined',4,1,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000021,1000000000000000011,'部门新增',3,NULL,NULL,'system:dept:create','',1,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000022,1000000000000000011,'部门修改',3,NULL,NULL,'system:dept:update','',2,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000023,1000000000000000011,'部门删除',3,NULL,NULL,'system:dept:delete','',3,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000031,1000000000000000012,'角色新增',3,NULL,NULL,'system:role:create','',1,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000032,1000000000000000012,'角色修改',3,NULL,NULL,'system:role:update','',2,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000033,1000000000000000012,'角色删除',3,NULL,NULL,'system:role:delete','',3,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000034,1000000000000000012,'资源授权',3,NULL,NULL,'system:role:grant:menu','',4,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000035,1000000000000000012,'数据授权',3,NULL,NULL,'system:role:grant:dept','',5,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000041,1000000000000000013,'菜单新增',3,NULL,NULL,'system:menu:create','',1,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000042,1000000000000000013,'菜单修改',3,NULL,NULL,'system:menu:update','',2,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000043,1000000000000000013,'菜单删除',3,NULL,NULL,'system:menu:delete','',3,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000051,1000000000000000014,'用户新增',3,NULL,NULL,'system:user:create','',1,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000052,1000000000000000014,'用户修改',3,NULL,NULL,'system:user:update','',2,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL),(1000000000000000053,1000000000000000014,'用户删除',3,NULL,NULL,'system:user:delete','',3,0,0,NULL,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL);
-/*!40000 ALTER TABLE `system_menu` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `system_role`
---
-
+-- ============================================================
+-- system: 角色
+-- ============================================================
 DROP TABLE IF EXISTS `system_role`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `system_role` (
   `id` bigint unsigned NOT NULL COMMENT '角色ID（Snowflake）',
   `parent_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '上级角色ID，0 表示顶级角色',
-  `title` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '角色名称',
+  `title` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '角色名称',
   `data_scope` tinyint NOT NULL DEFAULT '1' COMMENT '数据范围:1=全部,2=本部门及以下,3=本部门,4=仅本人,5=自定义',
+  `is_admin` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否超级管理员:0=否,1=是',
   `sort` int NOT NULL DEFAULT '0' COMMENT '排序（升序）',
   `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态:0=关闭,1=开启',
   `created_by` bigint unsigned DEFAULT NULL COMMENT '创建人ID',
@@ -116,131 +56,26 @@ CREATE TABLE `system_role` (
   KEY `idx_parent_id` (`parent_id`),
   KEY `idx_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `system_role`
---
+INSERT INTO `system_role` (
+  `id`, `parent_id`, `title`, `data_scope`, `is_admin`, `sort`, `status`,
+  `created_by`, `dept_id`, `created_at`, `updated_at`, `deleted_at`
+) VALUES (
+  1000000000000000002, 0, '超级管理员', 1, 1, 0, 1,
+  0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL
+);
 
-LOCK TABLES `system_role` WRITE;
-/*!40000 ALTER TABLE `system_role` DISABLE KEYS */;
-INSERT INTO `system_role` VALUES (1000000000000000002,0,'超级管理员',1,0,1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL);
-/*!40000 ALTER TABLE `system_role` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `system_role_dept`
---
-
-DROP TABLE IF EXISTS `system_role_dept`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `system_role_dept` (
-  `role_id` bigint unsigned NOT NULL COMMENT '角色ID',
-  `dept_id` bigint unsigned NOT NULL COMMENT '部门ID',
-  PRIMARY KEY (`role_id`,`dept_id`),
-  KEY `idx_dept_id` (`dept_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色自定义数据权限部门关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `system_role_dept`
---
-
-LOCK TABLES `system_role_dept` WRITE;
-/*!40000 ALTER TABLE `system_role_dept` DISABLE KEYS */;
-/*!40000 ALTER TABLE `system_role_dept` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `system_role_menu`
---
-
-DROP TABLE IF EXISTS `system_role_menu`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `system_role_menu` (
-  `role_id` bigint unsigned NOT NULL COMMENT '角色ID',
-  `menu_id` bigint unsigned NOT NULL COMMENT '菜单ID',
-  PRIMARY KEY (`role_id`,`menu_id`),
-  KEY `idx_menu_id` (`menu_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色菜单权限关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `system_role_menu`
---
-
-LOCK TABLES `system_role_menu` WRITE;
-/*!40000 ALTER TABLE `system_role_menu` DISABLE KEYS */;
-INSERT INTO `system_role_menu` VALUES (1000000000000000002,314246519932850176),(1000000000000000002,314246520134176768),(1000000000000000002,314246520167731200),(1000000000000000002,314246520201285632),(1000000000000000002,314246520230645760),(1000000000000000002,314246520327114752),(1000000000000000002,314246520364863488),(1000000000000000002,314246520406806528),(1000000000000000002,314246520436166656),(1000000000000000002,314246520524247040),(1000000000000000002,314246520566190080),(1000000000000000002,314246520603938816),(1000000000000000002,314246520633298944),(1000000000000000002,314246520784293888),(1000000000000000002,314246520813654016),(1000000000000000002,314246520847208448),(1000000000000000002,314246520880762880),(1000000000000000002,314246521031757824),(1000000000000000002,314246521065312256),(1000000000000000002,314246521090478080),(1000000000000000002,314246521124032512),(1000000000000000002,314246521220501504),(1000000000000000002,314246521249861632),(1000000000000000002,314246521283416064),(1000000000000000002,314246521316970496),(1000000000000000002,314246521409245184),(1000000000000000002,314246521442799616),(1000000000000000002,314246521480548352),(1000000000000000002,314246521514102784),(1000000000000000002,314246521673486336),(1000000000000000002,314246521707040768),(1000000000000000002,314246521740595200),(1000000000000000002,314246521769955328),(1000000000000000002,314246522004836352),(1000000000000000002,314246522034196480),(1000000000000000002,314246522063556608),(1000000000000000002,314246522092916736),(1000000000000000002,314246522281660416),(1000000000000000002,314246522323603456),(1000000000000000002,314246522365546496),(1000000000000000002,314246522415878144),(1000000000000000002,314246522503958528),(1000000000000000002,314246522537512960),(1000000000000000002,314246522579456000),(1000000000000000002,314246522604621824),(1000000000000000002,314246522730450944),(1000000000000000002,314246522759811072),(1000000000000000002,314246522789171200),(1000000000000000002,314246522814337024),(1000000000000000002,314246522986303488),(1000000000000000002,314246523015663616),(1000000000000000002,314246523045023744),(1000000000000000002,314246523070189568),(1000000000000000002,314246523154075648),(1000000000000000002,314246523183435776),(1000000000000000002,314246523221184512),(1000000000000000002,314246523250544640),(1000000000000000002,314246523330236416),(1000000000000000002,314246523372179456),(1000000000000000002,314246523405733888),(1000000000000000002,314246523430899712),(1000000000000000002,314246523523174400),(1000000000000000002,314246523556728832),(1000000000000000002,314246523581894656),(1000000000000000002,314246523615449088),(1000000000000000002,314246523749666816),(1000000000000000002,314246523779026944),(1000000000000000002,314246523812581376),(1000000000000000002,314246523846135808),(1000000000000000002,314246523934216192),(1000000000000000002,314246523959382016),(1000000000000000002,314246523988742144),(1000000000000000002,314246524013907968),(1000000000000000002,314246524190068736),(1000000000000000002,314246524215234560),(1000000000000000002,314246524248788992),(1000000000000000002,314246524273954816),(1000000000000000002,314246524471087104),(1000000000000000002,314246524504641536),(1000000000000000002,314246524529807360),(1000000000000000002,314246524563361792),(1000000000000000002,314246524756299776),(1000000000000000002,314246524785659904),(1000000000000000002,314246524815020032),(1000000000000000002,314246524840185856),(1000000000000000002,314246525028929536),(1000000000000000002,314246525062483968),(1000000000000000002,314246525087649792),(1000000000000000002,314246525117009920),(1000000000000000002,1000000000000000010),(1000000000000000002,1000000000000000011),(1000000000000000002,1000000000000000012),(1000000000000000002,1000000000000000013),(1000000000000000002,1000000000000000014),(1000000000000000002,1000000000000000021),(1000000000000000002,1000000000000000022),(1000000000000000002,1000000000000000023),(1000000000000000002,1000000000000000031),(1000000000000000002,1000000000000000032),(1000000000000000002,1000000000000000033),(1000000000000000002,1000000000000000034),(1000000000000000002,1000000000000000035),(1000000000000000002,1000000000000000041),(1000000000000000002,1000000000000000042),(1000000000000000002,1000000000000000043),(1000000000000000002,1000000000000000051),(1000000000000000002,1000000000000000052),(1000000000000000002,1000000000000000053),(1000000000000000002,1000000000000000060),(1000000000000000002,1000000000000000061),(1000000000000000002,1000000000000000062);
-/*!40000 ALTER TABLE `system_role_menu` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `system_user_dept`
---
-
-DROP TABLE IF EXISTS `system_user_dept`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `system_user_dept` (
-  `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
-  `dept_id` bigint unsigned NOT NULL COMMENT '部门ID',
-  PRIMARY KEY (`user_id`,`dept_id`),
-  KEY `idx_dept_id` (`dept_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户部门关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `system_user_dept`
---
-
-LOCK TABLES `system_user_dept` WRITE;
-/*!40000 ALTER TABLE `system_user_dept` DISABLE KEYS */;
-INSERT INTO `system_user_dept` VALUES (1000000000000000003,1000000000000000001);
-/*!40000 ALTER TABLE `system_user_dept` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `system_user_role`
---
-
-DROP TABLE IF EXISTS `system_user_role`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `system_user_role` (
-  `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
-  `role_id` bigint unsigned NOT NULL COMMENT '角色ID',
-  PRIMARY KEY (`user_id`,`role_id`),
-  KEY `idx_role_id` (`role_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户角色关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `system_user_role`
---
-
-LOCK TABLES `system_user_role` WRITE;
-/*!40000 ALTER TABLE `system_user_role` DISABLE KEYS */;
-INSERT INTO `system_user_role` VALUES (1000000000000000003,1000000000000000002);
-/*!40000 ALTER TABLE `system_user_role` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `system_users`
---
-
+-- ============================================================
+-- system: 用户
+-- ============================================================
 DROP TABLE IF EXISTS `system_users`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `system_users` (
   `id` bigint unsigned NOT NULL COMMENT '用户ID（Snowflake）',
-  `username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '登录用户名',
-  `password` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '密码（SHA-256 加密）',
-  `nickname` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '昵称/显示名',
-  `email` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '邮箱地址',
-  `avatar` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '头像图片 URL',
+  `username` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '登录用户名',
+  `password` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '密码（bcrypt 加密）',
+  `nickname` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '昵称/显示名',
+  `email` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '邮箱地址',
+  `avatar` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '头像图片 URL',
   `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态:0=关闭,1=开启',
   `created_by` bigint unsigned DEFAULT NULL COMMENT '创建人ID',
   `dept_id` bigint unsigned DEFAULT NULL COMMENT '所属部门ID',
@@ -252,29 +87,289 @@ CREATE TABLE `system_users` (
   KEY `idx_dept_id` (`dept_id`),
   KEY `idx_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `system_users`
---
+INSERT INTO `system_users` (
+  `id`, `username`, `password`, `nickname`, `email`, `avatar`, `status`,
+  `created_by`, `dept_id`, `created_at`, `updated_at`, `deleted_at`
+) VALUES (
+  1000000000000000003,
+  'admin',
+  '$2y$10$VWVHbVcWz5hfZlNf6Q.99ONLkvL5ktwKz9F70PM7dg9Nq5LXVT4gS',
+  '超级管理员',
+  'admin@example.com',
+  '',
+  1,
+  0,
+  1000000000000000001,
+  '2026-04-07 00:00:00',
+  '2026-04-07 00:00:00',
+  NULL
+);
 
-LOCK TABLES `system_users` WRITE;
-/*!40000 ALTER TABLE `system_users` DISABLE KEYS */;
-INSERT INTO `system_users` VALUES (1000000000000000003,'admin','240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9','超级管理员','admin@example.com','',1,0,1000000000000000001,'2026-03-30 21:20:22','2026-03-30 21:20:22',NULL);
-/*!40000 ALTER TABLE `system_users` ENABLE KEYS */;
-UNLOCK TABLES;
+-- ============================================================
+-- system: 关联表
+-- ============================================================
+DROP TABLE IF EXISTS `system_user_role`;
+CREATE TABLE `system_user_role` (
+  `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+  `role_id` bigint unsigned NOT NULL COMMENT '角色ID',
+  PRIMARY KEY (`user_id`,`role_id`),
+  KEY `idx_role_id` (`role_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户角色关联表';
 
---
--- Dumping routines for database 'gbaseadmin'
---
-/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+INSERT INTO `system_user_role` (`user_id`, `role_id`) VALUES
+  (1000000000000000003, 1000000000000000002);
 
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
-/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
-/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+DROP TABLE IF EXISTS `system_user_dept`;
+CREATE TABLE `system_user_dept` (
+  `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
+  `dept_id` bigint unsigned NOT NULL COMMENT '部门ID',
+  PRIMARY KEY (`user_id`,`dept_id`),
+  KEY `idx_dept_id` (`dept_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户部门关联表';
 
--- Dump completed on 2026-03-31 10:01:48
+INSERT INTO `system_user_dept` (`user_id`, `dept_id`) VALUES
+  (1000000000000000003, 1000000000000000001);
+
+DROP TABLE IF EXISTS `system_role_dept`;
+CREATE TABLE `system_role_dept` (
+  `role_id` bigint unsigned NOT NULL COMMENT '角色ID',
+  `dept_id` bigint unsigned NOT NULL COMMENT '部门ID',
+  PRIMARY KEY (`role_id`,`dept_id`),
+  KEY `idx_dept_id` (`dept_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色自定义数据权限部门关联表';
+
+-- ============================================================
+-- system + upload: 菜单
+-- ============================================================
+DROP TABLE IF EXISTS `system_menu`;
+CREATE TABLE `system_menu` (
+  `id` bigint unsigned NOT NULL COMMENT '菜单ID（Snowflake）',
+  `parent_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '上级菜单ID，0 表示顶级菜单',
+  `title` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '菜单名称',
+  `type` tinyint NOT NULL DEFAULT '1' COMMENT '类型:1=目录,2=菜单,3=按钮,4=外链,5=内链',
+  `path` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '前端路由路径',
+  `component` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '前端组件路径',
+  `permission` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '权限标识（如 system:dept:list）',
+  `icon` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '菜单图标（图标名称）',
+  `sort` int NOT NULL DEFAULT '0' COMMENT '排序（升序）',
+  `is_show` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否显示:0=隐藏,1=显示',
+  `is_cache` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否缓存:0=不缓存,1=缓存',
+  `link_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '外链/内链地址（type=4或5时有效）',
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态:0=关闭,1=开启',
+  `created_by` bigint unsigned DEFAULT NULL COMMENT '创建人ID',
+  `dept_id` bigint unsigned DEFAULT NULL COMMENT '所属部门ID',
+  `created_at` datetime DEFAULT NULL COMMENT '创建时间',
+  `updated_at` datetime DEFAULT NULL COMMENT '更新时间',
+  `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间，非 NULL 表示已删除',
+  PRIMARY KEY (`id`),
+  KEY `idx_parent_id` (`parent_id`),
+  KEY `idx_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='菜单表';
+
+INSERT INTO `system_menu` (
+  `id`, `parent_id`, `title`, `type`, `path`, `component`, `permission`, `icon`,
+  `sort`, `is_show`, `is_cache`, `link_url`, `status`, `created_by`, `dept_id`,
+  `created_at`, `updated_at`, `deleted_at`
+) VALUES
+  (1000000000000000010, 0, '系统管理', 1, '/system', NULL, '', 'SettingOutlined', 10, 1, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000011, 1000000000000000010, '部门管理', 2, '/system/dept', 'system/dept/index', 'system:dept:list', 'ApartmentOutlined', 1, 1, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000021, 1000000000000000011, '部门新增', 3, NULL, NULL, 'system:dept:create', '', 1, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000022, 1000000000000000011, '部门修改', 3, NULL, NULL, 'system:dept:update', '', 2, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000023, 1000000000000000011, '部门删除', 3, NULL, NULL, 'system:dept:delete', '', 3, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000012, 1000000000000000010, '角色管理', 2, '/system/role', 'system/role/index', 'system:role:list', 'TeamOutlined', 2, 1, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000031, 1000000000000000012, '角色新增', 3, NULL, NULL, 'system:role:create', '', 1, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000032, 1000000000000000012, '角色修改', 3, NULL, NULL, 'system:role:update', '', 2, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000033, 1000000000000000012, '角色删除', 3, NULL, NULL, 'system:role:delete', '', 3, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000034, 1000000000000000012, '资源授权', 3, NULL, NULL, 'system:role:grant:menu', '', 4, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000035, 1000000000000000012, '数据授权', 3, NULL, NULL, 'system:role:grant:dept', '', 5, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000013, 1000000000000000010, '菜单管理', 2, '/system/menu', 'system/menu/index', 'system:menu:list', 'MenuOutlined', 3, 1, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000041, 1000000000000000013, '菜单新增', 3, NULL, NULL, 'system:menu:create', '', 1, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000042, 1000000000000000013, '菜单修改', 3, NULL, NULL, 'system:menu:update', '', 2, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000043, 1000000000000000013, '菜单删除', 3, NULL, NULL, 'system:menu:delete', '', 3, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000014, 1000000000000000010, '用户管理', 2, '/system/users', 'system/users/index', 'system:user:list', 'UserOutlined', 4, 1, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000051, 1000000000000000014, '用户新增', 3, NULL, NULL, 'system:user:create', '', 1, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000052, 1000000000000000014, '用户修改', 3, NULL, NULL, 'system:user:update', '', 2, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (1000000000000000053, 1000000000000000014, '用户删除', 3, NULL, NULL, 'system:user:delete', '', 3, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730209861632, 0, '上传管理', 1, '/upload', NULL, '', 'CloudUploadOutlined', 20, 1, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730235027456, 314253730209861632, '上传配置', 2, '/upload/config', 'upload/config/index', 'upload:config:list', '', 1, 1, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730251804672, 314253730235027456, '上传配置新增', 3, NULL, NULL, 'upload:config:create', '', 1, 0, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730268581888, 314253730235027456, '上传配置修改', 3, NULL, NULL, 'upload:config:update', '', 2, 0, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730285359104, 314253730235027456, '上传配置删除', 3, NULL, NULL, 'upload:config:delete', '', 3, 0, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730344079360, 314253730209861632, '文件目录', 2, '/upload/dir', 'upload/dir/index', 'upload:dir:list', '', 2, 1, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730365050880, 314253730344079360, '文件目录新增', 3, NULL, NULL, 'upload:dir:create', '', 1, 0, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730386022400, 314253730344079360, '文件目录修改', 3, NULL, NULL, 'upload:dir:update', '', 2, 0, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730415382528, 314253730344079360, '文件目录删除', 3, NULL, NULL, 'upload:dir:delete', '', 3, 0, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730461519872, 314253730209861632, '文件目录规则', 2, '/upload/dir-rule', 'upload/dir_rule/index', 'upload:dir_rule:list', '', 3, 1, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730478297088, 314253730461519872, '文件目录规则新增', 3, NULL, NULL, 'upload:dir_rule:create', '', 1, 0, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730490880000, 314253730461519872, '文件目录规则修改', 3, NULL, NULL, 'upload:dir_rule:update', '', 2, 0, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730503462912, 314253730461519872, '文件目录规则删除', 3, NULL, NULL, 'upload:dir_rule:delete', '', 3, 0, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730566377472, 314253730209861632, '文件记录', 2, '/upload/file', 'upload/file/index', 'upload:file:list', '', 4, 1, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730583154688, 314253730566377472, '文件记录新增', 3, NULL, NULL, 'upload:file:create', '', 1, 0, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730595737600, 314253730566377472, '文件记录修改', 3, NULL, NULL, 'upload:file:update', '', 2, 0, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
+  (314253730620903424, 314253730566377472, '文件记录删除', 3, NULL, NULL, 'upload:file:delete', '', 3, 0, 0, NULL, 1, 0, 0, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL);
+
+DROP TABLE IF EXISTS `system_role_menu`;
+CREATE TABLE `system_role_menu` (
+  `role_id` bigint unsigned NOT NULL COMMENT '角色ID',
+  `menu_id` bigint unsigned NOT NULL COMMENT '菜单ID',
+  PRIMARY KEY (`role_id`,`menu_id`),
+  KEY `idx_menu_id` (`menu_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色菜单权限关联表';
+
+INSERT INTO `system_role_menu` (`role_id`, `menu_id`) VALUES
+  (1000000000000000002, 1000000000000000010),
+  (1000000000000000002, 1000000000000000011),
+  (1000000000000000002, 1000000000000000021),
+  (1000000000000000002, 1000000000000000022),
+  (1000000000000000002, 1000000000000000023),
+  (1000000000000000002, 1000000000000000012),
+  (1000000000000000002, 1000000000000000031),
+  (1000000000000000002, 1000000000000000032),
+  (1000000000000000002, 1000000000000000033),
+  (1000000000000000002, 1000000000000000034),
+  (1000000000000000002, 1000000000000000035),
+  (1000000000000000002, 1000000000000000013),
+  (1000000000000000002, 1000000000000000041),
+  (1000000000000000002, 1000000000000000042),
+  (1000000000000000002, 1000000000000000043),
+  (1000000000000000002, 1000000000000000014),
+  (1000000000000000002, 1000000000000000051),
+  (1000000000000000002, 1000000000000000052),
+  (1000000000000000002, 1000000000000000053),
+  (1000000000000000002, 314253730209861632),
+  (1000000000000000002, 314253730235027456),
+  (1000000000000000002, 314253730251804672),
+  (1000000000000000002, 314253730268581888),
+  (1000000000000000002, 314253730285359104),
+  (1000000000000000002, 314253730344079360),
+  (1000000000000000002, 314253730365050880),
+  (1000000000000000002, 314253730386022400),
+  (1000000000000000002, 314253730415382528),
+  (1000000000000000002, 314253730461519872),
+  (1000000000000000002, 314253730478297088),
+  (1000000000000000002, 314253730490880000),
+  (1000000000000000002, 314253730503462912),
+  (1000000000000000002, 314253730566377472),
+  (1000000000000000002, 314253730583154688),
+  (1000000000000000002, 314253730595737600),
+  (1000000000000000002, 314253730620903424);
+
+-- ============================================================
+-- upload: 上传配置
+-- ============================================================
+DROP TABLE IF EXISTS `upload_config`;
+CREATE TABLE `upload_config` (
+  `id` bigint unsigned NOT NULL COMMENT 'ID',
+  `name` varchar(100) NOT NULL COMMENT '配置名称',
+  `storage` tinyint(1) NOT NULL DEFAULT '1' COMMENT '存储类型:1=本地,2=阿里云OSS,3=腾讯云COS',
+  `is_default` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否默认:0=否,1=是',
+  `local_path` varchar(500) DEFAULT '' COMMENT '本地存储路径',
+  `oss_endpoint` varchar(255) DEFAULT '' COMMENT 'OSS Endpoint',
+  `oss_bucket` varchar(255) DEFAULT '' COMMENT 'OSS Bucket',
+  `oss_access_key` varchar(255) DEFAULT '' COMMENT 'OSS AccessKey',
+  `oss_secret_key` varchar(255) DEFAULT '' COMMENT 'OSS SecretKey',
+  `cos_region` varchar(100) DEFAULT '' COMMENT 'COS Region',
+  `cos_bucket` varchar(255) DEFAULT '' COMMENT 'COS Bucket',
+  `cos_secret_id` varchar(255) DEFAULT '' COMMENT 'COS SecretId',
+  `cos_secret_key` varchar(255) DEFAULT '' COMMENT 'COS SecretKey',
+  `max_size` int DEFAULT '10' COMMENT '最大文件大小(MB)',
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态:0=禁用,1=启用',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted_at` datetime DEFAULT NULL COMMENT '删除时间',
+  `created_by` bigint unsigned DEFAULT NULL COMMENT '创建人',
+  `dept_id` bigint unsigned DEFAULT NULL COMMENT '部门ID',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='上传配置';
+
+INSERT INTO `upload_config` (
+  `id`, `name`, `storage`, `is_default`, `local_path`,
+  `oss_endpoint`, `oss_bucket`, `oss_access_key`, `oss_secret_key`,
+  `cos_region`, `cos_bucket`, `cos_secret_id`, `cos_secret_key`,
+  `max_size`, `status`, `created_at`, `updated_at`, `deleted_at`, `created_by`, `dept_id`
+) VALUES (
+  314309590294466560, '本地存储', 1, 1, 'resource/upload',
+  '', '', '', '',
+  '', '', '', '',
+  10, 1, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL, NULL, NULL
+);
+
+-- ============================================================
+-- upload: 文件目录
+-- ============================================================
+DROP TABLE IF EXISTS `upload_dir`;
+CREATE TABLE `upload_dir` (
+  `id` bigint unsigned NOT NULL COMMENT 'ID',
+  `parent_id` bigint unsigned DEFAULT '0' COMMENT '上级目录',
+  `name` varchar(100) NOT NULL COMMENT '目录名称',
+  `path` varchar(500) NOT NULL COMMENT '目录路径',
+  `sort` int DEFAULT '0' COMMENT '排序',
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态:0=禁用,1=启用',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted_at` datetime DEFAULT NULL COMMENT '删除时间',
+  `created_by` bigint unsigned DEFAULT NULL COMMENT '创建人',
+  `dept_id` bigint unsigned DEFAULT NULL COMMENT '部门ID',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件目录';
+
+INSERT INTO `upload_dir` (
+  `id`, `parent_id`, `name`, `path`, `sort`, `status`,
+  `created_at`, `updated_at`, `deleted_at`, `created_by`, `dept_id`
+) VALUES (
+  314696302266945536, 0, 'uploads', 'uploads', 0, 1,
+  '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL, NULL, NULL
+);
+
+-- ============================================================
+-- upload: 文件目录规则
+-- ============================================================
+DROP TABLE IF EXISTS `upload_dir_rule`;
+CREATE TABLE `upload_dir_rule` (
+  `id` bigint unsigned NOT NULL COMMENT 'ID',
+  `dir_id` bigint unsigned NOT NULL COMMENT '目录ID',
+  `category` tinyint(1) NOT NULL DEFAULT '1' COMMENT '类别:1=默认,2=类型,3=接口',
+  `save_path` varchar(500) DEFAULT '' COMMENT '保存目录',
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态:0=禁用,1=启用',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted_at` datetime DEFAULT NULL COMMENT '删除时间',
+  `created_by` bigint unsigned DEFAULT NULL COMMENT '创建人',
+  `dept_id` bigint unsigned DEFAULT NULL COMMENT '部门ID',
+  PRIMARY KEY (`id`),
+  KEY `idx_dir_id` (`dir_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件目录规则';
+
+INSERT INTO `upload_dir_rule` (
+  `id`, `dir_id`, `category`, `save_path`, `status`,
+  `created_at`, `updated_at`, `deleted_at`, `created_by`, `dept_id`
+) VALUES (
+  314720336681635840, 314696302266945536, 1, '{Y-m-d}', 1,
+  '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL, NULL, NULL
+);
+
+-- ============================================================
+-- upload: 文件记录
+-- ============================================================
+DROP TABLE IF EXISTS `upload_file`;
+CREATE TABLE `upload_file` (
+  `id` bigint unsigned NOT NULL COMMENT 'ID',
+  `dir_id` bigint unsigned DEFAULT '0' COMMENT '所属目录',
+  `name` varchar(255) NOT NULL COMMENT '文件名称',
+  `url` varchar(500) NOT NULL COMMENT '文件地址',
+  `ext` varchar(20) DEFAULT '' COMMENT '文件扩展名',
+  `size` bigint unsigned DEFAULT '0' COMMENT '文件大小',
+  `mime` varchar(100) DEFAULT '' COMMENT 'MIME类型',
+  `storage` tinyint(1) NOT NULL DEFAULT '1' COMMENT '存储类型:1=本地,2=阿里云OSS,3=腾讯云COS',
+  `is_image` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否图片:0=否,1=是',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `deleted_at` datetime DEFAULT NULL COMMENT '删除时间',
+  `created_by` bigint unsigned DEFAULT NULL COMMENT '创建人',
+  `dept_id` bigint unsigned DEFAULT NULL COMMENT '部门ID',
+  PRIMARY KEY (`id`),
+  KEY `idx_dir_id` (`dir_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件记录';
+
+SET FOREIGN_KEY_CHECKS = 1;

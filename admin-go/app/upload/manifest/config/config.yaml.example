@@ -12,11 +12,18 @@ logger:
 # https://goframe.org/docs/core/gdb-config-file
 database:
   default:
-    link: "mysql:root:gbaseadmin123@tcp(127.0.0.1:3306)/gbaseadmin"
+    link: "mysql:gbaseadmin:gbaseadmin123@tcp(127.0.0.1:40001)/gbaseadmin"
     debug: true
     charset: "utf8mb4"
 
+# https://goframe.org/docs/components/os-gredis-config
+redis:
+  default:
+    address: "127.0.0.1:40002"
+    pass: "gbaseadmin123"
+    db: 0
+
 # JWT 配置
 jwt:
-  secret: "gbaseadmin-secret-key-2026"
+  secret: "change_me"
   expire: 24  # Token 过期时间（小时）

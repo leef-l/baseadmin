@@ -28,10 +28,13 @@ vendor/
 .claude/settings.json
 .claude/settings.local.json
 .mcp.json
+.codex
 vue-vben-admin/.pnpm-store/
 admin-go/codegen/codegen
 admin-go/codegen/codegen.exe
 admin-go/codegenMcp/codegenMcp.exe
+admin-go/codegen/verifye2e
+admin-go/codegen/verify_output/
 admin-go/codegen/sql/init_backup_*.sql
 deploy-logs/
 .deploy-cache/

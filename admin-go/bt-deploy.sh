@@ -15,7 +15,7 @@ DB_USER="gbaseadmin"
 DB_PASS="gbaseadmin123"
 DB_HOST="127.0.0.1"
 DB_PORT="3306"
-JWT_SECRET="gbaseadmin-secret-key-2026"
+JWT_SECRET="change_me"
 
 APPS=("system" "upload")
 PORTS=("8000" "8002")
