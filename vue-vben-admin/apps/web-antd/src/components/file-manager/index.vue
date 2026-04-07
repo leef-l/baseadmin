@@ -130,9 +130,20 @@ async function loadFileList() {
     });
     fileListData.value = res?.list ?? [];
     pagination.total = res?.total ?? 0;
+    syncSelectedIdsWithVisibleFiles();
   } finally {
     loading.value = false;
   }
+}
+
+function syncSelectedIdsWithVisibleFiles() {
+  if (selectedIds.value.size === 0) {
+    return;
+  }
+  const visible = new Set(fileListData.value.map((item) => item.id));
+  selectedIds.value = new Set(
+    [...selectedIds.value].filter((id) => visible.has(id)),
+  );
 }
 
 /** 切换选中 */
