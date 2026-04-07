@@ -324,6 +324,8 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 		chk(!strings.Contains(output, "document.createElement"), "前端模板不应生成裸 DOM createElement 交互")
 		if strings.Contains(tplFile, "list") {
 			chk(strings.Contains(output, "downloadFileFromBlob"), "list 应使用 vben 下载工具")
+			chk(strings.Contains(output, "const sortableFieldMap"), "list 缺少排序字段映射")
+			chk(strings.Contains(output, "resolveSortField"), "list 缺少排序字段转换 helper")
 			if meta.HasKeywordSearch {
 				chk(strings.Contains(output, "fieldName: 'keyword'"), "关键词搜索缺少 keyword 控件")
 			}
@@ -352,6 +354,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 				chk(strings.Contains(output, "handleImportChange"), "缺少 handleImportChange")
 				chk(strings.Contains(output, "handleDownloadTemplate"), "缺少 handleDownloadTemplate")
 				chk(strings.Contains(output, "ref<HTMLInputElement | null>(null)"), "导入应使用 Vue ref 挂载 input")
+				chk(strings.Contains(output, "accept=\".csv\""), "导入应限制为 CSV 格式")
 			} else {
 				chk(!strings.Contains(output, "handleImportTrigger"), "未启用导入时不应生成 handleImportTrigger")
 				chk(!strings.Contains(output, "handleImportChange"), "未启用导入时不应生成 handleImportChange")
@@ -470,7 +473,6 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			if meta.HasImport {
 				chk(strings.Contains(output, "import"+meta.ModelName), "缺少 import API")
 				chk(strings.Contains(output, "downloadImportTemplate"+meta.ModelName), "缺少模板下载 API")
-				chk(strings.Contains(output, "accept=\".csv\""), "导入应限制为 CSV 格式")
 			} else {
 				chk(!strings.Contains(output, "import"+meta.ModelName), "未启用导入时不应生成 import API")
 				chk(!strings.Contains(output, "downloadImportTemplate"+meta.ModelName), "未启用导入时不应生成模板下载 API")

@@ -42,6 +42,22 @@ import DetailDrawer from './modules/detail-drawer.vue';
 /** 标签颜色池 */
 const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
 {{- end}}
+
+const sortableFieldMap: Record<string, string> = {
+  createdAt: 'created_at',
+{{- range .Fields}}
+{{- if and (not .IsHidden) (not .IsID) (not .RefFieldJSON)}}
+  {{.NameLower}}: '{{.Name}}',
+{{- end}}
+{{- end}}
+};
+
+function resolveSortField(field?: string) {
+  if (!field) {
+    return '';
+  }
+  return sortableFieldMap[field] ?? '';
+}
 {{- range .Fields}}
 {{- if and (not .IsHidden) (.IsEnum)}}
 
@@ -270,7 +286,7 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
         if (sorts && sorts.length > 0) {
           const sort = sorts[0];
           if (sort && sort.field && sort.order) {
-            params.orderBy = sort.field;
+            params.orderBy = resolveSortField(String(sort.field));
             params.orderDir = sort.order;
           }
         }
