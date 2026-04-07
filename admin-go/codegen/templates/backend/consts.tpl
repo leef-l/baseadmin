@@ -4,7 +4,7 @@ package consts
 const (
 {{- $fieldCamel := .NameCamel -}}
 {{- range .EnumValues}}
-	{{$.ModelName}}{{$fieldCamel}}{{if .NameIdent}}{{.NameIdent}}{{else}}V{{.Value}}{{end}} = {{.Value}} // {{.Label}}
+	{{$.ModelName}}{{$fieldCamel}}{{if .NameIdent}}{{.NameIdent}}{{else}}V{{.Value}}{{end}} = {{if IsNumeric .Value}}{{.Value}}{{else}}"{{.Value}}"{{end}} // {{.Label}}
 {{- end}}
 )
 {{end}}{{end}}

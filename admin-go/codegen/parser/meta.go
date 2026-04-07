@@ -57,12 +57,14 @@ type FieldMeta struct {
 	IsMoney      bool // 是否是金额字段（*_price/*_amount/*_balance/*_income，单位：分）
 	MaxLength    int
 	ValidationRules []string // 后端验证规则列表，如 ["required", "email", "length:1,50"]
+	UpdateValidationRules []string // 更新时的验证规则（去掉 required）
 	FrontendRules   string   // 前端验证规则标识：email/phone/url/''
 	DictType        string   // 字典表类型标识，如 "gender"（非空表示使用字典表动态加载）
 	DefaultValue string
 	// 关联字段信息（仅 IsForeignKey 或 IsParentID 时有值）
 	RefTable            string // 关联模块名，如 dept（用于 dao 引用和代码生成）
 	RefTableDB          string // 关联表实际数据库表名，如 system_dept（用于 g.DB().Model()）
+	RefTableApp         string // 关联表的应用名，如 system（用于前端 API 导入路径）
 	RefTableCamel       string // 关联表 CamelCase，如 Article
 	RefTableLower       string // 关联表 camelCase，如 article
 	RefDisplayField     string // 关联表显示字段 snake_case，如 title
@@ -98,5 +100,9 @@ type TableMeta struct {
 	HasDict       bool // 有字典字段（需要导入字典 API）
 	HasBatchEdit  bool // 有可批量编辑的枚举字段（status 等）
 	HasImport     bool // 是否生成导入功能（默认 true，除树形表外）
+	HasEnum       bool // 有非隐藏的枚举字段（用于前端 Tag 导入判断）
+	HasImage      bool // 有图片上传字段（用于前端列表图片 slot）
+	HasForeignKey bool // 有非隐藏的外键字段（用于前端 form 外键选项加载）
+	ParentDisplayField string // parent_id 关联的显示字段 camelCase（如 title/name），用于前端 TreeSelect fieldNames
 	EnableOpLog   bool // 是否生成操作日志（由配置控制）
 }

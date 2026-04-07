@@ -1,17 +1,29 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
-import { Descriptions, DescriptionsItem, Tag } from 'ant-design-vue';
+import { Descriptions, DescriptionsItem{{if .HasEnum}}, Tag{{end}} } from 'ant-design-vue';
 import { get{{.ModelName}}Detail } from '#/api/{{.AppName}}/{{.ModuleName}}';
 import type { {{.ModelName}}Item } from '#/api/{{.AppName}}/{{.ModuleName}}/types';
+{{- if .HasEnum}}
+
+/** 标签颜色池 */
+const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
+{{- end}}
 {{range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
 /** {{.Label}}映射 */
-const {{.NameLower}}Map: Record<number, string> = {
+const {{.NameLower}}Map: Record<number | string, string> = {
 {{- range .EnumValues}}
-  {{.Value}}: '{{.Label}}',
+  {{if IsNumeric .Value}}{{.Value}}{{else}}'{{.Value}}'{{end}}: '{{.Label}}',
 {{- end}}
 };
+
+/** {{.Label}}颜色 */
+function get{{.NameCamel}}Color(val: number | string): string {
+  const keys = [{{range $i, $v := .EnumValues}}{{if $i}}, {{end}}{{if IsNumeric $v.Value}}{{$v.Value}}{{else}}'{{$v.Value}}'{{end}}{{end}}];
+  const idx = keys.indexOf(val);
+  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
+}
 {{end}}
 {{- end}}
 const detail = ref<{{.ModelName}}Item | null>(null);
@@ -42,18 +54,23 @@ const [Modal, modalApi] = useVbenModal({
     <Descriptions v-if="detail" bordered :column="1" size="small">
       <DescriptionsItem label="ID">{{"{{"}} detail.id {{"}}"}}</DescriptionsItem>
 {{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (not .IsPassword)}}
+{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField)}}
 {{- if .RefFieldJSON}}
       <DescriptionsItem label="{{.ShortLabel}}">{{"{{"}} detail.{{.RefFieldJSON}} || '-' {{"}}"}}</DescriptionsItem>
 {{- else if .IsEnum}}
       <DescriptionsItem label="{{.ShortLabel}}">
-        <Tag>{{"{{"}} {{.NameLower}}Map[detail.{{.NameLower}}] || detail.{{.NameLower}} {{"}}"}}</Tag>
+        <Tag :color="get{{.NameCamel}}Color(detail.{{.NameLower}})">{{"{{"}} {{.NameLower}}Map[detail.{{.NameLower}}] || detail.{{.NameLower}} {{"}}"}}</Tag>
       </DescriptionsItem>
 {{- else if .IsMoney}}
       <DescriptionsItem label="{{.ShortLabel}}">{{"{{"}} detail.{{.NameLower}} != null ? (detail.{{.NameLower}} / 100).toFixed(2) : '-' {{"}}"}}</DescriptionsItem>
 {{- else if eq .Component "ImageUpload"}}
       <DescriptionsItem label="{{.ShortLabel}}">
         <img v-if="detail.{{.NameLower}}" :src="detail.{{.NameLower}}" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
+        <span v-else>-</span>
+      </DescriptionsItem>
+{{- else if eq .Component "FileUpload"}}
+      <DescriptionsItem label="{{.ShortLabel}}">
+        <a v-if="detail.{{.NameLower}}" :href="detail.{{.NameLower}}" target="_blank">查看文件</a>
         <span v-else>-</span>
       </DescriptionsItem>
 {{- else if eq .Component "RichText"}}

@@ -18,7 +18,7 @@ type {{.ModelName}}CreateReq struct {
 	g.Meta `path:"/{{.ModuleName}}/create" method:"post" tags:"{{.Comment}}" summary:"创建{{.Comment}}"`
 {{- range .Fields}}
 {{- if and (not .IsID) (not .IsHidden)}}
-	{{.NameCamel}} {{if .IsForeignKey}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}" {{if .ValidationRules}}v:"{{range $i, $v := .ValidationRules}}{{if $i}}|{{end}}{{$v}}{{end}}"{{end}} dc:"{{.Label}}"`
+	{{.NameCamel}} {{if or .IsForeignKey .IsParentID}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}" {{if .ValidationRules}}v:"{{range $i, $v := .ValidationRules}}{{if $i}}|{{end}}{{$v}}{{end}}"{{end}} dc:"{{.Label}}"`
 {{- end}}
 {{- end}}
 }
@@ -34,7 +34,7 @@ type {{.ModelName}}UpdateReq struct {
 	ID     snowflake.JsonInt64 `json:"id" v:"required#ID不能为空" dc:"{{.Comment}}ID"`
 {{- range .Fields}}
 {{- if and (not .IsID) (not .IsHidden)}}
-	{{.NameCamel}} {{if .IsForeignKey}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
+	{{.NameCamel}} {{if or .IsForeignKey .IsParentID}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}" {{if .UpdateValidationRules}}v:"{{range $i, $v := .UpdateValidationRules}}{{if $i}}|{{end}}{{$v}}{{end}}"{{end}} dc:"{{.Label}}"`
 {{- end}}
 {{- end}}
 }
@@ -65,19 +65,25 @@ type {{.ModelName}}BatchDeleteReq struct {
 type {{.ModelName}}BatchDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
-{{if .HasBatchEdit}}
+{{- if .HasBatchEdit}}
+
 // {{.ModelName}}BatchUpdateReq 批量编辑{{.Comment}}请求
 type {{.ModelName}}BatchUpdateReq struct {
 	g.Meta `path:"/{{.ModuleName}}/batch-update" method:"put" tags:"{{.Comment}}" summary:"批量编辑{{.Comment}}"`
 	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"{{.Comment}}ID列表"`
-	Status *int                  `json:"status" dc:"状态"`
+{{- range .Fields}}
+{{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
+	{{.NameCamel}} *{{.GoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
+{{- end}}
+{{- end}}
 }
 
 // {{.ModelName}}BatchUpdateRes 批量编辑{{.Comment}}响应
 type {{.ModelName}}BatchUpdateRes struct {
 	g.Meta `mime:"application/json"`
 }
-{{end}}
+{{- end}}
+
 // {{.ModelName}}DetailReq 获取{{.Comment}}详情请求
 type {{.ModelName}}DetailReq struct {
 	g.Meta `path:"/{{.ModuleName}}/detail" method:"get" tags:"{{.Comment}}" summary:"获取{{.Comment}}详情"`
@@ -96,12 +102,12 @@ type {{.ModelName}}ListReq struct {
 	PageNum   int    `json:"pageNum" d:"1" dc:"页码"`
 	PageSize  int    `json:"pageSize" d:"10" dc:"每页数量"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"asc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
-	{{.NameCamel}} *int `json:"{{.NameLower}}" dc:"{{.Label}}"`
+	{{.NameCamel}} *{{.GoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
 {{- end}}
 {{- end}}
 {{- range .Fields}}
@@ -124,7 +130,7 @@ type {{.ModelName}}ExportReq struct {
 	EndTime   string `json:"endTime" dc:"结束时间"`
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
-	{{.NameCamel}} *int `json:"{{.NameLower}}" dc:"{{.Label}}"`
+	{{.NameCamel}} *{{.GoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
 {{- end}}
 {{- end}}
 {{- range .Fields}}
@@ -138,8 +144,8 @@ type {{.ModelName}}ExportReq struct {
 type {{.ModelName}}ExportRes struct {
 	g.Meta `mime:"text/csv"`
 }
+{{- if .HasParentID}}
 
-{{if .HasParentID}}
 // {{.ModelName}}TreeReq 获取{{.Comment}}树形结构请求
 type {{.ModelName}}TreeReq struct {
 	g.Meta    `path:"/{{.ModuleName}}/tree" method:"get" tags:"{{.Comment}}" summary:"获取{{.Comment}}树形结构"`
@@ -147,7 +153,7 @@ type {{.ModelName}}TreeReq struct {
 	EndTime   string `json:"endTime" dc:"结束时间"`
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (not .IsParentID) (.IsEnum)}}
-	{{.NameCamel}} *int `json:"{{.NameLower}}" dc:"{{.Label}}"`
+	{{.NameCamel}} *{{.GoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`
 {{- end}}
 {{- end}}
 {{- range .Fields}}
@@ -162,8 +168,9 @@ type {{.ModelName}}TreeRes struct {
 	g.Meta `mime:"application/json"`
 	List   []*model.{{.ModelName}}TreeOutput `json:"list" dc:"树形数据"`
 }
-{{end}}
-{{if .HasImport}}
+{{- end}}
+{{- if .HasImport}}
+
 // {{.ModelName}}ImportReq 导入{{.Comment}}请求
 type {{.ModelName}}ImportReq struct {
 	g.Meta `path:"/{{.ModuleName}}/import" method:"post" mime:"multipart/form-data" tags:"{{.Comment}}" summary:"导入{{.Comment}}"`

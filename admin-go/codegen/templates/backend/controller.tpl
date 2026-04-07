@@ -2,9 +2,8 @@ package {{.PackageName}}
 
 import (
 	"context"
-{{- if .HasImport}}
+	"encoding/csv"
 	"fmt"
-{{- end}}
 
 	"github.com/gogf/gf/v2/frame/g"
 
@@ -53,16 +52,22 @@ func (c *c{{.ModelName}}) BatchDelete(ctx context.Context, req *v1.{{.ModelName}
 	err = service.{{.ModelName}}().BatchDelete(ctx, req.IDs)
 	return
 }
-{{if .HasBatchEdit}}
+{{- if .HasBatchEdit}}
+
 // BatchUpdate 批量编辑{{.Comment}}
 func (c *c{{.ModelName}}) BatchUpdate(ctx context.Context, req *v1.{{.ModelName}}BatchUpdateReq) (res *v1.{{.ModelName}}BatchUpdateRes, err error) {
 	err = service.{{.ModelName}}().BatchUpdate(ctx, &model.{{.ModelName}}BatchUpdateInput{
-		IDs:    req.IDs,
-		Status: req.Status,
+		IDs: req.IDs,
+{{- range .Fields}}
+{{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
+		{{.NameCamel}}: req.{{.NameCamel}},
+{{- end}}
+{{- end}}
 	})
 	return
 }
-{{end}}
+{{- end}}
+
 // Detail 获取{{.Comment}}详情
 func (c *c{{.ModelName}}) Detail(ctx context.Context, req *v1.{{.ModelName}}DetailReq) (res *v1.{{.ModelName}}DetailRes, err error) {
 	res = &v1.{{.ModelName}}DetailRes{}
@@ -112,33 +117,38 @@ func (c *c{{.ModelName}}) Export(ctx context.Context, req *v1.{{.ModelName}}Expo
 	if err != nil {
 		return
 	}
-	// CSV 导出
+	// CSV 导出（使用 csv.Writer 防止注入和格式问题）
 	r := g.RequestFromCtx(ctx)
 	r.Response.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="{{.ModuleName}}.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
+	w := csv.NewWriter(r.Response.Writer)
 	// 表头
-	r.Response.Writeln("{{- $first := true}}{{- range .Fields}}{{- if and (not .IsHidden) (not .IsID) (not .IsPassword)}}{{if not $first}},{{end}}{{if .RefFieldJSON}}{{.ShortLabel}}{{else}}{{.ShortLabel}}{{end}}{{$first = false}}{{- end}}{{- end}},创建时间")
+	_ = w.Write([]string{ {{- $first := true}}{{- range .Fields}}{{- if and (not .IsHidden) (not .IsID) (not .IsPassword)}}{{if not $first}}, {{end}}"{{.ShortLabel}}"{{$first = false}}{{- end}}{{- end}}, "创建时间"})
 	// 数据行
 	for _, item := range list {
-		r.Response.Writefln("{{- $first := true}}{{- range .Fields}}{{- if and (not .IsHidden) (not .IsID) (not .IsPassword)}}{{if not $first}},{{end}}%v{{$first = false}}{{- end}}{{- end}},%v",
-{{- $firstArg := true}}
+		_ = w.Write([]string{
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (not .IsPassword)}}
 {{- if .RefFieldJSON}}
-			{{if not $firstArg}} {{end}}item.{{.RefFieldName}},
+			item.{{.RefFieldName}},
+{{- else if eq .GoType "*gtime.Time"}}
+			func() string { if item.{{.NameCamel}} != nil { return item.{{.NameCamel}}.String() }; return "" }(),
+{{- else if eq .GoType "string"}}
+			item.{{.NameCamel}},
 {{- else}}
-			{{if not $firstArg}} {{end}}item.{{.NameCamel}},
-{{- end}}
-{{- $firstArg = false}}
+			fmt.Sprintf("%v", item.{{.NameCamel}}),
 {{- end}}
 {{- end}}
-			item.CreatedAt,
-		)
+{{- end}}
+			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
+		})
 	}
+	w.Flush()
 	return
 }
-{{if .HasImport}}
+{{- if .HasImport}}
+
 // Import 导入{{.Comment}}
 func (c *c{{.ModelName}}) Import(ctx context.Context, req *v1.{{.ModelName}}ImportReq) (res *v1.{{.ModelName}}ImportRes, err error) {
 	r := g.RequestFromCtx(ctx)
@@ -160,11 +170,14 @@ func (c *c{{.ModelName}}) ImportTemplate(ctx context.Context, req *v1.{{.ModelNa
 	r.Response.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="{{.ModuleName}}_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
-	r.Response.Writeln("{{- $first := true}}{{- range .Fields}}{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField)}}{{if not $first}},{{end}}{{.ShortLabel}}{{$first = false}}{{- end}}{{- end}}")
+	w := csv.NewWriter(r.Response.Writer)
+	_ = w.Write([]string{ {{- $first := true}}{{- range .Fields}}{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField)}}{{if not $first}}, {{end}}"{{.ShortLabel}}"{{$first = false}}{{- end}}{{- end}}})
+	w.Flush()
 	return
 }
-{{end}}
-{{if .HasParentID}}
+{{- end}}
+{{- if .HasParentID}}
+
 // Tree 获取{{.Comment}}树形结构
 func (c *c{{.ModelName}}) Tree(ctx context.Context, req *v1.{{.ModelName}}TreeReq) (res *v1.{{.ModelName}}TreeRes, err error) {
 	res = &v1.{{.ModelName}}TreeRes{}

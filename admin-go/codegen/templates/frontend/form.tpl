@@ -29,21 +29,22 @@ const treeData = ref<{{.ModelName}}Item[]>([]);
 {{- range .Fields}}
 {{- if and .IsForeignKey (not .IsHidden) .RefTable}}
 {{- if .RefIsTree}}
-import { get{{.RefTableCamel}}Tree } from '#/api/{{$.AppName}}/{{.RefTable}}';
+import { get{{.RefTableCamel}}Tree } from '#/api/{{.RefTableApp}}/{{.RefTable}}';
 {{- else}}
-import { get{{.RefTableCamel}}List } from '#/api/{{$.AppName}}/{{.RefTable}}';
+import { get{{.RefTableCamel}}List } from '#/api/{{.RefTableApp}}/{{.RefTable}}';
 {{- end}}
 {{- end}}
 {{- end}}
-{{range .Fields}}
+{{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (.IsEnum) (ne .Component "Switch")}}
+
 /** {{.Label}}选项 */
 const {{.NameLower}}Options = [
 {{- range .EnumValues}}
-  { label: '{{.Label}}', value: {{.Value}} },
+  { label: '{{.Label}}', value: {{if IsNumeric .Value}}{{.Value}}{{else}}'{{.Value}}'{{end}} },
 {{- end}}
 ];
-{{end}}
+{{- end}}
 {{- end}}
 {{- range .Fields}}
 {{- if and .IsForeignKey (not .IsHidden) .RefTable}}
@@ -147,7 +148,7 @@ const [Form, formApi] = useVbenForm({
 {{- if .IsRequired}}
       rules: 'selectRequired',
 {{- end}}
-      componentProps: { options: {{.NameLower}}DictOptions, placeholder: '请选择{{.Label}}', allowClear: true, class: 'w-full' },
+      componentProps: { options: [], placeholder: '请选择{{.Label}}', allowClear: true, class: 'w-full' },
     },
 {{- else if .IsForeignKey}}
 {{- if .RefIsTree}}
@@ -159,7 +160,7 @@ const [Form, formApi] = useVbenForm({
       rules: 'selectRequired',
 {{- end}}
       componentProps: {
-        treeData: {{.NameLower}}Options.value,
+        treeData: [],
         fieldNames: { label: '{{if .RefDisplayField}}{{.RefDisplayLower}}{{else}}title{{end}}', value: 'id', children: 'children' },
         placeholder: '请选择{{.Label}}',
         allowClear: true,
@@ -175,7 +176,7 @@ const [Form, formApi] = useVbenForm({
 {{- if .IsRequired}}
       rules: 'selectRequired',
 {{- end}}
-      componentProps: { options: {{.NameLower}}Options, placeholder: '请选择{{.Label}}', allowClear: true, class: 'w-full' },
+      componentProps: { options: [], placeholder: '请选择{{.Label}}', allowClear: true, class: 'w-full' },
     },
 {{- end}}
 {{- else}}
@@ -220,7 +221,7 @@ const [Form, formApi] = useVbenForm({
       rules: 'selectRequired',
 {{- end}}
       componentProps: {
-        treeData: treeData.value,
+        treeData: [],
         fieldNames: { label: '{{if .RefDisplayLower}}{{.RefDisplayLower}}{{else}}title{{end}}', value: 'id', children: 'children' },
         placeholder: '请选择{{.Label}}',
         allowClear: true,
@@ -237,7 +238,7 @@ const [Form, formApi] = useVbenForm({
       rules: 'selectRequired',
 {{- end}}
       componentProps: {
-        treeData: treeData.value,
+        treeData: [],
         fieldNames: { label: '{{if .RefDisplayLower}}{{.RefDisplayLower}}{{else}}title{{end}}', value: 'id', children: 'children' },
         placeholder: '请选择{{.Label}}',
         allowClear: true,
@@ -384,7 +385,7 @@ const [Modal, modalApi] = useVbenModal({
       try {
         const res = await get{{.ModelName}}Tree();
         treeData.value = [
-          { id: '0', title: '顶级节点', children: res ?? [] } as {{.ModelName}}Item,
+          { id: '0', {{if .ParentDisplayField}}{{.ParentDisplayField}}{{else}}title{{end}}: '顶级节点', children: res ?? [] } as any,
         ];
         formApi.updateSchema([
           {
@@ -420,6 +421,12 @@ const [Modal, modalApi] = useVbenModal({
           label: item.{{.RefDisplayLower}} || item.id,
           value: item.id,
         }));
+        formApi.updateSchema([
+          {
+            fieldName: '{{.NameLower}}',
+            componentProps: { options: {{.NameLower}}Options.value },
+          },
+        ]);
       } catch {
         // ignore
       }
@@ -435,6 +442,12 @@ const [Modal, modalApi] = useVbenModal({
           label: item.label,
           value: item.value,
         }));
+        formApi.updateSchema([
+          {
+            fieldName: '{{.NameLower}}',
+            componentProps: { options: {{.NameLower}}DictOptions.value },
+          },
+        ]);
       } catch {
         // ignore
       }

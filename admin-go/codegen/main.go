@@ -241,7 +241,7 @@ func main() {
 			allModules := scanExistingModules(appDir, newModules)
 
 			// 2. 收集所有表名（已有 + 新增）用于 hack/config.yaml
-			allTables := scanExistingTables(appDir, appName, appTables[appName])
+			allTables := scanExistingTables(appDir, appTables[appName])
 
 			// 3. 生成 hack/config.yaml
 			hackDir := filepath.Join(appDir, "hack")
@@ -258,6 +258,7 @@ func main() {
 					hackFile,
 					hackData,
 					true, // hack/config.yaml 总是覆盖
+					tplCache,
 				); err != nil {
 					fmt.Printf("[codegen] ✗ 生成 hack/config.yaml 失败: %v\n", err)
 				} else {
@@ -289,6 +290,7 @@ func main() {
 				mainFile,
 				mainData,
 				force,
+				tplCache,
 			); err != nil {
 				fmt.Printf("[codegen] ✗ 生成 main.go 失败: %v\n", err)
 			} else {
@@ -311,6 +313,7 @@ func main() {
 					cmdFile,
 					cmdData,
 					force,
+					tplCache,
 				); err != nil {
 					fmt.Printf("[codegen] ✗ 生成 cmd.go 失败: %v\n", err)
 				} else {
@@ -341,6 +344,27 @@ func main() {
 				}
 			} else {
 				fmt.Printf("[codegen] 跳过（已存在）: internal/middleware/auth.go\n")
+			}
+
+			// 7.1 复制 middleware/context.go（如果不存在）
+			mwCtxFile := filepath.Join(mwDir, "context.go")
+			if _, err := os.Stat(mwCtxFile); os.IsNotExist(err) {
+				if err := os.MkdirAll(mwDir, 0755); err != nil {
+					fmt.Printf("[codegen] ✗ 创建 middleware 目录失败: %v\n", err)
+				} else {
+					tplPath := filepath.Join(templateDir, "backend", "middleware_context.tpl")
+					content, err := os.ReadFile(tplPath)
+					if err != nil {
+						fmt.Printf("[codegen] ✗ 读取 middleware_context 模板失败: %v\n", err)
+					} else {
+						if err := os.WriteFile(mwCtxFile, content, 0644); err != nil {
+							fmt.Printf("[codegen] ✗ 写入 middleware/context.go 失败: %v\n", err)
+						} else {
+							fmt.Printf("[codegen] internal/middleware/context.go\n")
+							totalFiles++
+						}
+					}
+				}
 			}
 
 			// 8. 确保 internal/packed/packed.go 存在
@@ -425,7 +449,7 @@ func scanExistingModules(appDir string, newModules []string) []string {
 }
 
 // scanExistingTables 扫描已有的 hack/config.yaml 中的表名，合并新表名，返回去重排序后的列表
-func scanExistingTables(appDir string, appName string, newTables []string) []string {
+func scanExistingTables(appDir string, newTables []string) []string {
 	tableSet := make(map[string]bool)
 	for _, t := range newTables {
 		tableSet[t] = true
@@ -477,18 +501,20 @@ func scanExistingTables(appDir string, appName string, newTables []string) []str
 }
 
 // renderTemplate 渲染模板到文件，overwrite 控制是否覆盖已有文件
-// 内置 ModuleCamel 模板函数供所有模板使用
-func renderTemplate(tplPath, outPath string, data interface{}, overwrite bool) error {
+func renderTemplate(tplPath, outPath string, data interface{}, overwrite bool, cache *util.TemplateCache) error {
 	if !overwrite {
 		if _, err := os.Stat(outPath); err == nil {
 			fmt.Printf("  跳过（已存在）: %s\n", outPath)
 			return nil
 		}
 	}
-	funcMap := template.FuncMap{
-		"ModuleCamel": parser.SnakeToCamelSimple,
+	var tpl *template.Template
+	var err error
+	if cache != nil {
+		tpl, err = cache.Get(tplPath)
+	} else {
+		tpl, err = template.New(filepath.Base(tplPath)).Funcs(util.SharedFuncMap).ParseFiles(tplPath)
 	}
-	tpl, err := template.New(filepath.Base(tplPath)).Funcs(funcMap).ParseFiles(tplPath)
 	if err != nil {
 		return fmt.Errorf("解析模板 %s 失败: %v", tplPath, err)
 	}

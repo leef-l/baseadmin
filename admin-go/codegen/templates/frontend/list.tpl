@@ -7,10 +7,10 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { Page, useVbenModal } from '@vben/common-ui';
 {{- if .HasTooltip}}
-import { Button, message, Modal, Tag, Tooltip } from 'ant-design-vue';
+import { Button, message, Modal{{if .HasEnum}}, Tag{{end}}, Tooltip } from 'ant-design-vue';
 import { QuestionCircleOutlined } from '@ant-design/icons-vue';
 {{- else}}
-import { Button, message, Modal, Tag } from 'ant-design-vue';
+import { Button, message, Modal{{if .HasEnum}}, Tag{{end}} } from 'ant-design-vue';
 {{- end}}
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
@@ -22,32 +22,34 @@ import { get{{.ModelName}}List, delete{{.ModelName}}, batchDelete{{.ModelName}},
 import type { {{.ModelName}}Item } from '#/api/{{.AppName}}/{{.ModuleName}}/types';
 import FormModal from './modules/form.vue';
 import DetailDrawer from './modules/detail-drawer.vue';
-
+{{if .HasEnum}}
 /** 标签颜色池 */
 const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
-{{range .Fields}}
+{{- end}}
+{{- range .Fields}}
 {{- if and (not .IsHidden) (.IsEnum)}}
+
 /** {{.Label}}选项 */
 const {{.NameLower}}Options = [
 {{- range .EnumValues}}
-  { label: '{{.Label}}', value: {{.Value}} },
+  { label: '{{.Label}}', value: {{if IsNumeric .Value}}{{.Value}}{{else}}'{{.Value}}'{{end}} },
 {{- end}}
 ];
 
 /** {{.Label}}映射 */
-const {{.NameLower}}Map: Record<number, string> = {
+const {{.NameLower}}Map: Record<number | string, string> = {
 {{- range .EnumValues}}
-  {{.Value}}: '{{.Label}}',
+  {{if IsNumeric .Value}}{{.Value}}{{else}}'{{.Value}}'{{end}}: '{{.Label}}',
 {{- end}}
 };
 
 /** {{.Label}}颜色 */
-function get{{.NameCamel}}Color(val: number): string {
-  const keys = [{{range $i, $v := .EnumValues}}{{if $i}}, {{end}}{{$v.Value}}{{end}}];
+function get{{.NameCamel}}Color(val: number | string): string {
+  const keys = [{{range $i, $v := .EnumValues}}{{if $i}}, {{end}}{{if IsNumeric $v.Value}}{{$v.Value}}{{else}}'{{$v.Value}}'{{end}}{{end}}];
   const idx = keys.indexOf(val);
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
-{{end}}
+{{- end}}
 {{- end}}
 {{- if .HasTooltip}}
 /** 渲染带 Tooltip 的列标题 */
@@ -136,6 +138,10 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
     { field: '{{.NameLower}}', title: '{{.ShortLabel}}', width: 120, slots: { default: '{{.NameLower}}_cell' }{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
 {{- else if eq .Component "ImageUpload"}}
     { field: '{{.NameLower}}', title: '{{.ShortLabel}}', width: 100, slots: { default: '{{.NameLower}}_cell' }{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
+{{- else if eq .Component "InputUrl"}}
+    { field: '{{.NameLower}}', title: '{{.ShortLabel}}', slots: { default: '{{.NameLower}}_cell' }{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
+{{- else if eq .Component "FileUpload"}}
+    { field: '{{.NameLower}}', title: '{{.ShortLabel}}', slots: { default: '{{.NameLower}}_cell' }{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
 {{- else if or (eq .Component "RichText") (eq .Component "JsonEditor")}}
 {{- /* 富文本和JSON字段不在列表中显示，不消耗 firstDataCol */}}
 {{- else if .IsMoney}}
@@ -157,6 +163,7 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
     { title: '操作', width: 240, fixed: 'right', slots: { default: 'action' } },
   ],
 {{- if .HasParentID}}
+  height: 'auto',
   pagerConfig: { enabled: false },
   treeConfig: {
     childrenField: 'children',
@@ -207,6 +214,7 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
   sortConfig: {
     remote: true,
     trigger: 'cell',
+    defaultSort: { field: 'createdAt', order: 'desc' },
   },
   toolbarConfig: {
     custom: true,
@@ -382,6 +390,16 @@ function handleBatchUpdateStatus() {
 {{- else if and (not .IsHidden) (not .IsID) (not .IsParentID) (not .IsTimeField) (not .IsMultiFK) (eq .Component "ImageUpload")}}
       <template #{{.NameLower}}_cell="{ row }">
         <img v-if="row.{{.NameLower}}" :src="row.{{.NameLower}}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
+        <span v-else>-</span>
+      </template>
+{{- else if and (not .IsHidden) (not .IsID) (not .IsParentID) (not .IsTimeField) (not .IsMultiFK) (eq .Component "InputUrl")}}
+      <template #{{.NameLower}}_cell="{ row }">
+        <a v-if="row.{{.NameLower}}" :href="row.{{.NameLower}}" target="_blank" style="color: #1890ff;">{{"{{"}} row.{{.NameLower}} {{"}}"}}</a>
+        <span v-else>-</span>
+      </template>
+{{- else if and (not .IsHidden) (not .IsID) (not .IsParentID) (not .IsTimeField) (not .IsMultiFK) (eq .Component "FileUpload")}}
+      <template #{{.NameLower}}_cell="{ row }">
+        <a v-if="row.{{.NameLower}}" :href="row.{{.NameLower}}" target="_blank" style="color: #1890ff;">下载</a>
         <span v-else>-</span>
       </template>
 {{- end}}

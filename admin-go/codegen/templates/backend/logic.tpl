@@ -130,9 +130,21 @@ func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}Up
 
 // Delete 软删除{{.Comment}}
 func (s *s{{.ModelName}}) Delete(ctx context.Context, id snowflake.JsonInt64) error {
+{{- if .HasParentID}}
+	// 树形表：递归软删除所有子节点
+	childIDs, err := s.collectChildIDs(ctx, id)
+	if err != nil {
+		return err
+	}
+	allIDs := append([]snowflake.JsonInt64{id}, childIDs...)
+	_, err = dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, allIDs).Data(g.Map{
+		dao.{{.DaoName}}.Columns().DeletedAt: gtime.Now(),
+	}).Update()
+{{- else}}
 	_, err := dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().Id, id).Data(g.Map{
 		dao.{{.DaoName}}.Columns().DeletedAt: gtime.Now(),
 	}).Update()
+{{- end}}
 {{- if .EnableOpLog}}
 	if err == nil {
 		go oplog.Record(ctx, "{{.ModuleName}}", "delete", fmt.Sprintf("%v", id), "")
@@ -140,6 +152,38 @@ func (s *s{{.ModelName}}) Delete(ctx context.Context, id snowflake.JsonInt64) er
 {{- end}}
 	return err
 }
+{{- if .HasParentID}}
+
+// collectChildIDs 递归收集所有子节点 ID（最大深度 20 层防止无限递归）
+func (s *s{{.ModelName}}) collectChildIDs(ctx context.Context, parentID snowflake.JsonInt64) ([]snowflake.JsonInt64, error) {
+	return s.doCollectChildIDs(ctx, parentID, 0)
+}
+
+func (s *s{{.ModelName}}) doCollectChildIDs(ctx context.Context, parentID snowflake.JsonInt64, depth int) ([]snowflake.JsonInt64, error) {
+	if depth > 20 {
+		return nil, nil
+	}
+	var childIDs []snowflake.JsonInt64
+	result, err := dao.{{.DaoName}}.Ctx(ctx).
+		Where(dao.{{.DaoName}}.Columns().ParentId, parentID).
+		Where(dao.{{.DaoName}}.Columns().DeletedAt, nil).
+		Fields(dao.{{.DaoName}}.Columns().Id).
+		Array()
+	if err != nil || len(result) == 0 {
+		return childIDs, err
+	}
+	for _, v := range result {
+		cid := snowflake.JsonInt64(v.Int64())
+		childIDs = append(childIDs, cid)
+		grandChildren, err := s.doCollectChildIDs(ctx, cid, depth+1)
+		if err != nil {
+			return childIDs, err
+		}
+		childIDs = append(childIDs, grandChildren...)
+	}
+	return childIDs, nil
+}
+{{- end}}
 
 // BatchDelete 批量软删除{{.Comment}}
 func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error {
@@ -160,6 +204,9 @@ func (s *s{{.ModelName}}) Detail(ctx context.Context, id snowflake.JsonInt64) (o
 	err = dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().Id, id).Where(dao.{{.DaoName}}.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
 		return nil, err
+	}
+	if out.ID == 0 {
+		return nil, nil
 	}
 {{- range .Fields}}
 {{- if and .RefFieldName (not .IsHidden)}}
@@ -258,20 +305,33 @@ func (s *s{{.ModelName}}) fillRefFields(ctx context.Context, list []*model.{{.Mo
 
 // List 获取{{.Comment}}列表
 func (s *s{{.ModelName}}) List(ctx context.Context, in *model.{{.ModelName}}ListInput) (list []*model.{{.ModelName}}ListOutput, total int, err error) {
+	// PageSize 上限保护
+	if in.PageSize <= 0 {
+		in.PageSize = 10
+	} else if in.PageSize > 500 {
+		in.PageSize = 500
+	}
+	if in.PageNum <= 0 {
+		in.PageNum = 1
+	}
 	m := s.applyListFilter(ctx, in)
 	total, err = m.Count()
 	if err != nil {
 		return
 	}
-	// 动态排序
-	if in.OrderBy != "" {
+	// 动态排序（白名单校验防止 SQL 注入）
+	if in.OrderBy != "" && s.isAllowedOrderField(in.OrderBy) {
 		if in.OrderDir == "desc" {
 			m = m.OrderDesc(in.OrderBy)
 		} else {
 			m = m.OrderAsc(in.OrderBy)
 		}
 	} else {
-		m = m.OrderAsc(dao.{{.DaoName}}.Columns().Id)
+{{- if .HasSort}}
+		m = m.OrderAsc(dao.{{.DaoName}}.Columns().Sort).OrderDesc(dao.{{.DaoName}}.Columns().Id)
+{{- else}}
+		m = m.OrderDesc(dao.{{.DaoName}}.Columns().Id)
+{{- end}}
 	}
 	err = m.Page(in.PageNum, in.PageSize).Scan(&list)
 	if err != nil {
@@ -282,10 +342,30 @@ func (s *s{{.ModelName}}) List(ctx context.Context, in *model.{{.ModelName}}List
 {{- end}}
 	return
 }
+
+// isAllowedOrderField 校验排序字段是否在允许列表中
+func (s *s{{.ModelName}}) isAllowedOrderField(field string) bool {
+	allowed := map[string]bool{
+		dao.{{.DaoName}}.Columns().Id:        true,
+		dao.{{.DaoName}}.Columns().CreatedAt: true,
+{{- if .HasSort}}
+		dao.{{.DaoName}}.Columns().Sort:      true,
+{{- end}}
+{{- if .HasStatus}}
+		dao.{{.DaoName}}.Columns().Status:    true,
+{{- end}}
+{{- range .Fields}}
+{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (or .IsMoney .IsSearchable)}}
+		dao.{{$.DaoName}}.Columns().{{.NameDao}}: true,
+{{- end}}
+{{- end}}
+	}
+	return allowed[field]
+}
 // Export 导出{{.Comment}}（不分页）
 func (s *s{{.ModelName}}) Export(ctx context.Context, in *model.{{.ModelName}}ListInput) (list []*model.{{.ModelName}}ListOutput, err error) {
 	m := s.applyListFilter(ctx, in)
-	err = m.OrderAsc(dao.{{.DaoName}}.Columns().Id).Limit(10000).Scan(&list)
+	err = m.OrderDesc(dao.{{.DaoName}}.Columns().Id).Limit(10000).Scan(&list)
 	if err != nil {
 		return
 	}
@@ -294,8 +374,8 @@ func (s *s{{.ModelName}}) Export(ctx context.Context, in *model.{{.ModelName}}Li
 {{- end}}
 	return
 }
+{{- if .HasParentID}}
 
-{{if .HasParentID}}
 // Tree 获取{{.Comment}}树形结构
 func (s *s{{.ModelName}}) Tree(ctx context.Context, in *model.{{.ModelName}}TreeInput) (tree []*model.{{.ModelName}}TreeOutput, err error) {
 	var list []*model.{{.ModelName}}TreeOutput
@@ -324,6 +404,10 @@ func (s *s{{.ModelName}}) Tree(ctx context.Context, in *model.{{.ModelName}}Tree
 	if in.EndTime != "" {
 		m = m.WhereLTE(dao.{{.DaoName}}.Columns().CreatedAt, in.EndTime)
 	}
+{{- if or .HasCreatedBy .HasDeptID}}
+	// 数据权限过滤
+	m = middleware.ApplyDataScope(ctx, m{{if .HasCreatedBy}}, dao.{{.DaoName}}.Columns().CreatedBy{{end}}{{if .HasDeptID}}, dao.{{.DaoName}}.Columns().DeptId{{end}})
+{{- end}}
 	err = m.{{if .HasSort}}OrderAsc(dao.{{.DaoName}}.Columns().Sort).{{end}}Scan(&list)
 	if err != nil {
 		return
@@ -344,23 +428,79 @@ func (s *s{{.ModelName}}) Tree(ctx context.Context, in *model.{{.ModelName}}Tree
 			parent.Children = append(parent.Children, item)
 		}
 	}
+{{- /* 填充非 parent_id 的外键关联字段 */}}
+{{- range .Fields}}
+{{- if and .RefFieldName (not .IsHidden) (not .IsParentID)}}
+	// 批量填充{{.Label}}关联显示
+	{
+		idSet := make(map[int64]struct{})
+		var collectIDs func(items []*model.{{$.ModelName}}TreeOutput)
+		collectIDs = func(items []*model.{{$.ModelName}}TreeOutput) {
+			for _, item := range items {
+				if item.{{.NameCamel}} != 0 {
+					idSet[int64(item.{{.NameCamel}})] = struct{}{}
+				}
+				if len(item.Children) > 0 {
+					collectIDs(item.Children)
+				}
+			}
+		}
+		collectIDs(list)
+		if len(idSet) > 0 {
+			ids := make([]int64, 0, len(idSet))
+			for id := range idSet {
+				ids = append(ids, id)
+			}
+			rows, queryErr := g.DB().Ctx(ctx).Model("{{.RefTableDB}}").
+				Fields("id", "{{.RefDisplayField}}").
+				Where("deleted_at", nil).
+				WhereIn("id", ids).
+				All()
+			if queryErr == nil {
+				refMap := make(map[int64]string, len(rows))
+				for _, row := range rows {
+					refMap[row["id"].Int64()] = row["{{.RefDisplayField}}"].String()
+				}
+				var fillRef func(items []*model.{{$.ModelName}}TreeOutput)
+				fillRef = func(items []*model.{{$.ModelName}}TreeOutput) {
+					for _, item := range items {
+						if val, ok := refMap[int64(item.{{.NameCamel}})]; ok {
+							item.{{.RefFieldName}} = val
+						}
+						if len(item.Children) > 0 {
+							fillRef(item.Children)
+						}
+					}
+				}
+				fillRef(list)
+			}
+		}
+	}
+{{- end}}
+{{- end}}
 	return
 }
-{{end}}
-{{if .HasBatchEdit}}
+{{- end}}
+{{- if .HasBatchEdit}}
+
 // BatchUpdate 批量编辑{{.Comment}}
 func (s *s{{.ModelName}}) BatchUpdate(ctx context.Context, in *model.{{.ModelName}}BatchUpdateInput) error {
 	data := g.Map{
 		dao.{{.DaoName}}.Columns().UpdatedAt: gtime.Now(),
 	}
-	if in.Status != nil {
-		data[dao.{{.DaoName}}.Columns().Status] = *in.Status
+{{- range .Fields}}
+{{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
+	if in.{{.NameCamel}} != nil {
+		data[dao.{{$.DaoName}}.Columns().{{.NameDao}}] = *in.{{.NameCamel}}
 	}
+{{- end}}
+{{- end}}
 	_, err := dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, in.IDs).Data(data).Update()
 	return err
 }
-{{end}}
-{{if .HasImport}}
+{{- end}}
+{{- if .HasImport}}
+
 // Import 导入{{.Comment}}
 func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (success int, fail int, err error) {
 	f, err := file.Open()

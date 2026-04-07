@@ -115,6 +115,15 @@ func labelToIdent(label string) string {
 		"普通": "Regular", "VIP": "VIP", "管理员": "Admin",
 		"成功": "Success", "失败": "Failed",
 		"充值": "Recharge", "消费": "Consume", "提现": "Withdraw",
+		"置顶": "Pinned", "推荐": "Recommended", "热门": "Hot", "精华": "Featured",
+		"外部链接": "ExternalLink", "内部链接": "InternalLink",
+		"待确认": "Unconfirmed", "已确认": "Confirmed",
+		"待发货": "Unshipped", "已发货": "Shipped", "已签收": "Received",
+		"冻结": "Frozen", "解冻": "Unfrozen",
+		"上架": "Online", "下架": "OffShelf",
+		"免费": "Free", "付费": "Paid",
+		"公开": "Public", "私密": "Private",
+		"全部": "All", "本部门及以下": "DeptAndBelow", "本部门": "DeptOnly", "仅本人": "SelfOnly", "自定义": "Custom",
 	}
 	if ident, ok := m[label]; ok {
 		return ident

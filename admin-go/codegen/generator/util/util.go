@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+
+	"gbaseadmin/codegen/parser"
 )
 
 // ReplacePlaceholders 将路径中的 {app} 和 {module} 占位符替换为实际名称
@@ -23,6 +25,22 @@ type TemplateMapping struct {
 	OutputPath string
 }
 
+// SharedFuncMap 所有模板共享的自定义函数
+var SharedFuncMap = template.FuncMap{
+	"ModuleCamel": parser.SnakeToCamelSimple,
+	"IsNumeric": func(s string) bool {
+		if s == "" {
+			return false
+		}
+		for _, c := range s {
+			if c < '0' || c > '9' {
+				return false
+			}
+		}
+		return true
+	},
+}
+
 // TemplateCache 模板缓存，避免重复解析
 type TemplateCache struct {
 	mu    sync.RWMutex
@@ -34,7 +52,7 @@ func NewTemplateCache() *TemplateCache {
 	return &TemplateCache{cache: make(map[string]*template.Template)}
 }
 
-// Get 获取或解析模板
+// Get 获取或解析模板（自动注入 SharedFuncMap）
 func (tc *TemplateCache) Get(tplPath string) (*template.Template, error) {
 	tc.mu.RLock()
 	if t, ok := tc.cache[tplPath]; ok {
@@ -49,7 +67,7 @@ func (tc *TemplateCache) Get(tplPath string) (*template.Template, error) {
 	if t, ok := tc.cache[tplPath]; ok {
 		return t, nil
 	}
-	t, err := template.ParseFiles(tplPath)
+	t, err := template.New(filepath.Base(tplPath)).Funcs(SharedFuncMap).ParseFiles(tplPath)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +87,7 @@ func GenerateFiles(mappings []TemplateMapping, tplDir, outDir, appName, moduleNa
 		if len(cache) > 0 && cache[0] != nil {
 			tpl, err = cache[0].Get(tplPath)
 		} else {
-			tpl, err = template.ParseFiles(tplPath)
+			tpl, err = template.New(filepath.Base(tplPath)).Funcs(SharedFuncMap).ParseFiles(tplPath)
 		}
 		if err != nil {
 			return generated, fmt.Errorf("解析模板 %s 失败: %w", m.TplFile, err)
@@ -122,7 +140,7 @@ func GenerateToMemory(mappings []TemplateMapping, tplDir, outDir, appName, modul
 		if len(cache) > 0 && cache[0] != nil {
 			tpl, err = cache[0].Get(tplPath)
 		} else {
-			tpl, err = template.ParseFiles(tplPath)
+			tpl, err = template.New(filepath.Base(tplPath)).Funcs(SharedFuncMap).ParseFiles(tplPath)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("解析模板 %s 失败: %w", m.TplFile, err)

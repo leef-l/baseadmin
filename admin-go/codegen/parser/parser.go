@@ -97,7 +97,7 @@ func (p *Parser) ParseTable(tableName string) (*TableMeta, error) {
 		ModelName:    snakeToCamel(moduleName),
 		DaoName:      snakeToCamel(tableName),
 		ModuleName:   strings.ToLower(moduleName),
-		PackageName:  strings.ReplaceAll(strings.ToLower(moduleName), "_", ""),
+		PackageName:  strings.ToLower(moduleName),
 		Comment:      tableComment,
 	}
 
@@ -150,6 +150,15 @@ func (p *Parser) ParseTable(tableName string) (*TableMeta, error) {
 		}
 		if field.Component == ComponentTreeSelectSingle || field.Component == ComponentTreeSelectMulti {
 			meta.HasTreeSelect = true
+		}
+		if field.IsEnum && !field.IsHidden {
+			meta.HasEnum = true
+		}
+		if field.Component == ComponentImageUpload && !field.IsHidden {
+			meta.HasImage = true
+		}
+		if field.IsForeignKey && !field.IsHidden {
+			meta.HasForeignKey = true
 		}
 	}
 
@@ -210,6 +219,12 @@ func (p *Parser) ParseTable(tableName string) (*TableMeta, error) {
 		}
 		f.RefTable = refTable
 		f.RefTableDB = refTableDB
+		// 从 refTableDB 提取应用名（格式: {app}_{module}）
+		if idx := strings.Index(refTableDB, "_"); idx > 0 {
+			f.RefTableApp = refTableDB[:idx]
+		} else {
+			f.RefTableApp = appName // 回退为当前应用名
+		}
 		f.RefTableCamel = snakeToCamel(refTable)
 		f.RefTableLower = snakeToCamelLower(refTable)
 		f.RefDisplayField = displayField
@@ -219,6 +234,10 @@ func (p *Parser) ParseTable(tableName string) (*TableMeta, error) {
 		f.RefFieldJSON = snakeToCamelLower(refTable) + snakeToCamel(displayField)
 		// 检查关联表是否有 parent_id（树形结构）
 		f.RefIsTree = tableHasColumn(db, dbName, refTableDB, "parent_id")
+		// 记录 parent_id 的显示字段到 TableMeta
+		if f.IsParentID {
+			meta.ParentDisplayField = f.RefDisplayLower
+		}
 	}
 
 	return meta, nil
@@ -229,6 +248,7 @@ func findDisplayField(db *sql.DB, dbName, tableName string) string {
 	priorities := []string{
 		"title", "name", "username", "nickname",
 		"real_name", "label", "phone", "mobile",
+		"order_no", "code", "no", "email",
 	}
 	for _, col := range priorities {
 		if tableHasColumn(db, dbName, tableName, col) {
@@ -328,13 +348,18 @@ func buildFieldMeta(col columnInfo) FieldMeta {
 	isID := name == "id"
 	// 外键判断：_id 后缀 + 排除特殊字段 + 必须是整数类型（varchar/char 类型的 _id 字段视为业务关联ID，非真正外键）
 	isIntType := col.DataType == "bigint" || col.DataType == "int" || col.DataType == "smallint" || col.DataType == "tinyint" || col.DataType == "mediumint"
-	isForeignKey := strings.HasSuffix(name, "_id") && name != "id" && name != "dept_id" && isIntType
+	isForeignKey := strings.HasSuffix(name, "_id") && name != "id" && name != "dept_id" && name != "parent_id" && isIntType
 	isMultiFK := strings.HasSuffix(name, "_ids")
 	isParentID := name == "parent_id"
 	isPassword := name == "password" || strings.HasSuffix(name, "_password") || strings.HasSuffix(name, "_pwd")
 
 	// 解析备注
 	label, shortLabel, tooltipText, enums := ParseComment(col.ColumnComment)
+	// 如果 comment 为空，回退为字段名的 CamelCase 形式作为 Label
+	if label == "" {
+		label = snakeToCamelDao(name)
+		shortLabel = label
+	}
 
 	// 构建基础数据库类型（简化，去掉长度信息用于映射）
 	dbType := col.ColumnType
@@ -352,7 +377,7 @@ func buildFieldMeta(col columnInfo) FieldMeta {
 		ShortLabel:   shortLabel,
 		TooltipText:  tooltipText,
 		EnumValues:   enums,
-		IsRequired:   col.IsNullable == "NO" && col.ColumnDefault.Valid == false && name != "id",
+		IsRequired:   col.IsNullable == "NO" && !col.ColumnDefault.Valid && name != "id" && col.Extra != "auto_increment",
 		IsID:         isID,
 		IsParentID:   isParentID,
 		IsForeignKey: isForeignKey,
@@ -388,7 +413,7 @@ func buildFieldMeta(col columnInfo) FieldMeta {
 
 	// 判断是否金额字段（单位：分，列表需要分→元格式化）
 	moneyNames := map[string]bool{
-		"price": true, "amount": true, "balance": true, "quantity": false,
+		"price": true, "amount": true, "balance": true,
 		"income_total": true, "income_balance": true,
 	}
 	if moneyNames[name] ||
@@ -411,9 +436,20 @@ func buildFieldMeta(col columnInfo) FieldMeta {
 
 	// 自动推导验证规则
 	field.ValidationRules, field.FrontendRules = buildValidationRules(field)
+	// 更新时的验证规则（去掉 required）
+	for _, r := range field.ValidationRules {
+		if r != "required" {
+			field.UpdateValidationRules = append(field.UpdateValidationRules, r)
+		}
+	}
 
 	// 映射前端组件
 	field.Component = MapComponent(field)
+
+	// 隐藏字段不需要前端必填校验（后端自动注入）
+	if field.IsHidden {
+		field.IsRequired = false
+	}
 
 	return field
 }

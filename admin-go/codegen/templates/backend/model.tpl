@@ -12,7 +12,7 @@ import (
 type {{.ModelName}}CreateInput struct {
 {{- range .Fields}}
 {{- if and (not .IsID) (not .IsHidden)}}
-	{{.NameCamel}} {{if .IsForeignKey}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}"`
+	{{.NameCamel}} {{if or .IsForeignKey .IsParentID}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}"`
 {{- end}}
 {{- end}}
 }
@@ -22,7 +22,7 @@ type {{.ModelName}}UpdateInput struct {
 	ID snowflake.JsonInt64 `json:"id"`
 {{- range .Fields}}
 {{- if and (not .IsID) (not .IsHidden)}}
-	{{.NameCamel}} {{if .IsForeignKey}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}"`
+	{{.NameCamel}} {{if or .IsForeignKey .IsParentID}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}"`
 {{- end}}
 {{- end}}
 }
@@ -32,7 +32,7 @@ type {{.ModelName}}DetailOutput struct {
 	ID snowflake.JsonInt64 `json:"id"`
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (not .IsPassword)}}
-	{{.NameCamel}} {{if .IsForeignKey}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}"`
+	{{.NameCamel}} {{if or .IsForeignKey .IsParentID}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}"`
 {{- if .RefFieldName}}
 	{{.RefFieldName}} string `json:"{{.RefFieldJSON}}"`
 {{- end}}
@@ -47,7 +47,7 @@ type {{.ModelName}}ListOutput struct {
 	ID snowflake.JsonInt64 `json:"id"`
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (not .IsPassword)}}
-	{{.NameCamel}} {{if .IsForeignKey}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}"`
+	{{.NameCamel}} {{if or .IsForeignKey .IsParentID}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}"`
 {{- if .RefFieldName}}
 	{{.RefFieldName}} string `json:"{{.RefFieldJSON}}"`
 {{- end}}
@@ -67,7 +67,7 @@ type {{.ModelName}}ListInput struct {
 	EndTime   string `json:"endTime"`
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
-	{{.NameCamel}} *int `json:"{{.NameLower}}"`
+	{{.NameCamel}} *{{.GoType}} `json:"{{.NameLower}}"`
 {{- end}}
 {{- end}}
 {{- range .Fields}}
@@ -76,14 +76,15 @@ type {{.ModelName}}ListInput struct {
 {{- end}}
 {{- end}}
 }
-{{if .HasParentID}}
+{{- if .HasParentID}}
+
 // {{.ModelName}}TreeInput {{.Comment}}树形查询输入
 type {{.ModelName}}TreeInput struct {
 	StartTime string `json:"startTime"`
 	EndTime   string `json:"endTime"`
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (not .IsParentID) (.IsEnum)}}
-	{{.NameCamel}} *int `json:"{{.NameLower}}"`
+	{{.NameCamel}} *{{.GoType}} `json:"{{.NameLower}}"`
 {{- end}}
 {{- end}}
 {{- range .Fields}}
@@ -98,19 +99,26 @@ type {{.ModelName}}TreeOutput struct {
 	ID snowflake.JsonInt64 `json:"id"`
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (not .IsPassword)}}
-	{{.NameCamel}} {{if .IsForeignKey}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}"`
+	{{.NameCamel}} {{if or .IsForeignKey .IsParentID}}snowflake.JsonInt64{{else}}{{.GoType}}{{end}} `json:"{{.NameLower}}"`
 {{- if .RefFieldName}}
 	{{.RefFieldName}} string `json:"{{.RefFieldJSON}}"`
 {{- end}}
 {{- end}}
 {{- end}}
-	Children []*{{.ModelName}}TreeOutput `json:"children"`
+	CreatedAt *gtime.Time                `json:"createdAt"`
+	UpdatedAt *gtime.Time                `json:"updatedAt"`
+	Children  []*{{.ModelName}}TreeOutput `json:"children"`
 }
-{{end}}
-{{if .HasBatchEdit}}
+{{- end}}
+{{- if .HasBatchEdit}}
+
 // {{.ModelName}}BatchUpdateInput 批量编辑{{.Comment}}输入
 type {{.ModelName}}BatchUpdateInput struct {
 	IDs    []snowflake.JsonInt64 `json:"ids"`
-	Status *int                  `json:"status"`
+{{- range .Fields}}
+{{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
+	{{.NameCamel}} *{{.GoType}} `json:"{{.NameLower}}"`
+{{- end}}
+{{- end}}
 }
 {{end}}

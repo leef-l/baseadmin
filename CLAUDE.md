@@ -53,6 +53,23 @@ admin-go/app/*/internal/model/entity/
 3. 菜单与权限联动：后端接口、前端入口、`system_menu` 要一起看
 4. 文档统一放 `docs/`，根目录只保留简短说明
 5. 路径引用尽量写成 Markdown 相对链接，保证能直接点击打开
+6. codegen 测试必须全面：每次修改 codegen 后，必须用 `admin-go/codegen/verify_test.go` 做端到端验证。测试表必须覆盖以下全部场景，缺一不可：
+   - 树形表（parent_id）+ 非树形表
+   - 单选外键（*_id 指向同应用表）+ 跨应用外键（*_id 指向其他应用表）
+   - 树形外键（关联表有 parent_id）+ 普通外键（关联表无 parent_id）
+   - 所有组件类型：Input、InputNumber、Textarea、Switch、Radio、Select、TreeSelect、ImageUpload、FileUpload、RichText、JsonEditor、Password、InputUrl、DateTimePicker、IconPicker
+   - 枚举字段（2 值 Switch + 3 值 Radio + 多值 Select）
+   - 金额字段（分→元）
+   - 搜索字段（模糊 + 精确）
+   - Tooltip 字段（括号提示）
+   - 密码字段
+   - 多段模块名（如 user_review → 包名 user_review）
+   - 字段 comment 为空的回退
+   - 字典字段（dict:xxx）
+   - 数据权限字段（created_by + dept_id）
+   - sort 排序字段
+   - 自定义时间字段（*_at）
+   - 验证规则（email/phone/url/max-length）
 
 ## 常用命令
 

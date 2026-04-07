@@ -81,7 +81,7 @@ export function downloadImportTemplate{{.ModelName}}() {
 {{- if .HasBatchEdit}}
 
 /** 批量编辑{{.Comment}} */
-export function batchUpdate{{.ModelName}}(data: { ids: string[]; status?: number }) {
+export function batchUpdate{{.ModelName}}(data: { ids: string[];{{range .Fields}}{{if and (not .IsHidden) (not .IsID) (.IsEnum)}} {{.NameLower}}?: {{.TSType}};{{end}}{{end}} }) {
   return requestClient.put(`${PREFIX}/batch-update`, data);
 }
 {{- end}}

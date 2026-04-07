@@ -70,7 +70,7 @@ export interface {{.ModelName}}UpdateParams {
   id: string;
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID)}}
-  {{.NameLower}}{{if not .IsRequired}}?{{end}}: {{if or .IsForeignKey .IsParentID}}string{{else if .IsMultiFK}}string[]{{else}}{{.TSType}}{{end}};
+  {{.NameLower}}{{if or (not .IsRequired) .IsPassword}}?{{end}}: {{if or .IsForeignKey .IsParentID}}string{{else if .IsMultiFK}}string[]{{else}}{{.TSType}}{{end}};
 {{- end}}
 {{- end}}
 }

@@ -81,6 +81,7 @@ func snakeToCamelLower(s string) string {
 }
 
 // MapGoType 根据数据库类型映射 Go 类型
+// dbType 为 information_schema.COLUMNS.DATA_TYPE（纯类型名，如 bigint/varchar/decimal）
 func MapGoType(dbType string, isID bool) string {
 	dbType = strings.ToLower(dbType)
 
@@ -89,30 +90,32 @@ func MapGoType(dbType string, isID bool) string {
 		return "JsonInt64"
 	}
 
-	switch {
-	case dbType == "bigint unsigned", dbType == "bigint":
+	switch dbType {
+	case "bigint":
 		return "int64"
-	case dbType == "int", dbType == "int unsigned", dbType == "mediumint", dbType == "mediumint unsigned":
+	case "int", "mediumint":
 		return "int"
-	case dbType == "smallint", dbType == "smallint unsigned":
+	case "smallint":
 		return "int"
-	case dbType == "tinyint", strings.HasPrefix(dbType, "tinyint("):
+	case "tinyint":
 		return "int"
-	case dbType == "float":
+	case "float":
 		return "float32"
-	case dbType == "double", dbType == "decimal":
+	case "double":
 		return "float64"
-	case strings.HasPrefix(dbType, "varchar"), strings.HasPrefix(dbType, "char"):
+	case "decimal":
+		return "float64"
+	case "varchar", "char":
 		return "string"
-	case dbType == "text", dbType == "longtext", dbType == "mediumtext", dbType == "tinytext":
+	case "text", "longtext", "mediumtext", "tinytext":
 		return "string"
-	case dbType == "datetime", dbType == "timestamp", dbType == "date", dbType == "time":
+	case "datetime", "timestamp", "date", "time":
 		return "*gtime.Time"
-	case dbType == "json":
+	case "json":
 		return "string"
-	case dbType == "blob", dbType == "longblob", dbType == "mediumblob":
+	case "blob", "longblob", "mediumblob":
 		return "[]byte"
-	case strings.HasPrefix(dbType, "enum"):
+	case "enum", "set":
 		return "string"
 	default:
 		return "string"
@@ -128,17 +131,14 @@ func MapTSType(dbType string, isID bool) string {
 		return "string"
 	}
 
-	switch {
-	case dbType == "bigint unsigned", dbType == "bigint":
+	switch dbType {
+	case "bigint":
 		return "string" // bigint 前端也用 string
-	case dbType == "int", dbType == "int unsigned",
-		dbType == "mediumint", dbType == "mediumint unsigned",
-		dbType == "smallint", dbType == "smallint unsigned",
-		dbType == "tinyint", strings.HasPrefix(dbType, "tinyint("):
+	case "int", "mediumint", "smallint", "tinyint":
 		return "number"
-	case dbType == "float", dbType == "double", dbType == "decimal":
+	case "float", "double", "decimal":
 		return "number"
-	case dbType == "datetime", dbType == "timestamp", dbType == "date", dbType == "time":
+	case "datetime", "timestamp", "date", "time":
 		return "string"
 	default:
 		return "string"
