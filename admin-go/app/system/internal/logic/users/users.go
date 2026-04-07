@@ -323,18 +323,7 @@ func (s *sUsers) fillRoleTitles(ctx context.Context, list []*model.UsersListOutp
 	for id := range roleSet {
 		roleIDs = append(roleIDs, id)
 	}
-	rows, err := g.DB().Ctx(ctx).Model("system_role").
-		Fields("id", "title").
-		Where("deleted_at", nil).
-		WhereIn("id", roleIDs).
-		All()
-	if err != nil {
-		return
-	}
-	roleMap := make(map[int64]string, len(rows))
-	for _, row := range rows {
-		roleMap[row["id"].Int64()] = row["title"].String()
-	}
+	roleMap := shared.LoadTitleMap(ctx, "system_role", roleIDs)
 	for _, item := range list {
 		for _, roleID := range userRoleMap[int64(item.ID)] {
 			appendUniqueRoleTitle(item, roleMap[roleID])

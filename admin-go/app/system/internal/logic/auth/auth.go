@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gtime"
@@ -180,24 +181,11 @@ func (s *sAuth) loadInfo(ctx context.Context, userID snowflake.JsonInt64) (out *
 		roleIDs := collectRoleIDs(roles)
 		out.Roles = collectRoleTitles(roles)
 		if hasAdminRole(roles) {
-			var perms []permissionRow
-			_ = g.DB().Ctx(ctx).Model("system_menu").
-				Where("deleted_at", nil).
-				Where("status", 1).
-				WhereNot("permission", "").
-				Scan(&perms)
-			out.Perms = compactPermissions(collectPermissions(perms))
+			out.Perms = loadActiveMenuPermissions(ctx, nil)
 		} else {
 			menuIDs, menuErr := loadRoleMenuIDs(ctx, roleIDs)
-			if menuErr == nil && len(menuIDs) > 0 {
-				var perms []permissionRow
-				_ = g.DB().Ctx(ctx).Model("system_menu").
-					Where("id", menuIDs).
-					Where("deleted_at", nil).
-					Where("status", 1).
-					WhereNot("permission", "").
-					Scan(&perms)
-				out.Perms = compactPermissions(collectPermissions(perms))
+			if menuErr == nil {
+				out.Perms = loadActiveMenuPermissions(ctx, menuIDs)
 			}
 		}
 	}
@@ -243,6 +231,7 @@ func (s *sAuth) ChangePassword(ctx context.Context, in *model.AuthChangePassword
 	// 更新密码
 	_, err = dao.Users.Ctx(ctx).
 		Where(dao.Users.Columns().Id, in.UserID).
+		Where(dao.Users.Columns().DeletedAt, nil).
 		Data(dao.Users.Columns().Password, hashedNew).
 		Update()
 	if err == nil {
@@ -278,13 +267,7 @@ func (s *sAuth) loadMenus(ctx context.Context, userID snowflake.JsonInt64) ([]*m
 		return make([]*model.AuthMenuOutput, 0), nil
 	}
 	if hasAdminRole(roles) {
-		// 超级管理员获取所有菜单
-		var list []*model.AuthMenuOutput
-		err = g.DB().Ctx(ctx).Model("system_menu").
-			Where("deleted_at", nil).
-			Where("status", 1).
-			OrderAsc("sort").
-			Scan(&list)
+		list, err := loadActiveMenus(ctx, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -301,13 +284,7 @@ func (s *sAuth) loadMenus(ctx context.Context, userID snowflake.JsonInt64) ([]*m
 	}
 
 	// 查询菜单详情
-	var list []*model.AuthMenuOutput
-	err = g.DB().Ctx(ctx).Model("system_menu").
-		Where("id", menuIDs).
-		Where("deleted_at", nil).
-		Where("status", 1).
-		OrderAsc("sort").
-		Scan(&list)
+	list, err := loadActiveMenus(ctx, menuIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -562,6 +539,36 @@ func loadRoleMenuIDs(ctx context.Context, roleIDs []int64) ([]int64, error) {
 		menuIDs = append(menuIDs, rm.MenuId)
 	}
 	return compactInt64s(menuIDs), nil
+}
+
+func activeMenuModel(ctx context.Context) *gdb.Model {
+	return g.DB().Ctx(ctx).Model("system_menu").
+		Where("deleted_at", nil).
+		Where("status", 1)
+}
+
+func loadActiveMenuPermissions(ctx context.Context, menuIDs []int64) []string {
+	var perms []permissionRow
+	model := activeMenuModel(ctx)
+	if len(menuIDs) > 0 {
+		model = model.Where("id", menuIDs)
+	}
+	if err := model.WhereNot("permission", "").Scan(&perms); err != nil {
+		return nil
+	}
+	return compactPermissions(collectPermissions(perms))
+}
+
+func loadActiveMenus(ctx context.Context, menuIDs []int64) ([]*model.AuthMenuOutput, error) {
+	var list []*model.AuthMenuOutput
+	model := activeMenuModel(ctx)
+	if len(menuIDs) > 0 {
+		model = model.Where("id", menuIDs)
+	}
+	if err := model.OrderAsc("sort").Scan(&list); err != nil {
+		return nil, err
+	}
+	return list, nil
 }
 
 func collectPermissions(rows []permissionRow) []string {
