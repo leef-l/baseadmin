@@ -38,6 +38,12 @@ const [UpdateNoticeModal, modalApi] = useVbenModal({
 async function getVersionTag() {
   try {
     if (
+      typeof location === 'undefined' ||
+      typeof fetch === 'undefined'
+    ) {
+      return null;
+    }
+    if (
       location.hostname === 'localhost' ||
       location.hostname === '127.0.0.1'
     ) {
@@ -77,13 +83,16 @@ async function checkForUpdates() {
 }
 function handleNotice(versionTag: string) {
   currentVersionTag.value = versionTag;
-  modalApi.open();
+  if (!modalApi.useStore?.()?.value?.isOpen) {
+    modalApi.open();
+  }
 }
 
 function start() {
   if (props.checkUpdatesInterval <= 0) {
     return;
   }
+  stop();
 
   // 每 checkUpdatesInterval(默认值为1) 分钟检查一次
   timer.value = setInterval(
@@ -93,6 +102,9 @@ function start() {
 }
 
 function handleVisibilitychange() {
+  if (typeof document === 'undefined') {
+    return;
+  }
   if (document.hidden) {
     stop();
   } else {
@@ -107,17 +119,24 @@ function handleVisibilitychange() {
 }
 
 function stop() {
-  clearInterval(timer.value);
+  if (timer.value) {
+    clearInterval(timer.value);
+    timer.value = undefined;
+  }
 }
 
 onMounted(() => {
   start();
-  document.addEventListener('visibilitychange', handleVisibilitychange);
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', handleVisibilitychange);
+  }
 });
 
 onUnmounted(() => {
   stop();
-  document.removeEventListener('visibilitychange', handleVisibilitychange);
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('visibilitychange', handleVisibilitychange);
+  }
 });
 </script>
 <template>

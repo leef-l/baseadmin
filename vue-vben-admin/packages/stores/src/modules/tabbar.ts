@@ -736,7 +736,11 @@ function getTabKey(tab: RouteLocationNormalized | RouteRecordNormalized) {
 async function waitForRouteViewSwap() {
   await nextTick();
   await new Promise<void>((resolve) => {
-    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.requestAnimationFrame !== 'function' ||
+      document.hidden
+    ) {
       setTimeout(resolve, 16);
       return;
     }

@@ -51,6 +51,9 @@ function isZIndexExcludeClass(element: Element) {
  * 获取最大的zIndex值
  */
 function calcZIndex() {
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
+    return 1;
+  }
   let maxZ = 0;
   const elements = document.querySelectorAll('*');
   [...elements].forEach((element) => {

@@ -38,9 +38,10 @@ export function useLayoutContentStyle() {
 
   const debouncedCalcHeight = useDebounceFn(
     (_entries: ResizeObserverEntry[]) => {
-      visibleDomRect.value = getElementVisibleRect(contentElement.value);
-      contentHeight.value = `${visibleDomRect.value.height}px`;
-      contentWidth.value = `${visibleDomRect.value.width}px`;
+      const rect = getElementVisibleRect(contentElement.value);
+      visibleDomRect.value = rect;
+      contentHeight.value = `${rect?.height ?? 0}px`;
+      contentWidth.value = `${rect?.width ?? 0}px`;
     },
     16,
   );
@@ -49,6 +50,7 @@ export function useLayoutContentStyle() {
     if (contentElement.value && !resizeObserver) {
       resizeObserver = new ResizeObserver(debouncedCalcHeight);
       resizeObserver.observe(contentElement.value);
+      debouncedCalcHeight([]);
     }
   });
 
