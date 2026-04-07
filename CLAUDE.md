@@ -44,6 +44,7 @@ admin-go/app/*/internal/model/entity/
 - 运行 Docker 时优先用 `docker/dev/compose.ps1` 或 `docker/dev/compose.sh`
 - 两个脚本都会先把 `docker/dev/.env` 覆盖到 `admin-go/.env`
 - Docker 相关资源统一放在 `docker/build/`、`docker/mysql/`、`docker/nginx/`
+- 只要改 Docker 相关配置、端口、镜像、环境变量、挂载、启动命令，必须同步检查并更新这三处：`docker/dev/docker-compose.yml`、`docker/dev/docker-compose.cn.yml`、`docker/prod/docker-compose.yml`
 
 ## 铁律
 
@@ -72,6 +73,7 @@ admin-go/app/*/internal/model/entity/
    - 验证规则（email/phone/url/max-length）
 8. 整体功能完成后必须立即提交到 GitHub：禁止把“已完成但未提交”当作稳定状态。默认使用仓库脚本 `./scripts/feature-publish.sh "type(scope): summary"` 一次性执行 `git add -A`、`git commit`、`git push origin 当前分支`
 9. 数据库铁律与提交流程同时生效：只要整体功能包含数据库变更，必须先补齐 `golang-migrate` 迁移文件，再执行功能提交流程；禁止跳过迁移直接提交业务代码
+10. Docker 三文件联动：任何 Docker 改动都不能只改一份 compose，必须同步更新开发版、国内镜像开发版、生产版；如果某一份故意不同，必须在变更处写清原因
 
 ## 常用命令
 

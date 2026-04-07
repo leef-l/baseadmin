@@ -10,6 +10,14 @@
 - 开发环境变量源：`docker/dev/.env`
 - 后端运行时环境文件：`admin-go/.env`
 
+## 铁律
+
+- 任何 Docker 改动都必须同时检查并更新这三处 compose：
+  - `docker/dev/docker-compose.yml`
+  - `docker/dev/docker-compose.cn.yml`
+  - `docker/prod/docker-compose.yml`
+- 如果其中某一份必须保持差异，必须在对应改动处写清楚原因，不能默认遗漏
+
 ## 使用方式
 
 推荐始终通过下面的脚本启动，而不是直接在 `admin-go/` 里执行 compose：

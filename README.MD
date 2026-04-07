@@ -22,6 +22,10 @@ Docker 开发入口已迁移到根目录：
 - `docker/dev/compose.ps1`
 - `docker/dev/compose.sh`
 
+Docker 铁律：
+
+- 任何 Docker 改动都必须同步检查并更新 `docker/dev/docker-compose.yml`、`docker/dev/docker-compose.cn.yml`、`docker/prod/docker-compose.yml`
+
 ## Dev 启动方式
 
 ### 启动前提
