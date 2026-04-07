@@ -9,7 +9,7 @@ import type {
 
 import type { TabDefinition } from '@vben-core/typings';
 
-import { markRaw, toRaw } from 'vue';
+import { markRaw, nextTick, toRaw } from 'vue';
 
 import { preferences } from '@vben-core/preferences';
 import {
@@ -414,10 +414,11 @@ export const useTabbarStore = defineStore('core-tabbar', {
       this.renderRouteView = false;
       startProgress();
 
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await waitForRouteViewSwap();
 
       this.excludeCachedTabs.delete(name as string);
       this.renderRouteView = true;
+      await waitForRouteViewSwap();
       stopProgress();
     },
 
@@ -426,7 +427,7 @@ export const useTabbarStore = defineStore('core-tabbar', {
      */
     async refreshByName(name: string) {
       this.excludeCachedTabs.add(name);
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await waitForRouteViewSwap();
       this.excludeCachedTabs.delete(name);
     },
 
@@ -730,6 +731,17 @@ function getTabKey(tab: RouteLocationNormalized | RouteRecordNormalized) {
   } catch {
     return rawKey;
   }
+}
+
+async function waitForRouteViewSwap() {
+  await nextTick();
+  await new Promise<void>((resolve) => {
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+      setTimeout(resolve, 16);
+      return;
+    }
+    window.requestAnimationFrame(() => resolve());
+  });
 }
 
 /**
