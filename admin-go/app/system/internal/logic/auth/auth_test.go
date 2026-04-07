@@ -86,6 +86,13 @@ func TestChangePasswordInputValidation(t *testing.T) {
 	}
 	if err := authSvc.ChangePassword(nil, &model.AuthChangePasswordInput{
 		UserID:      1,
+		OldPassword: " ",
+		NewPassword: "abc123",
+	}); err == nil || err.Error() != "旧密码不能为空" {
+		t.Fatalf("ChangePassword blank old password mismatch: %v", err)
+	}
+	if err := authSvc.ChangePassword(nil, &model.AuthChangePasswordInput{
+		UserID:      1,
 		OldPassword: "abc123",
 		NewPassword: "",
 	}); err == nil || err.Error() != "新密码不能为空" {
@@ -97,5 +104,22 @@ func TestChangePasswordInputValidation(t *testing.T) {
 		NewPassword: "abc123",
 	}); err == nil || err.Error() != "新密码不能与旧密码相同" {
 		t.Fatalf("ChangePassword same password mismatch: %v", err)
+	}
+}
+
+func TestCollectRoleHelpers(t *testing.T) {
+	roles := []roleSnapshot{
+		{ID: 2, Title: " 编辑 ", IsAdmin: 0},
+		{ID: 1, Title: "管理员", IsAdmin: 1},
+		{ID: 2, Title: "编辑", IsAdmin: 0},
+	}
+	if got := collectRoleIDs(roles); !reflect.DeepEqual(got, []int64{2, 1}) {
+		t.Fatalf("collectRoleIDs mismatch: %v", got)
+	}
+	if got := collectRoleTitles(roles); !reflect.DeepEqual(got, []string{"编辑", "管理员"}) {
+		t.Fatalf("collectRoleTitles mismatch: %v", got)
+	}
+	if !hasAdminRole(roles) {
+		t.Fatal("hasAdminRole should detect admin role")
 	}
 }

@@ -21,6 +21,19 @@ func TestEnsureMySQLDSNParams(t *testing.T) {
 	}
 }
 
+func TestEnsureMySQLDSNParamsFillsBlankValues(t *testing.T) {
+	got := ensureMySQLDSNParams("user:pass@tcp(127.0.0.1:3306)/gbaseadmin?charset=&parseTime= &multiStatements=")
+	if !strings.Contains(got, "charset=utf8mb4") {
+		t.Fatalf("dsn should backfill blank charset: %q", got)
+	}
+	if !strings.Contains(got, "parseTime=true") {
+		t.Fatalf("dsn should backfill blank parseTime: %q", got)
+	}
+	if !strings.Contains(got, "multiStatements=true") {
+		t.Fatalf("dsn should backfill blank multiStatements: %q", got)
+	}
+}
+
 func TestGoFrameLinkToMySQLDSN(t *testing.T) {
 	got, err := goFrameLinkToMySQLDSN("mysql:user:pass@tcp(127.0.0.1:3306)/gbaseadmin")
 	if err != nil {

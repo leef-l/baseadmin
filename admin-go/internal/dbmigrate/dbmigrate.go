@@ -298,20 +298,20 @@ func ensureMySQLDSNParams(dsn string) string {
 		rawQuery = dsn[idx+1:]
 	}
 	values, _ := url.ParseQuery(rawQuery)
-	if values.Get("charset") == "" {
-		values.Set("charset", "utf8mb4")
-	}
-	if values.Get("parseTime") == "" {
-		values.Set("parseTime", "true")
-	}
-	if values.Get("multiStatements") == "" {
-		values.Set("multiStatements", "true")
-	}
+	ensureQueryDefault(values, "charset", "utf8mb4")
+	ensureQueryDefault(values, "parseTime", "true")
+	ensureQueryDefault(values, "multiStatements", "true")
 	encoded := values.Encode()
 	if encoded == "" {
 		return base
 	}
 	return base + "?" + encoded
+}
+
+func ensureQueryDefault(values url.Values, key, fallback string) {
+	if strings.TrimSpace(values.Get(key)) == "" {
+		values.Set(key, fallback)
+	}
 }
 
 func createMigrationFiles(dir, name string, now time.Time) error {

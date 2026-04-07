@@ -157,6 +157,7 @@ func (s *sConfig) Update(ctx context.Context, in *model.ConfigUpdateInput) error
 		}
 		_, err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).
 			Where(dao.UploadConfig.Columns().Id, in.ID).
+			Where(dao.UploadConfig.Columns().DeletedAt, nil).
 			Data(data).
 			Update()
 		return err
@@ -177,9 +178,13 @@ func (s *sConfig) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if current.IsDefault == 1 {
 		return gerror.New("默认上传配置不能删除，请先设置其他配置为默认")
 	}
-	_, err := dao.UploadConfig.Ctx(ctx).Where(dao.UploadConfig.Columns().Id, id).Data(g.Map{
-		dao.UploadConfig.Columns().DeletedAt: gtime.Now(),
-	}).Update()
+	_, err := dao.UploadConfig.Ctx(ctx).
+		Where(dao.UploadConfig.Columns().Id, id).
+		Where(dao.UploadConfig.Columns().DeletedAt, nil).
+		Data(g.Map{
+			dao.UploadConfig.Columns().DeletedAt: gtime.Now(),
+		}).
+		Update()
 	return err
 }
 

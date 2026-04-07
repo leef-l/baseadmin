@@ -35,6 +35,12 @@ type permissionRow struct {
 	Permission string `json:"permission"`
 }
 
+type roleSnapshot struct {
+	ID      int64  `json:"id"`
+	Title   string `json:"title"`
+	IsAdmin int    `json:"isAdmin"`
+}
+
 const (
 	authLoginFailLimit  = 5
 	authLoginFailWindow = 10 * time.Minute
@@ -55,6 +61,9 @@ func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model
 		return nil, err
 	}
 	normalizeAuthLoginInput(in)
+	if in.Username == "" {
+		return nil, gerror.New("用户名不能为空")
+	}
 	if s.isLoginRateLimited(ctx, in.Username) {
 		return nil, gerror.New("登录失败次数过多，请10分钟后再试")
 	}
@@ -166,76 +175,29 @@ func (s *sAuth) loadInfo(ctx context.Context, userID snowflake.JsonInt64) (out *
 		Perms:    make([]string, 0),
 	}
 
-	// 查询用户角色
-	var userRoles []struct {
-		RoleId int64 `json:"roleId"`
-	}
-	_ = dao.UserRole.Ctx(ctx).Where(dao.UserRole.Columns().UserId, userID).Scan(&userRoles)
-
-	if len(userRoles) > 0 {
-		roleIDs := make([]int64, 0, len(userRoles))
-		for _, ur := range userRoles {
-			roleIDs = append(roleIDs, ur.RoleId)
-		}
-		roleIDs = compactInt64s(roleIDs)
-
-		if len(roleIDs) > 0 {
-			// 查询角色名称
-			var roles []struct {
-				Title string `json:"title"`
-			}
-			_ = g.DB().Ctx(ctx).Model("system_role").
-				Where("id", roleIDs).
+	roles, err := loadUserRoles(ctx, int64(userID))
+	if err == nil && len(roles) > 0 {
+		roleIDs := collectRoleIDs(roles)
+		out.Roles = collectRoleTitles(roles)
+		if hasAdminRole(roles) {
+			var perms []permissionRow
+			_ = g.DB().Ctx(ctx).Model("system_menu").
 				Where("deleted_at", nil).
 				Where("status", 1).
-				Scan(&roles)
-			for _, r := range roles {
-				out.Roles = append(out.Roles, r.Title)
-			}
-
-			// 检查是否有超级管理员角色
-			isAdmin := false
-			adminCount, _ := g.DB().Ctx(ctx).Model("system_role").
-				Where("id", roleIDs).
-				Where("deleted_at", nil).
-				Where("status", 1).
-				Where("is_admin", 1).
-				Count()
-			isAdmin = adminCount > 0
-
-			if isAdmin {
-				// 超级管理员获取所有权限
+				WhereNot("permission", "").
+				Scan(&perms)
+			out.Perms = compactPermissions(collectPermissions(perms))
+		} else {
+			menuIDs, menuErr := loadRoleMenuIDs(ctx, roleIDs)
+			if menuErr == nil && len(menuIDs) > 0 {
 				var perms []permissionRow
 				_ = g.DB().Ctx(ctx).Model("system_menu").
+					Where("id", menuIDs).
 					Where("deleted_at", nil).
 					Where("status", 1).
 					WhereNot("permission", "").
 					Scan(&perms)
 				out.Perms = compactPermissions(collectPermissions(perms))
-			} else {
-				// 查询角色关联的菜单权限标识
-				var menuIDs []struct {
-					MenuId int64 `json:"menuId"`
-				}
-				_ = dao.RoleMenu.Ctx(ctx).WhereIn(dao.RoleMenu.Columns().RoleId, roleIDs).Scan(&menuIDs)
-
-				if len(menuIDs) > 0 {
-					mIDs := make([]int64, 0, len(menuIDs))
-					for _, m := range menuIDs {
-						mIDs = append(mIDs, m.MenuId)
-					}
-					mIDs = compactInt64s(mIDs)
-					if len(mIDs) > 0 {
-						var perms []permissionRow
-						_ = g.DB().Ctx(ctx).Model("system_menu").
-							Where("id", mIDs).
-							Where("deleted_at", nil).
-							Where("status", 1).
-							WhereNot("permission", "").
-							Scan(&perms)
-						out.Perms = compactPermissions(collectPermissions(perms))
-					}
-				}
 			}
 		}
 	}
@@ -247,6 +209,11 @@ func (s *sAuth) loadInfo(ctx context.Context, userID snowflake.JsonInt64) (out *
 func (s *sAuth) ChangePassword(ctx context.Context, in *model.AuthChangePasswordInput) error {
 	if err := inpututil.Require(in); err != nil {
 		return err
+	}
+	in.OldPassword = strings.TrimSpace(in.OldPassword)
+	in.NewPassword = strings.TrimSpace(in.NewPassword)
+	if in.OldPassword == "" {
+		return gerror.New("旧密码不能为空")
 	}
 	if in.NewPassword == "" {
 		return gerror.New("新密码不能为空")
@@ -299,39 +266,18 @@ func (s *sAuth) Menus(ctx context.Context, userID snowflake.JsonInt64) ([]*model
 }
 
 func (s *sAuth) loadMenus(ctx context.Context, userID snowflake.JsonInt64) ([]*model.AuthMenuOutput, error) {
-	// 查询用户角色
-	var userRoles []struct {
-		RoleId int64 `json:"roleId"`
-	}
-	err := dao.UserRole.Ctx(ctx).Where(dao.UserRole.Columns().UserId, userID).Scan(&userRoles)
+	roles, err := loadUserRoles(ctx, int64(userID))
 	if err != nil {
 		return nil, err
 	}
-
-	if len(userRoles) == 0 {
+	if len(roles) == 0 {
 		return make([]*model.AuthMenuOutput, 0), nil
 	}
-
-	roleIDs := make([]int64, 0, len(userRoles))
-	for _, ur := range userRoles {
-		roleIDs = append(roleIDs, ur.RoleId)
-	}
-	roleIDs = compactInt64s(roleIDs)
+	roleIDs := collectRoleIDs(roles)
 	if len(roleIDs) == 0 {
 		return make([]*model.AuthMenuOutput, 0), nil
 	}
-
-	// 检查是否有超级管理员角色
-	isAdmin := false
-	adminCount, _ := g.DB().Ctx(ctx).Model("system_role").
-		Where("id", roleIDs).
-		Where("deleted_at", nil).
-		Where("status", 1).
-		Where("is_admin", 1).
-		Count()
-	isAdmin = adminCount > 0
-
-	if isAdmin {
+	if hasAdminRole(roles) {
 		// 超级管理员获取所有菜单
 		var list []*model.AuthMenuOutput
 		err = g.DB().Ctx(ctx).Model("system_menu").
@@ -346,23 +292,10 @@ func (s *sAuth) loadMenus(ctx context.Context, userID snowflake.JsonInt64) ([]*m
 	}
 
 	// 查询角色关联的菜单ID（去重）
-	var roleMenus []struct {
-		MenuId int64 `json:"menuId"`
-	}
-	err = dao.RoleMenu.Ctx(ctx).WhereIn(dao.RoleMenu.Columns().RoleId, roleIDs).Scan(&roleMenus)
+	menuIDs, err := loadRoleMenuIDs(ctx, roleIDs)
 	if err != nil {
 		return nil, err
 	}
-
-	if len(roleMenus) == 0 {
-		return make([]*model.AuthMenuOutput, 0), nil
-	}
-
-	menuIDs := make([]int64, 0, len(roleMenus))
-	for _, rm := range roleMenus {
-		menuIDs = append(menuIDs, rm.MenuId)
-	}
-	menuIDs = compactInt64s(menuIDs)
 	if len(menuIDs) == 0 {
 		return make([]*model.AuthMenuOutput, 0), nil
 	}
@@ -557,6 +490,78 @@ func compactPermissions(values []string) []string {
 		return nil
 	}
 	return normalized
+}
+
+func loadUserRoles(ctx context.Context, userID int64) ([]roleSnapshot, error) {
+	if userID <= 0 {
+		return nil, nil
+	}
+	var userRoles []struct {
+		RoleId int64 `json:"roleId"`
+	}
+	if err := dao.UserRole.Ctx(ctx).Where(dao.UserRole.Columns().UserId, userID).Scan(&userRoles); err != nil {
+		return nil, err
+	}
+	roleIDs := make([]int64, 0, len(userRoles))
+	for _, ur := range userRoles {
+		roleIDs = append(roleIDs, ur.RoleId)
+	}
+	roleIDs = compactInt64s(roleIDs)
+	if len(roleIDs) == 0 {
+		return nil, nil
+	}
+	var roles []roleSnapshot
+	if err := g.DB().Ctx(ctx).Model("system_role").
+		Fields("id,title,is_admin").
+		Where("id", roleIDs).
+		Where("deleted_at", nil).
+		Where("status", 1).
+		Scan(&roles); err != nil {
+		return nil, err
+	}
+	return roles, nil
+}
+
+func collectRoleIDs(roles []roleSnapshot) []int64 {
+	ids := make([]int64, 0, len(roles))
+	for _, role := range roles {
+		ids = append(ids, role.ID)
+	}
+	return compactInt64s(ids)
+}
+
+func collectRoleTitles(roles []roleSnapshot) []string {
+	titles := make([]string, 0, len(roles))
+	for _, role := range roles {
+		titles = append(titles, role.Title)
+	}
+	return compactPermissions(titles)
+}
+
+func hasAdminRole(roles []roleSnapshot) bool {
+	for _, role := range roles {
+		if role.IsAdmin == 1 {
+			return true
+		}
+	}
+	return false
+}
+
+func loadRoleMenuIDs(ctx context.Context, roleIDs []int64) ([]int64, error) {
+	if len(roleIDs) == 0 {
+		return nil, nil
+	}
+	var roleMenus []struct {
+		MenuId int64 `json:"menuId"`
+	}
+	if err := dao.RoleMenu.Ctx(ctx).WhereIn(dao.RoleMenu.Columns().RoleId, roleIDs).Scan(&roleMenus); err != nil {
+		return nil, err
+	}
+	menuIDs := make([]int64, 0, len(roleMenus))
+	for _, rm := range roleMenus {
+		menuIDs = append(menuIDs, rm.MenuId)
+	}
+	return compactInt64s(menuIDs), nil
 }
 
 func collectPermissions(rows []permissionRow) []string {

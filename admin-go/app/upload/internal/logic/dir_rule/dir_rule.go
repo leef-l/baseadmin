@@ -9,6 +9,7 @@ import (
 	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/upload/internal/dao"
+	"gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/service"
 	"gbaseadmin/utility/inpututil"
@@ -64,15 +65,23 @@ func (s *sDirRule) Update(ctx context.Context, in *model.DirRuleUpdateInput) err
 		dao.UploadDirRule.Columns().Status:    in.Status,
 		dao.UploadDirRule.Columns().UpdatedAt: gtime.Now(),
 	}
-	_, err := dao.UploadDirRule.Ctx(ctx).Where(dao.UploadDirRule.Columns().Id, in.ID).Data(data).Update()
+	_, err := dao.UploadDirRule.Ctx(ctx).
+		Where(dao.UploadDirRule.Columns().Id, in.ID).
+		Where(dao.UploadDirRule.Columns().DeletedAt, nil).
+		Data(data).
+		Update()
 	return err
 }
 
 // Delete 软删除文件目录规则
 func (s *sDirRule) Delete(ctx context.Context, id snowflake.JsonInt64) error {
-	_, err := dao.UploadDirRule.Ctx(ctx).Where(dao.UploadDirRule.Columns().Id, id).Data(g.Map{
-		dao.UploadDirRule.Columns().DeletedAt: gtime.Now(),
-	}).Update()
+	_, err := dao.UploadDirRule.Ctx(ctx).
+		Where(dao.UploadDirRule.Columns().Id, id).
+		Where(dao.UploadDirRule.Columns().DeletedAt, nil).
+		Data(g.Map{
+			dao.UploadDirRule.Columns().DeletedAt: gtime.Now(),
+		}).
+		Update()
 	return err
 }
 
@@ -83,13 +92,7 @@ func (s *sDirRule) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mod
 	if err != nil {
 		return nil, err
 	}
-	// 查询目录ID关联显示
-	if out.DirID != 0 {
-		val, err := g.DB().Ctx(ctx).Model("upload_dir").Where("id", out.DirID).Where("deleted_at", nil).Value("name")
-		if err == nil {
-			out.DirName = val.String()
-		}
-	}
+	out.DirName = shared.LookupDirName(ctx, int64(out.DirID))
 	return
 }
 
@@ -123,31 +126,13 @@ func (s *sDirRule) List(ctx context.Context, in *model.DirRuleListInput) (list [
 }
 
 func (s *sDirRule) fillDirNames(ctx context.Context, list []*model.DirRuleListOutput) {
-	dirSet := make(map[int64]struct{})
+	dirIDs := make([]int64, 0, len(list))
 	for _, item := range list {
 		if item.DirID != 0 {
-			dirSet[int64(item.DirID)] = struct{}{}
+			dirIDs = append(dirIDs, int64(item.DirID))
 		}
 	}
-	if len(dirSet) == 0 {
-		return
-	}
-	dirIDs := make([]int64, 0, len(dirSet))
-	for id := range dirSet {
-		dirIDs = append(dirIDs, id)
-	}
-	rows, err := g.DB().Ctx(ctx).Model("upload_dir").
-		Fields("id", "name").
-		Where("deleted_at", nil).
-		WhereIn("id", dirIDs).
-		All()
-	if err != nil {
-		return
-	}
-	dirMap := make(map[int64]string, len(rows))
-	for _, row := range rows {
-		dirMap[row["id"].Int64()] = row["name"].String()
-	}
+	dirMap := shared.LoadDirNameMap(ctx, dirIDs)
 	for _, item := range list {
 		item.DirName = dirMap[int64(item.DirID)]
 	}
