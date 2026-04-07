@@ -1,14 +1,15 @@
 <script setup lang="ts">
 {{- if .HasTooltip}}
-import { h, onMounted } from 'vue';
+import { h, onMounted{{if .HasImport}}, ref{{end}} } from 'vue';
 {{- end}}
 {{- if not .HasTooltip}}
-import { onMounted } from 'vue';
+import { onMounted{{if .HasImport}}, ref{{end}} } from 'vue';
 {{- end}}
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { Page, useVbenModal } from '@vben/common-ui';
+import { downloadFileFromBlob } from '@vben/utils';
 {{- if .HasTooltip}}
 import { Button, message, Modal{{if .HasEnum}}, Tag{{end}}, Tooltip } from 'ant-design-vue';
 import { QuestionCircleOutlined } from '@ant-design/icons-vue';
@@ -295,6 +296,10 @@ const [Grid, gridApi] = useVbenVxeGrid({
   formOptions,
   gridOptions,
 });
+{{- if .HasImport}}
+
+const importInputRef = ref<HTMLInputElement | null>(null);
+{{- end}}
 
 async function initSearchOptions() {
 {{- range .SearchFields}}
@@ -446,12 +451,7 @@ async function handleExport() {
 {{- end}}
 {{- end}}
     const blob = await export{{.ModelName}}(params);
-    const url = URL.createObjectURL(blob as any);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '{{.Comment}}.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadFileFromBlob({ fileName: '{{.Comment}}.csv', source: blob as Blob });
     message.success('导出成功');
   } catch {
     message.error('导出失败');
@@ -459,37 +459,42 @@ async function handleExport() {
 }
 {{- if .HasImport}}
 
-/** 导入 */
-async function handleImport() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.csv';
-  input.onchange = async () => {
-    const file = input.files?.[0];
-    if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
-    try {
-      const res = await import{{.ModelName}}(formData);
-      message.success(`导入完成：成功 ${res?.success ?? 0} 条，失败 ${res?.fail ?? 0} 条`);
-      gridApi.reload();
-    } catch {
-      message.error('导入失败');
-    }
-  };
+function handleImportTrigger() {
+  const input = importInputRef.value;
+  if (!input) {
+    return;
+  }
+  input.value = '';
   input.click();
+}
+
+/** 导入 */
+async function handleImportChange(event: Event) {
+  const input = event.target as HTMLInputElement | null;
+  const file = input?.files?.[0];
+  if (!file) {
+    return;
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await import{{.ModelName}}(formData);
+    message.success(`导入完成：成功 ${res?.success ?? 0} 条，失败 ${res?.fail ?? 0} 条`);
+    gridApi.reload();
+  } catch {
+    message.error('导入失败');
+  } finally {
+    if (input) {
+      input.value = '';
+    }
+  }
 }
 
 /** 下载导入模板 */
 async function handleDownloadTemplate() {
   try {
     const blob = await downloadImportTemplate{{.ModelName}}();
-    const url = URL.createObjectURL(blob as any);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = '{{.Comment}}导入模板.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadFileFromBlob({ fileName: '{{.Comment}}导入模板.csv', source: blob as Blob });
   } catch {
     message.error('下载模板失败');
   }
@@ -522,6 +527,15 @@ function handleBatchUpdateStatus() {
   <Page auto-content-height>
     <FormModalComp @success="() => gridApi.reload()" />
     <DetailDrawerComp />
+{{- if .HasImport}}
+    <input
+      ref="importInputRef"
+      type="file"
+      accept=".csv"
+      class="hidden"
+      @change="handleImportChange"
+    />
+{{- end}}
     <Grid>
       <template #toolbar-actions>
         <Button v-auth="['{{.AppName}}:{{.ModuleName}}:create']" type="primary" @click="handleCreate">新建</Button>
@@ -530,7 +544,7 @@ function handleBatchUpdateStatus() {
 {{- end}}
         <Button v-auth="['{{.AppName}}:{{.ModuleName}}:export']" class="ml-2" @click="handleExport">导出</Button>
 {{- if .HasImport}}
-        <Button v-auth="['{{.AppName}}:{{.ModuleName}}:import']" class="ml-2" @click="handleImport">导入</Button>
+        <Button v-auth="['{{.AppName}}:{{.ModuleName}}:import']" class="ml-2" @click="handleImportTrigger">导入</Button>
         <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
 {{- end}}
 {{- if .HasBatchEdit}}

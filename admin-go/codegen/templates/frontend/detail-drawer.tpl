@@ -40,23 +40,27 @@ const [Modal, modalApi] = useVbenModal({
   fullscreenButton: false,
   footer: false,
   async onOpenChange(isOpen: boolean) {
-    if (isOpen) {
-      const currentToken = ++openToken.value;
-      const data = modalApi.getData<{ id: string }>();
-      if (data?.id) {
-        modalApi.setState({ title: '{{.Comment}}详情' });
-        try {
-          const res = await get{{.ModelName}}Detail(data.id);
-          if (currentToken !== openToken.value) return;
-          detail.value = res;
-        } catch {
-          if (currentToken !== openToken.value) return;
+    if (!isOpen) {
+      openToken.value += 1;
+      detail.value = null;
+      return;
+    }
+
+    const currentOpenToken = ++openToken.value;
+    const data = modalApi.getData<{ id: string }>();
+    if (data?.id) {
+      modalApi.setState({ title: '{{.Comment}}详情' });
+      try {
+        const res = await get{{.ModelName}}Detail(data.id);
+        if (currentOpenToken !== openToken.value) {
+          return;
+        }
+        detail.value = res;
+      } catch {
+        if (currentOpenToken === openToken.value) {
           detail.value = null;
         }
       }
-    } else {
-      openToken.value++;
-      detail.value = null;
     }
   },
 });

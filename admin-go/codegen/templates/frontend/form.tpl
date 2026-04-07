@@ -379,108 +379,123 @@ const [Modal, modalApi] = useVbenModal({
     }
   },
   async onOpenChange(isOpen: boolean) {
-    if (isOpen) {
-      const currentToken = ++openToken.value;
-      const data = modalApi.getData<{ id?: string } | null>();
+    if (!isOpen) {
+      openToken.value += 1;
+      return;
+    }
+
+    const currentOpenToken = ++openToken.value;
+    formApi.resetForm();
+    const data = modalApi.getData<{ id?: string } | null>();
 {{- if .HasParentID}}
-      // 加载树形数据
-      try {
-        const res = await get{{.ModelName}}Tree();
-        if (currentToken !== openToken.value) return;
-        treeData.value = [
-          { id: '0', {{if .ParentDisplayField}}{{.ParentDisplayField}}{{else}}title{{end}}: '顶级节点', children: res ?? [] } as any,
-        ];
-        formApi.updateSchema([
-          {
-            fieldName: '{{range .Fields}}{{if .IsParentID}}{{.NameLower}}{{end}}{{end}}',
-            componentProps: { treeData: treeData.value },
-          },
-        ]);
-      } catch {
-        // ignore
+    // 加载树形数据
+    try {
+      const res = await get{{.ModelName}}Tree();
+      if (currentOpenToken !== openToken.value) {
+        return;
       }
+      treeData.value = [
+        { id: '0', {{if .ParentDisplayField}}{{.ParentDisplayField}}{{else}}title{{end}}: '顶级节点', children: res ?? [] } as any,
+      ];
+      formApi.updateSchema([
+        {
+          fieldName: '{{range .Fields}}{{if .IsParentID}}{{.NameLower}}{{end}}{{end}}',
+          componentProps: { treeData: treeData.value },
+        },
+      ]);
+    } catch {
+      // ignore
+    }
 {{- end}}
 {{- range .Fields}}
 {{- if and .IsForeignKey (not .IsHidden) .RefTable}}
 {{- if .RefIsTree}}
-      // 加载{{.Label}}树形数据
-      try {
-        const {{.RefTableLower}}Res = await get{{.RefTableCamel}}Tree();
-        if (currentToken !== openToken.value) return;
-        {{.NameLower}}Options.value = {{.RefTableLower}}Res ?? [];
-        formApi.updateSchema([
-          {
-            fieldName: '{{.NameLower}}',
-            componentProps: { treeData: {{.NameLower}}Options.value },
-          },
-        ]);
-      } catch {
-        // ignore
+    // 加载{{.Label}}树形数据
+    try {
+      const {{.RefTableLower}}Res = await get{{.RefTableCamel}}Tree();
+      if (currentOpenToken !== openToken.value) {
+        return;
       }
+      {{.NameLower}}Options.value = {{.RefTableLower}}Res ?? [];
+      formApi.updateSchema([
+        {
+          fieldName: '{{.NameLower}}',
+          componentProps: { treeData: {{.NameLower}}Options.value },
+        },
+      ]);
+    } catch {
+      // ignore
+    }
 {{- else}}
-      // 加载{{.Label}}选项
-      try {
-        const {{.RefTableLower}}Res = await get{{.RefTableCamel}}List({ pageNum: 1, pageSize: 1000 });
-        if (currentToken !== openToken.value) return;
-        {{.NameLower}}Options.value = ({{.RefTableLower}}Res?.list ?? []).map((item: any) => ({
-          label: item.{{.RefDisplayLower}} || item.id,
-          value: item.id,
-        }));
-        formApi.updateSchema([
-          {
-            fieldName: '{{.NameLower}}',
-            componentProps: { options: {{.NameLower}}Options.value },
-          },
-        ]);
-      } catch {
-        // ignore
+    // 加载{{.Label}}选项
+    try {
+      const {{.RefTableLower}}Res = await get{{.RefTableCamel}}List({ pageNum: 1, pageSize: 1000 });
+      if (currentOpenToken !== openToken.value) {
+        return;
       }
+      {{.NameLower}}Options.value = ({{.RefTableLower}}Res?.list ?? []).map((item: any) => ({
+        label: item.{{.RefDisplayLower}} || item.id,
+        value: item.id,
+      }));
+      formApi.updateSchema([
+        {
+          fieldName: '{{.NameLower}}',
+          componentProps: { options: {{.NameLower}}Options.value },
+        },
+      ]);
+    } catch {
+      // ignore
+    }
 {{- end}}
 {{- end}}
 {{- end}}
 {{- range .Fields}}
 {{- if and (not .IsHidden) .DictType}}
-      // 加载{{.Label}}字典
-      try {
-        const dictRes = await getDictByType('{{.DictType}}');
-        if (currentToken !== openToken.value) return;
-        {{.NameLower}}DictOptions.value = (dictRes ?? []).map((item: any) => ({
-          label: item.label,
-          value: item.value,
-        }));
-        formApi.updateSchema([
-          {
-            fieldName: '{{.NameLower}}',
-            componentProps: { options: {{.NameLower}}DictOptions.value },
-          },
-        ]);
-      } catch {
-        // ignore
+    // 加载{{.Label}}字典
+    try {
+      const dictRes = await getDictByType('{{.DictType}}');
+      if (currentOpenToken !== openToken.value) {
+        return;
       }
+      {{.NameLower}}DictOptions.value = (dictRes ?? []).map((item: any) => ({
+        label: item.label,
+        value: item.value,
+      }));
+      formApi.updateSchema([
+        {
+          fieldName: '{{.NameLower}}',
+          componentProps: { options: {{.NameLower}}DictOptions.value },
+        },
+      ]);
+    } catch {
+      // ignore
+    }
 {{- end}}
 {{- end}}
-      if (data?.id) {
-        isEdit.value = true;
-        editId.value = data.id;
-        modalApi.setState({ title: '编辑{{.Comment}}' });
-        try {
-          const detail = await get{{.ModelName}}Detail(data.id);
-          if (currentToken !== openToken.value) return;
-          if (detail) {
-            formApi.setValues(detail);
-          }
-        } catch {
-          if (currentToken !== openToken.value) return;
+    if (currentOpenToken !== openToken.value) {
+      return;
+    }
+    if (data?.id) {
+      isEdit.value = true;
+      editId.value = data.id;
+      modalApi.setState({ title: '编辑{{.Comment}}' });
+      try {
+        const detail = await get{{.ModelName}}Detail(data.id);
+        if (currentOpenToken !== openToken.value) {
+          return;
+        }
+        if (detail) {
+          formApi.setValues(detail);
+        }
+      } catch {
+        if (currentOpenToken === openToken.value) {
           message.error('获取详情失败');
         }
-      } else {
-        isEdit.value = false;
-        editId.value = '';
-        modalApi.setState({ title: '新建{{.Comment}}' });
-        formApi.resetForm();
       }
     } else {
-      openToken.value++
+      isEdit.value = false;
+      editId.value = '';
+      modalApi.setState({ title: '新建{{.Comment}}' });
     }
   },
 });
