@@ -148,13 +148,18 @@ function syncSelectedIdsWithVisibleFiles() {
 
 /** 切换选中 */
 function toggleSelect(file: FileItem) {
-  const ids = selectedIds.value;
-  if (ids.has(file.id)) {
-    ids.delete(file.id);
+  const nextIds = new Set(selectedIds.value);
+  if (nextIds.has(file.id)) {
+    nextIds.delete(file.id);
   } else {
-    if (!props.multiple) ids.clear();
-    if (ids.size < effectiveMax.value) ids.add(file.id);
+    if (!props.multiple) {
+      nextIds.clear();
+    }
+    if (nextIds.size < effectiveMax.value) {
+      nextIds.add(file.id);
+    }
   }
+  selectedIds.value = nextIds;
 }
 
 /** 目录选择 */
@@ -223,13 +228,15 @@ function handleConfirm() {
 
 /** 重置 */
 function reset() {
-  selectedIds.value.clear();
+  selectedIds.value = new Set();
   keyword.value = '';
   selectedDirId.value = undefined;
+  fileListData.value = [];
   pagination.current = 1;
+  pagination.total = 0;
 }
 
-defineExpose({ reset, loadFileList });
+defineExpose({ reset, loadDirTree, loadFileList });
 
 onMounted(() => {
   loadDirTree();

@@ -196,6 +196,18 @@ function getBase64(file: File): Promise<string> {
   });
 }
 
+function waitForNextPaint() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
+
+async function waitForStablePaint(count = 2) {
+  for (let index = 0; index < count; index += 1) {
+    await waitForNextPaint();
+  }
+}
+
 /**
  * 预览图片
  */
@@ -232,8 +244,22 @@ async function previewImage(
   const container = document.createElement('div');
   document.body.append(container);
   let isUnmounted = false;
+  let cleanupTimer: null | ReturnType<typeof setTimeout> = null;
 
   const currentIndex = imageFiles.findIndex((f) => f.uid === file.uid);
+
+  const cleanup = () => {
+    if (cleanupTimer) {
+      clearTimeout(cleanupTimer);
+      cleanupTimer = null;
+    }
+    if (isUnmounted || !container.isConnected) {
+      return;
+    }
+    isUnmounted = true;
+    render(null, container);
+    container.remove();
+  };
 
   const PreviewWrapper = {
     setup() {
@@ -249,13 +275,7 @@ async function previewImage(
               onVisibleChange: (value: boolean) => {
                 visible.value = value;
                 if (!value) {
-                  setTimeout(() => {
-                    if (!isUnmounted && container) {
-                      isUnmounted = true;
-                      render(null, container);
-                      container.remove();
-                    }
-                  }, 300);
+                  cleanupTimer = setTimeout(cleanup, 300);
                 }
               },
             },
@@ -285,22 +305,31 @@ function cropImage(file: File, aspectRatio: string | undefined) {
 
     let isUnmounted = false;
     let objectUrl: null | string = null;
+    let cleanupTimer: null | ReturnType<typeof setTimeout> = null;
 
     const open = ref<boolean>(true);
     const cropperRef = ref<InstanceType<typeof VCropper> | null>(null);
 
+    const cleanup = () => {
+      if (cleanupTimer) {
+        clearTimeout(cleanupTimer);
+        cleanupTimer = null;
+      }
+      if (isUnmounted || !container.isConnected) {
+        return;
+      }
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        objectUrl = null;
+      }
+      isUnmounted = true;
+      render(null, container);
+      container.remove();
+    };
+
     const closeModal = () => {
       open.value = false;
-      setTimeout(() => {
-        if (!isUnmounted && container) {
-          if (objectUrl) {
-            URL.revokeObjectURL(objectUrl);
-          }
-          isUnmounted = true;
-          render(null, container);
-          container.remove();
-        }
-      }, 300);
+      cleanupTimer = setTimeout(cleanup, 300);
     };
 
     const CropperWrapper = {
@@ -458,6 +487,8 @@ const withPreviewUpload = () => {
       );
       const uploadId = `upload-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
       const sortableInstance = ref<null | Sortable>(null);
+      let sortableRetryTimer: null | ReturnType<typeof setTimeout> = null;
+      let sortableDisposed = false;
 
       const styleId = `upload-drag-style-${uploadId}`;
 
@@ -478,11 +509,14 @@ const withPreviewUpload = () => {
       }
 
       async function initSortable(retryCount = 0) {
-        if (!draggable.value) return;
+        if (!draggable.value || sortableDisposed) return;
 
         injectDragStyle();
         await nextTick();
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await waitForStablePaint();
+        if (sortableDisposed) {
+          return;
+        }
 
         const container = document.querySelector(
           `[data-upload-id="${uploadId}"] .ant-upload-list`,
@@ -490,7 +524,10 @@ const withPreviewUpload = () => {
 
         if (!container) {
           if (retryCount < 5) {
-            setTimeout(() => initSortable(retryCount + 1), 200);
+            sortableRetryTimer = setTimeout(() => {
+              sortableRetryTimer = null;
+              void initSortable(retryCount + 1);
+            }, 200);
           }
           return;
         }
@@ -536,6 +573,11 @@ const withPreviewUpload = () => {
 
       onMounted(initSortable);
       onUnmounted(() => {
+        sortableDisposed = true;
+        if (sortableRetryTimer) {
+          clearTimeout(sortableRetryTimer);
+          sortableRetryTimer = null;
+        }
         sortableInstance.value?.destroy();
         removeDragStyle();
       });

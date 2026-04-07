@@ -37,6 +37,7 @@ const [Modal, modalApi] = useVbenModal({
       accept.value = data?.accept ?? '';
       maxSize.value = data?.maxSize ?? 10;
       pickerRef.value?.reset();
+      pickerRef.value?.loadDirTree?.();
       pickerRef.value?.loadFileList();
     }
   },
