@@ -16,6 +16,9 @@ export function useMenuScroll(
   const { enable = true, delay = 320 } = options;
 
   function scrollToActiveItem() {
+    if (typeof document === 'undefined') {
+      return;
+    }
     const isEnabled = typeof enable === 'boolean' ? enable : enable.value;
     if (!isEnabled) return;
 

@@ -7,6 +7,7 @@ import {
   onMounted,
   onUpdated,
   ref,
+  watch,
   watchEffect,
 } from 'vue';
 
@@ -145,6 +146,22 @@ onMounted(() => {
   // 初始检测
   checkEllipsis();
 });
+
+watch(
+  ellipsis,
+  (element, previousElement) => {
+    if (!resizeObserver) {
+      return;
+    }
+    if (previousElement) {
+      resizeObserver.unobserve(previousElement);
+    }
+    if (element) {
+      resizeObserver.observe(element);
+      checkEllipsis();
+    }
+  },
+);
 
 // 使用onUpdated钩子检测内容变化
 onUpdated(() => {

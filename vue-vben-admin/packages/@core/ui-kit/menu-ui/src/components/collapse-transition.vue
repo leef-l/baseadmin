@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import type { RendererElement } from 'vue';
 
+let enterFrame: null | number = null;
+
 defineOptions({
   name: 'CollapseTransition',
 });
@@ -51,7 +53,11 @@ const on = {
   },
 
   enter(el: RendererElement) {
-    requestAnimationFrame(() => {
+    if (enterFrame) {
+      cancelAnimationFrame(enterFrame);
+    }
+    enterFrame = requestAnimationFrame(() => {
+      enterFrame = null;
       el.dataset.oldOverflow = el.style.overflow;
       if (el.dataset.elExistsHeight) {
         el.style.maxHeight = el.dataset.elExistsHeight;
@@ -70,6 +76,10 @@ const on = {
   },
 
   enterCancelled(el: RendererElement) {
+    if (enterFrame) {
+      cancelAnimationFrame(enterFrame);
+      enterFrame = null;
+    }
     reset(el);
   },
 
@@ -84,6 +94,10 @@ const on = {
   },
 
   leaveCancelled(el: RendererElement) {
+    if (enterFrame) {
+      cancelAnimationFrame(enterFrame);
+      enterFrame = null;
+    }
     reset(el);
   },
 };

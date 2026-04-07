@@ -147,7 +147,9 @@ export function useHoverToggle(
       hoverWatcher.resume();
     },
     disable() {
+      clearTimers();
       hoverWatcher.pause();
+      value.value = false;
     },
   };
 
