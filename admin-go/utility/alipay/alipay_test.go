@@ -82,3 +82,26 @@ func TestVerifyNotifyRequiresOutTradeNo(t *testing.T) {
 		t.Fatal("VerifyNotify should reject missing out_trade_no")
 	}
 }
+
+func TestVerifyNotifyTrimsFields(t *testing.T) {
+	client := &Client{}
+	params := url.Values{
+		"sign":         {" ZGVtby1zaWdu "},
+		"trade_status": {" TRADE_SUCCESS "},
+		"out_trade_no": {" ORD-1 "},
+	}
+	outTradeNo, err := client.VerifyNotify(context.Background(), params)
+	if err != nil {
+		t.Fatalf("VerifyNotify failed: %v", err)
+	}
+	if outTradeNo != "ORD-1" {
+		t.Fatalf("VerifyNotify outTradeNo mismatch: %q", outTradeNo)
+	}
+}
+
+func TestVerifySignatureTrimsBase64(t *testing.T) {
+	client := &Client{}
+	if err := client.verifySignature("content", " ZGVtbw== "); err != nil {
+		t.Fatalf("verifySignature should accept trimmed base64: %v", err)
+	}
+}

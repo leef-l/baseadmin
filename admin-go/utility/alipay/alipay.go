@@ -41,12 +41,12 @@ type Client struct {
 // New 从 GoFrame 配置中创建支付宝客户端
 func New(ctx context.Context) (*Client, error) {
 	cfg := Config{
-		AppID:           g.Cfg().MustGet(ctx, "pay.alipay.appId").String(),
-		PrivateKey:      g.Cfg().MustGet(ctx, "pay.alipay.privateKey").String(),
-		AlipayPublicKey: g.Cfg().MustGet(ctx, "pay.alipay.alipayPublicKey").String(),
-		NotifyURL:       g.Cfg().MustGet(ctx, "pay.alipay.notifyUrl").String(),
-		ReturnURL:       g.Cfg().MustGet(ctx, "pay.alipay.returnUrl").String(),
-		GatewayURL:      "https://openapi.alipay.com/gateway.do",
+		AppID:           strings.TrimSpace(g.Cfg().MustGet(ctx, "pay.alipay.appId").String()),
+		PrivateKey:      strings.TrimSpace(g.Cfg().MustGet(ctx, "pay.alipay.privateKey").String()),
+		AlipayPublicKey: strings.TrimSpace(g.Cfg().MustGet(ctx, "pay.alipay.alipayPublicKey").String()),
+		NotifyURL:       strings.TrimSpace(g.Cfg().MustGet(ctx, "pay.alipay.notifyUrl").String()),
+		ReturnURL:       strings.TrimSpace(g.Cfg().MustGet(ctx, "pay.alipay.returnUrl").String()),
+		GatewayURL:      strings.TrimSpace(g.Cfg().MustGet(ctx, "pay.alipay.gatewayUrl", "https://openapi.alipay.com/gateway.do").String()),
 	}
 
 	c := &Client{cfg: cfg}
@@ -122,11 +122,11 @@ func (c *Client) CreateOrder(ctx context.Context, orderNo string, amount int64, 
 func (c *Client) VerifyNotify(ctx context.Context, params url.Values) (outTradeNo string, err error) {
 	// 提取 sign 和 sign_type
 	sign := params.Get("sign")
-	if sign == "" {
+	if strings.TrimSpace(sign) == "" {
 		return "", fmt.Errorf("alipay: 回调缺少 sign 参数")
 	}
 
-	tradeStatus := params.Get("trade_status")
+	tradeStatus := strings.TrimSpace(params.Get("trade_status"))
 	if tradeStatus != "TRADE_SUCCESS" && tradeStatus != "TRADE_FINISHED" {
 		return "", fmt.Errorf("alipay: 交易状态非成功: %s", tradeStatus)
 	}
@@ -147,7 +147,7 @@ func (c *Client) VerifyNotify(ctx context.Context, params url.Values) (outTradeN
 		return "", fmt.Errorf("alipay: 回调签名验证失败: %w", err)
 	}
 
-	outTradeNo = params.Get("out_trade_no")
+	outTradeNo = strings.TrimSpace(params.Get("out_trade_no"))
 	if strings.TrimSpace(outTradeNo) == "" {
 		return "", fmt.Errorf("alipay: 回调缺少 out_trade_no 参数")
 	}
@@ -196,7 +196,7 @@ func (c *Client) verifySignature(content, signBase64 string) error {
 		g.Log().Warning(context.Background(), "alipay: 支付宝公钥未配置，跳过验签（仅允许开发环境）")
 		return nil
 	}
-	sig, err := base64.StdEncoding.DecodeString(signBase64)
+	sig, err := base64.StdEncoding.DecodeString(strings.TrimSpace(signBase64))
 	if err != nil {
 		return fmt.Errorf("base64 解码签名失败: %w", err)
 	}
