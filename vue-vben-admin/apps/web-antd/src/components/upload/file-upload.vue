@@ -6,6 +6,7 @@ import { Button } from 'ant-design-vue';
 
 import FileManagerModal from '#/components/file-manager/modal.vue';
 import type { FileManagerItem } from '#/components/file-manager/index.vue';
+import { parseUploadValue } from './shared';
 
 interface Props {
   value?: string;
@@ -29,11 +30,11 @@ const emit = defineEmits<{
 
 /** 解析 value 为文件列表 */
 const fileItems = computed(() => {
-  if (!props.value) return [];
-  return props.value
-    .split(',')
-    .filter(Boolean)
-    .map((url, i) => ({ uid: `${i}`, url, name: url.split('/').pop() || '' }));
+  return parseUploadValue(props.value).map((url, i) => ({
+    uid: `${i}`,
+    url,
+    name: url.split('/').pop() || '',
+  }));
 });
 
 /** 文件管理器 Modal */
@@ -56,13 +57,13 @@ function openPicker() {
 }
 
 function onPickerConfirm(files: FileManagerItem[]) {
-  const currentUrls = props.value ? props.value.split(',').filter(Boolean) : [];
+  const currentUrls = parseUploadValue(props.value);
   const newUrls = [...currentUrls, ...files.map((f) => f.url)];
-  emit('update:value', newUrls.join(','));
+  emit('update:value', parseUploadValue(newUrls.join(',')).join(','));
 }
 
 function removeFile(index: number) {
-  const urls = props.value ? props.value.split(',').filter(Boolean) : [];
+  const urls = parseUploadValue(props.value);
   urls.splice(index, 1);
   emit('update:value', urls.join(','));
 }
