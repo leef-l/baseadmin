@@ -172,6 +172,9 @@ INSERT INTO `system_menu` (
   `sort`, `is_show`, `is_cache`, `link_url`, `status`, `created_by`, `dept_id`,
   `created_at`, `updated_at`, `deleted_at`
 ) VALUES
+  (1000000000000000060, 0, '仪表盘', 1, '/dashboard', NULL, '', 'DashboardOutlined', 0, 1, 0, NULL, 1, 0, 1000000000000000001, '2026-03-30 21:20:22', '2026-03-30 21:20:22', NULL),
+  (1000000000000000061, 1000000000000000060, '分析页', 2, '/analytics', 'dashboard/analytics/index', '', 'AreaChartOutlined', 1, 1, 1, NULL, 1, 0, 1000000000000000001, '2026-03-30 21:20:22', '2026-03-30 21:20:22', NULL),
+  (1000000000000000062, 1000000000000000060, '工作台', 2, '/workspace', 'dashboard/workspace/index', '', 'DesktopOutlined', 2, 1, 0, NULL, 1, 0, 1000000000000000001, '2026-03-30 21:20:22', '2026-03-30 21:20:22', NULL),
   (1000000000000000010, 0, '系统管理', 1, '/system', NULL, '', 'SettingOutlined', 10, 1, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
   (1000000000000000011, 1000000000000000010, '部门管理', 2, '/system/dept', 'system/dept/index', 'system:dept:list', 'ApartmentOutlined', 1, 1, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
   (1000000000000000021, 1000000000000000011, '部门新增', 3, NULL, NULL, 'system:dept:create', '', 1, 0, 0, NULL, 1, 0, 1000000000000000001, '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL),
