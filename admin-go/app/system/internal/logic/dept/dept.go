@@ -2,6 +2,7 @@ package dept
 
 import (
 	"context"
+	"strings"
 
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
@@ -12,6 +13,7 @@ import (
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
 	"gbaseadmin/utility/snowflake"
+	"gbaseadmin/utility/treeutil"
 )
 
 func init() {
@@ -26,6 +28,7 @@ type sDept struct{}
 
 // Create 创建部门表
 func (s *sDept) Create(ctx context.Context, in *model.DeptCreateInput) error {
+	normalizeDeptCreateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
 		return err
 	}
@@ -49,6 +52,7 @@ func (s *sDept) Create(ctx context.Context, in *model.DeptCreateInput) error {
 
 // Update 更新部门表
 func (s *sDept) Update(ctx context.Context, in *model.DeptUpdateInput) error {
+	normalizeDeptUpdateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err
 	}
@@ -99,6 +103,10 @@ func (s *sDept) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.
 
 // List 获取部门表列表
 func (s *sDept) List(ctx context.Context, in *model.DeptListInput) (list []*model.DeptListOutput, total int, err error) {
+	if in == nil {
+		in = &model.DeptListInput{}
+	}
+	normalizeDeptListInput(in)
 	m := dao.Dept.Ctx(ctx).Where(dao.Dept.Columns().DeletedAt, nil)
 	if in.Keyword != "" {
 		keywordBuilder := m.Builder().
@@ -127,6 +135,7 @@ func (s *sDept) Tree(ctx context.Context, in *model.DeptTreeInput) (tree []*mode
 	var list []*model.DeptTreeOutput
 	m := dao.Dept.Ctx(ctx).Where(dao.Dept.Columns().DeletedAt, nil)
 	if in != nil {
+		normalizeDeptTreeInput(in)
 		if in.Keyword != "" {
 			keywordBuilder := m.Builder().
 				WhereLike(dao.Dept.Columns().Title, "%"+in.Keyword+"%").
@@ -161,6 +170,38 @@ func (s *sDept) Tree(ctx context.Context, in *model.DeptTreeInput) (tree []*mode
 		}
 	}
 	return
+}
+
+func normalizeDeptCreateInput(in *model.DeptCreateInput) {
+	if in == nil {
+		return
+	}
+	in.Title = strings.TrimSpace(in.Title)
+	in.Username = strings.TrimSpace(in.Username)
+	in.Email = strings.TrimSpace(in.Email)
+}
+
+func normalizeDeptUpdateInput(in *model.DeptUpdateInput) {
+	if in == nil {
+		return
+	}
+	in.Title = strings.TrimSpace(in.Title)
+	in.Username = strings.TrimSpace(in.Username)
+	in.Email = strings.TrimSpace(in.Email)
+}
+
+func normalizeDeptListInput(in *model.DeptListInput) {
+	if in == nil {
+		return
+	}
+	in.Keyword = strings.TrimSpace(in.Keyword)
+}
+
+func normalizeDeptTreeInput(in *model.DeptTreeInput) {
+	if in == nil {
+		return
+	}
+	in.Keyword = strings.TrimSpace(in.Keyword)
 }
 
 func (s *sDept) fillParentTitles(ctx context.Context, list []*model.DeptListOutput) {
@@ -228,50 +269,24 @@ func (s *sDept) ensureDeptDeletable(ctx context.Context, id snowflake.JsonInt64)
 }
 
 func (s *sDept) ensureParentValid(ctx context.Context, parentID, currentID snowflake.JsonInt64) error {
-	if parentID == 0 {
-		return nil
-	}
-	if currentID != 0 && parentID == currentID {
-		return gerror.New("上级部门不能选择自己")
-	}
-	var parent struct {
-		Id       int64 `json:"id"`
-		ParentId int64 `json:"parentId"`
-	}
-	if err := dao.Dept.Ctx(ctx).
-		Fields(dao.Dept.Columns().Id, dao.Dept.Columns().ParentId).
-		Where(dao.Dept.Columns().Id, parentID).
-		Where(dao.Dept.Columns().DeletedAt, nil).
-		Scan(&parent); err != nil {
-		return err
-	}
-	if parent.Id == 0 {
-		return gerror.New("上级部门不存在或已删除")
-	}
-	seen := map[int64]struct{}{int64(parentID): {}}
-	for parent.ParentId != 0 {
-		if currentID != 0 && parent.ParentId == int64(currentID) {
-			return gerror.New("不能将部门移动到自己的子级下")
-		}
-		if _, ok := seen[parent.ParentId]; ok {
-			return gerror.New("部门层级存在循环引用")
-		}
-		seen[parent.ParentId] = struct{}{}
-		next := struct {
+	return treeutil.ValidateParent(parentID, currentID, func(id int64) (int64, int64, error) {
+		var parent struct {
 			Id       int64 `json:"id"`
 			ParentId int64 `json:"parentId"`
-		}{}
+		}
 		if err := dao.Dept.Ctx(ctx).
 			Fields(dao.Dept.Columns().Id, dao.Dept.Columns().ParentId).
-			Where(dao.Dept.Columns().Id, parent.ParentId).
+			Where(dao.Dept.Columns().Id, id).
 			Where(dao.Dept.Columns().DeletedAt, nil).
-			Scan(&next); err != nil {
-			return err
+			Scan(&parent); err != nil {
+			return 0, 0, err
 		}
-		if next.Id == 0 {
-			return gerror.New("上级部门链路中存在无效节点")
-		}
-		parent = next
-	}
-	return nil
+		return parent.Id, parent.ParentId, nil
+	}, treeutil.Messages{
+		Self:         "上级部门不能选择自己",
+		Missing:      "上级部门不存在或已删除",
+		ChildLoop:    "不能将部门移动到自己的子级下",
+		Cycle:        "部门层级存在循环引用",
+		InvalidChain: "上级部门链路中存在无效节点",
+	})
 }

@@ -45,6 +45,7 @@ func New(ctx context.Context) (*Client, error) {
 		PrivateKey:      g.Cfg().MustGet(ctx, "pay.alipay.privateKey").String(),
 		AlipayPublicKey: g.Cfg().MustGet(ctx, "pay.alipay.alipayPublicKey").String(),
 		NotifyURL:       g.Cfg().MustGet(ctx, "pay.alipay.notifyUrl").String(),
+		ReturnURL:       g.Cfg().MustGet(ctx, "pay.alipay.returnUrl").String(),
 		GatewayURL:      "https://openapi.alipay.com/gateway.do",
 	}
 
@@ -92,6 +93,9 @@ func (c *Client) CreateOrder(ctx context.Context, orderNo string, amount int64, 
 		"notify_url":  c.cfg.NotifyURL,
 		"biz_content": bizContent,
 	}
+	if returnURL := strings.TrimSpace(c.cfg.ReturnURL); returnURL != "" {
+		params["return_url"] = returnURL
+	}
 
 	sign, err := c.sign(buildSignString(params))
 	if err != nil {
@@ -105,7 +109,11 @@ func (c *Client) CreateOrder(ctx context.Context, orderNo string, amount int64, 
 		vals.Set(k, v)
 	}
 
-	payURL = c.cfg.GatewayURL + "?" + vals.Encode()
+	gatewayURL := strings.TrimSpace(c.cfg.GatewayURL)
+	if gatewayURL == "" {
+		gatewayURL = "https://openapi.alipay.com/gateway.do"
+	}
+	payURL = gatewayURL + "?" + vals.Encode()
 	return payURL, nil
 }
 
@@ -140,6 +148,9 @@ func (c *Client) VerifyNotify(ctx context.Context, params url.Values) (outTradeN
 	}
 
 	outTradeNo = params.Get("out_trade_no")
+	if strings.TrimSpace(outTradeNo) == "" {
+		return "", fmt.Errorf("alipay: 回调缺少 out_trade_no 参数")
+	}
 	return outTradeNo, nil
 }
 
@@ -228,19 +239,25 @@ func parsePublicKey(pemStr string) (*rsa.PublicKey, error) {
 	}
 
 	pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		rsaPub, ok := pub.(*rsa.PublicKey)
+		if !ok {
+			return nil, fmt.Errorf("不是 RSA 公钥")
+		}
+		return rsaPub, nil
 	}
-	rsaPub, ok := pub.(*rsa.PublicKey)
-	if !ok {
-		return nil, fmt.Errorf("不是 RSA 公钥")
+	if rsaPub, pkcs1Err := x509.ParsePKCS1PublicKey(block.Bytes); pkcs1Err == nil {
+		return rsaPub, nil
 	}
-	return rsaPub, nil
+	return nil, err
 }
 
 // normalizePEM 如果 PEM 字符串没有 header/footer，则自动添加
 func normalizePEM(key, keyType string) string {
 	key = strings.TrimSpace(key)
+	if key == "" {
+		return ""
+	}
 	header := "-----BEGIN " + keyType + "-----"
 	footer := "-----END " + keyType + "-----"
 

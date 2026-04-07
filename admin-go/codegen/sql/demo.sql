@@ -1,6 +1,6 @@
 -- ============================================================
--- codegen 全面验证用表（不需要实际建表，仅用于 verify_test.go 模拟）
--- 覆盖铁律第 6 条要求的所有场景
+-- codegen 离线验证用表（不需要实际建表，仅用于 verify_codegen.go 模拟）
+-- 覆盖当前协作约定中的 codegen 验收场景
 -- ============================================================
 
 -- 1. demo_category: 树形表 + 简单字段（验证树形、排序、Tooltip）
@@ -28,8 +28,8 @@ CREATE TABLE IF NOT EXISTS `demo_article` (
   `id` BIGINT UNSIGNED NOT NULL COMMENT 'ID',
   -- 外键：指向同应用的树形表（TreeSelect）
   `category_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '分类',
-  -- 外键：指向其他应用的普通表（Select，跨应用）
-  `user_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '作者',
+  -- 外键：指向其他应用的普通表（Select，跨应用，显式声明 ref）
+  `user_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '作者|ref:system_users.username',
   -- 基础文本
   `title` VARCHAR(200) NOT NULL COMMENT '文章标题',
   `order_no` VARCHAR(50) NOT NULL COMMENT '文章编号',

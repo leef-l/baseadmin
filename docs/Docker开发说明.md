@@ -53,8 +53,9 @@
 
 ## 初始化来源
 
-- Docker MySQL 启动时挂载 [docker/mysql/init.sql](../docker/mysql/init.sql)
-- 该脚本与 [admin-go/codegen/sql/init.sql](../admin-go/codegen/sql/init.sql) 保持同步，都是当前仓库 `system` / `upload` 的最小初始化数据
+- MySQL 容器不再挂载初始化 SQL
+- `system` / `upload` 容器启动前会自动执行 `golang-migrate up`
+- 数据库真源迁移目录为 [admin-go/database/migrations](../admin-go/database/migrations)
 - 默认上传配置使用本地存储，目录为 `resource/upload`
 
 ## Docker 资源目录

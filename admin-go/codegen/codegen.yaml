@@ -32,17 +32,13 @@ menu_apps:
     title: 上传管理
     icon: CloudUploadOutlined
     sort: 20
-  play:
-    title: 陪玩管理
-    icon: "game-icons:joystick"
-    sort: 30
 
 # 模块级菜单配置（可选，key 格式: 应用名/模块名）
 # menu_modules:
-#   play/order:
+#   demo/article:
 #     sort: 10
 #     is_show: 1
-#   play/review:
+#   demo/tag:
 #     sort: 20
 
 # 操作日志开关（生成的 CRUD 方法是否自动记录操作日志）

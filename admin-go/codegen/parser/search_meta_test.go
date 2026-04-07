@@ -90,6 +90,34 @@ func TestApplySearchMetaCommentOverrides(t *testing.T) {
 	}
 }
 
+func TestApplySearchMetaIsIdempotent(t *testing.T) {
+	field := FieldMeta{
+		Name:            "created_at",
+		NameLower:       "createdAt",
+		GoType:          "string",
+		TSType:          "string",
+		IsTimeField:     true,
+		SearchEnabled:   true,
+		SearchRange:     false,
+		SearchComponent: "Input",
+		SearchOperator:  "like",
+		KeywordEnabled:  true,
+	}
+
+	ApplySearchMeta(&field)
+	if !field.SearchEnabled || !field.SearchRange || field.SearchComponent != "RangePicker" {
+		t.Fatalf("created_at should use range search after first apply: %+v", field)
+	}
+
+	ApplySearchMeta(&field)
+	if !field.SearchEnabled || !field.SearchRange || field.SearchComponent != "RangePicker" {
+		t.Fatalf("created_at search meta should remain stable after reapply: %+v", field)
+	}
+	if field.KeywordEnabled {
+		t.Fatalf("range search should not participate in keyword search: %+v", field)
+	}
+}
+
 func TestFinalizeSearchMetaKeywordPromotion(t *testing.T) {
 	meta := &TableMeta{
 		Fields: []FieldMeta{
@@ -113,5 +141,97 @@ func TestFinalizeSearchMetaKeywordPromotion(t *testing.T) {
 	}
 	if len(meta.KeywordSearchFields) != 3 {
 		t.Fatalf("expected 3 keyword search fields, got %d", len(meta.KeywordSearchFields))
+	}
+}
+
+func TestFinalizeTemplateMetaRefreshesDerivedFlags(t *testing.T) {
+	meta := &TableMeta{
+		HasImport: true,
+		Fields: []FieldMeta{
+			{
+				Name:            "parent_id",
+				NameLower:       "parentId",
+				Component:       ComponentTreeSelectSingle,
+				GoType:          "snowflake.JsonInt64",
+				TSType:          "string",
+				IsParentID:      true,
+				SearchEnabled:   true,
+				SearchOperator:  "eq",
+				SearchComponent: "Select",
+				SearchGoType:    "snowflake.JsonInt64",
+				SearchTSType:    "string",
+				SearchPointer:   true,
+				RefIsTree:       true,
+				RefDisplayLower: "name",
+			},
+			{
+				Name:            "title",
+				NameLower:       "title",
+				GoType:          "string",
+				TSType:          "string",
+				IsSearchable:    true,
+				SearchEnabled:   true,
+				SearchOperator:  "like",
+				SearchComponent: "Input",
+				KeywordEnabled:  true,
+				SearchPriority:  95,
+			},
+			{
+				Name:            "status",
+				NameLower:       "status",
+				Component:       ComponentSwitch,
+				GoType:          "int",
+				TSType:          "number",
+				IsEnum:          true,
+				SearchEnabled:   true,
+				SearchOperator:  "eq",
+				SearchComponent: "Select",
+				SearchPriority:  78,
+			},
+			{
+				Name:       "level",
+				NameLower:  "level",
+				GoType:     "string",
+				TSType:     "string",
+				DictType:   "article_level",
+				Component:  ComponentSelect,
+				IsRequired: false,
+			},
+			{
+				Name:      "cover",
+				NameLower: "cover",
+				Component: ComponentImageUpload,
+			},
+			{
+				Name: "created_by",
+			},
+			{
+				Name: "dept_id",
+			},
+		},
+	}
+
+	for i := range meta.Fields {
+		ApplySearchMeta(&meta.Fields[i])
+	}
+	FinalizeTemplateMeta(meta)
+
+	if !meta.HasParentID || !meta.HasStatus || !meta.HasEnum || !meta.HasImage || !meta.HasDict {
+		t.Fatalf("derived flags mismatch: %+v", meta)
+	}
+	if !meta.HasCreatedBy || !meta.HasDeptID {
+		t.Fatalf("data scope flags mismatch: %+v", meta)
+	}
+	if meta.HasImport {
+		t.Fatalf("tree table should disable import: %+v", meta)
+	}
+	if meta.ParentDisplayField != "name" {
+		t.Fatalf("parent display field mismatch: %+v", meta)
+	}
+	if len(meta.SearchFields) != 4 {
+		t.Fatalf("expected 4 visible search fields, got %d", len(meta.SearchFields))
+	}
+	if meta.SearchFields[1].Name != "parent_id" || meta.SearchFields[1].SearchComponent != "TreeSelect" {
+		t.Fatalf("parent_id search component should be TreeSelect: %+v", meta.SearchFields)
 	}
 }

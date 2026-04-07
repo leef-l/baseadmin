@@ -2,6 +2,7 @@ package menu
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -79,7 +80,7 @@ func (g *Generator) Generate(meta *parser.TableMeta) (int, error) {
 	}
 
 	// 3. 插入菜单页
-	menuTitle := cleanTitle(meta.Comment)
+	menuTitle := buildMenuTitle(meta)
 	menuPath := "/" + meta.AppName + "/" + dashCase(meta.ModuleName)
 	menuComponent := meta.AppName + "/" + meta.ModuleName + "/index"
 	menuPermission := meta.AppName + ":" + meta.ModuleName + ":list"
@@ -93,22 +94,7 @@ func (g *Generator) Generate(meta *parser.TableMeta) (int, error) {
 	}
 
 	// 4. 插入按钮权限
-	buttons := []struct {
-		suffix     string
-		permission string
-		sort       int
-	}{
-		{"新增", meta.AppName + ":" + meta.ModuleName + ":create", 1},
-		{"修改", meta.AppName + ":" + meta.ModuleName + ":update", 2},
-		{"删除", meta.AppName + ":" + meta.ModuleName + ":delete", 3},
-		{"批量删除", meta.AppName + ":" + meta.ModuleName + ":batch-delete", 4},
-		{"查看", meta.AppName + ":" + meta.ModuleName + ":detail", 5},
-		{"导出", meta.AppName + ":" + meta.ModuleName + ":export", 6},
-		{"导入", meta.AppName + ":" + meta.ModuleName + ":import", 7},
-		{"批量编辑", meta.AppName + ":" + meta.ModuleName + ":batch-update", 8},
-	}
-
-	for _, btn := range buttons {
+	for _, btn := range buildButtonSpecs(meta) {
 		btnTitle := menuTitle + btn.suffix
 		created, err := g.ensureButton(db, menuID, btnTitle, btn.permission, btn.sort)
 		if err != nil {
@@ -134,6 +120,9 @@ func (g *Generator) ensureDirectory(db *sql.DB, appName, path string) (int64, er
 	if err == nil {
 		fmt.Printf("  [菜单] 目录已存在: %s (ID: %d)\n", path, id)
 		return id, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, fmt.Errorf("查询目录失败: %w", err)
 	}
 
 	// 创建目录
@@ -193,6 +182,9 @@ func (g *Generator) ensureMenu(db *sql.DB, parentID int64, title, path, componen
 		fmt.Printf("  [菜单] 跳过（已存在）: %s (%s)\n", title, path)
 		return id, false, nil
 	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, false, fmt.Errorf("查询菜单失败: %w", err)
+	}
 
 	id = generateID()
 
@@ -236,6 +228,9 @@ func (g *Generator) ensureButton(db *sql.DB, parentID int64, title, permission s
 		fmt.Printf("  [菜单] 跳过（已存在）: %s (%s)\n", title, permission)
 		return false, nil
 	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return false, fmt.Errorf("查询按钮失败: %w", err)
+	}
 
 	id = generateID()
 
@@ -258,14 +253,59 @@ func (g *Generator) ensureButton(db *sql.DB, parentID int64, title, permission s
 
 // cleanTitle 从表注释中提取简短标题
 func cleanTitle(comment string) string {
+	comment = strings.TrimSpace(comment)
 	if comment == "" {
 		return ""
 	}
 	// 去掉常见后缀
 	for _, suffix := range []string{"表", "管理"} {
-		comment = strings.TrimSuffix(comment, suffix)
+		for strings.HasSuffix(comment, suffix) {
+			comment = strings.TrimSpace(strings.TrimSuffix(comment, suffix))
+		}
 	}
 	return comment
+}
+
+func buildMenuTitle(meta *parser.TableMeta) string {
+	title := cleanTitle(meta.Comment)
+	if title != "" {
+		return title
+	}
+	if meta != nil && meta.ModelName != "" {
+		return meta.ModelName
+	}
+	if meta != nil {
+		return meta.ModuleName
+	}
+	return ""
+}
+
+type buttonSpec struct {
+	suffix     string
+	permission string
+	sort       int
+}
+
+func buildButtonSpecs(meta *parser.TableMeta) []buttonSpec {
+	buttons := []buttonSpec{
+		{suffix: "新增", permission: meta.AppName + ":" + meta.ModuleName + ":create", sort: 1},
+		{suffix: "修改", permission: meta.AppName + ":" + meta.ModuleName + ":update", sort: 2},
+		{suffix: "删除", permission: meta.AppName + ":" + meta.ModuleName + ":delete", sort: 3},
+	}
+	if !meta.HasParentID {
+		buttons = append(buttons, buttonSpec{suffix: "批量删除", permission: meta.AppName + ":" + meta.ModuleName + ":batch-delete", sort: 4})
+	}
+	buttons = append(buttons,
+		buttonSpec{suffix: "查看", permission: meta.AppName + ":" + meta.ModuleName + ":detail", sort: 5},
+		buttonSpec{suffix: "导出", permission: meta.AppName + ":" + meta.ModuleName + ":export", sort: 6},
+	)
+	if meta.HasImport {
+		buttons = append(buttons, buttonSpec{suffix: "导入", permission: meta.AppName + ":" + meta.ModuleName + ":import", sort: 7})
+	}
+	if meta.HasBatchEdit {
+		buttons = append(buttons, buttonSpec{suffix: "批量编辑", permission: meta.AppName + ":" + meta.ModuleName + ":batch-update", sort: 8})
+	}
+	return buttons
 }
 
 // dashCase 将 snake_case 的模块名转为 dash-case（用于 URL path）
@@ -276,39 +316,67 @@ func dashCase(s string) string {
 // --- 内联 Snowflake ID 生成（与项目 utility/snowflake 算法一致）---
 
 const (
-	sfEpoch         = int64(1700000000000)
-	sfWorkerBits    = uint(10)
-	sfSequenceBits  = uint(12)
-	sfSequenceMax   = int64(-1) ^ (int64(-1) << sfSequenceBits)
-	sfWorkerShift   = sfSequenceBits
+	sfEpoch          = int64(1700000000000)
+	sfWorkerBits     = uint(10)
+	sfSequenceBits   = uint(12)
+	sfSequenceMax    = int64(-1) ^ (int64(-1) << sfSequenceBits)
+	sfWorkerShift    = sfSequenceBits
 	sfTimestampShift = sfSequenceBits + sfWorkerBits
 )
 
-var sfGen = &sfGenerator{workerID: 1}
+var sfGen = newSFGenerator(1)
 
 type sfGenerator struct {
 	mu        sync.Mutex
 	timestamp int64
 	workerID  int64
 	sequence  int64
+	nowMillis func() int64
+}
+
+func newSFGenerator(workerID int64) *sfGenerator {
+	return &sfGenerator{
+		workerID: workerID,
+		nowMillis: func() int64 {
+			return time.Now().UnixMilli()
+		},
+	}
 }
 
 func generateID() int64 {
-	sfGen.mu.Lock()
-	defer sfGen.mu.Unlock()
+	return sfGen.nextID()
+}
 
-	now := time.Now().UnixMilli() - sfEpoch
-	if now == sfGen.timestamp {
-		sfGen.sequence = (sfGen.sequence + 1) & sfSequenceMax
-		if sfGen.sequence == 0 {
-			for now <= sfGen.timestamp {
-				now = time.Now().UnixMilli() - sfEpoch
+func (g *sfGenerator) nextID() int64 {
+	if g == nil {
+		return 0
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	now := g.currentTimestamp()
+	if now < g.timestamp {
+		now = g.timestamp
+	}
+	if now == g.timestamp {
+		g.sequence = (g.sequence + 1) & sfSequenceMax
+		if g.sequence == 0 {
+			for now <= g.timestamp {
+				now = g.currentTimestamp()
 			}
 		}
 	} else {
-		sfGen.sequence = 0
+		g.sequence = 0
 	}
-	sfGen.timestamp = now
+	g.timestamp = now
 
-	return (now << sfTimestampShift) | (sfGen.workerID << sfWorkerShift) | sfGen.sequence
+	return (now << sfTimestampShift) | (g.workerID << sfWorkerShift) | g.sequence
+}
+
+func (g *sfGenerator) currentTimestamp() int64 {
+	now := time.Now().UnixMilli()
+	if g != nil && g.nowMillis != nil {
+		now = g.nowMillis()
+	}
+	return now - sfEpoch
 }

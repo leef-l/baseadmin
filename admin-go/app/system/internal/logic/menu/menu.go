@@ -2,6 +2,7 @@ package menu
 
 import (
 	"context"
+	"strings"
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -13,6 +14,7 @@ import (
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
 	"gbaseadmin/utility/snowflake"
+	"gbaseadmin/utility/treeutil"
 )
 
 func init() {
@@ -27,6 +29,7 @@ type sMenu struct{}
 
 // Create 创建菜单表
 func (s *sMenu) Create(ctx context.Context, in *model.MenuCreateInput) error {
+	normalizeMenuCreateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
 		return err
 	}
@@ -56,6 +59,7 @@ func (s *sMenu) Create(ctx context.Context, in *model.MenuCreateInput) error {
 
 // Update 更新菜单表
 func (s *sMenu) Update(ctx context.Context, in *model.MenuUpdateInput) error {
+	normalizeMenuUpdateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err
 	}
@@ -126,6 +130,10 @@ func (s *sMenu) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.
 
 // List 获取菜单表列表
 func (s *sMenu) List(ctx context.Context, in *model.MenuListInput) (list []*model.MenuListOutput, total int, err error) {
+	if in == nil {
+		in = &model.MenuListInput{}
+	}
+	normalizeMenuListInput(in)
 	m := dao.Menu.Ctx(ctx).Where(dao.Menu.Columns().DeletedAt, nil)
 	if in.Keyword != "" {
 		keywordBuilder := m.Builder().
@@ -164,6 +172,7 @@ func (s *sMenu) Tree(ctx context.Context, in *model.MenuTreeInput) (tree []*mode
 	var list []*model.MenuTreeOutput
 	m := dao.Menu.Ctx(ctx).Where(dao.Menu.Columns().DeletedAt, nil)
 	if in != nil {
+		normalizeMenuTreeInput(in)
 		if in.Keyword != "" {
 			keywordBuilder := m.Builder().
 				WhereLike(dao.Menu.Columns().Title, "%"+in.Keyword+"%").
@@ -208,6 +217,44 @@ func (s *sMenu) Tree(ctx context.Context, in *model.MenuTreeInput) (tree []*mode
 		}
 	}
 	return
+}
+
+func normalizeMenuCreateInput(in *model.MenuCreateInput) {
+	if in == nil {
+		return
+	}
+	in.Title = strings.TrimSpace(in.Title)
+	in.Path = strings.TrimSpace(in.Path)
+	in.Component = strings.TrimSpace(in.Component)
+	in.Permission = strings.TrimSpace(in.Permission)
+	in.Icon = strings.TrimSpace(in.Icon)
+	in.LinkURL = strings.TrimSpace(in.LinkURL)
+}
+
+func normalizeMenuUpdateInput(in *model.MenuUpdateInput) {
+	if in == nil {
+		return
+	}
+	in.Title = strings.TrimSpace(in.Title)
+	in.Path = strings.TrimSpace(in.Path)
+	in.Component = strings.TrimSpace(in.Component)
+	in.Permission = strings.TrimSpace(in.Permission)
+	in.Icon = strings.TrimSpace(in.Icon)
+	in.LinkURL = strings.TrimSpace(in.LinkURL)
+}
+
+func normalizeMenuListInput(in *model.MenuListInput) {
+	if in == nil {
+		return
+	}
+	in.Keyword = strings.TrimSpace(in.Keyword)
+}
+
+func normalizeMenuTreeInput(in *model.MenuTreeInput) {
+	if in == nil {
+		return
+	}
+	in.Keyword = strings.TrimSpace(in.Keyword)
 }
 
 func (s *sMenu) fillParentTitles(ctx context.Context, list []*model.MenuListOutput) {
@@ -256,50 +303,24 @@ func (s *sMenu) ensureMenuDeletable(ctx context.Context, id snowflake.JsonInt64)
 }
 
 func (s *sMenu) ensureParentValid(ctx context.Context, parentID, currentID snowflake.JsonInt64) error {
-	if parentID == 0 {
-		return nil
-	}
-	if currentID != 0 && parentID == currentID {
-		return gerror.New("上级菜单不能选择自己")
-	}
-	var parent struct {
-		Id       int64 `json:"id"`
-		ParentId int64 `json:"parentId"`
-	}
-	if err := dao.Menu.Ctx(ctx).
-		Fields(dao.Menu.Columns().Id, dao.Menu.Columns().ParentId).
-		Where(dao.Menu.Columns().Id, parentID).
-		Where(dao.Menu.Columns().DeletedAt, nil).
-		Scan(&parent); err != nil {
-		return err
-	}
-	if parent.Id == 0 {
-		return gerror.New("上级菜单不存在或已删除")
-	}
-	seen := map[int64]struct{}{int64(parentID): {}}
-	for parent.ParentId != 0 {
-		if currentID != 0 && parent.ParentId == int64(currentID) {
-			return gerror.New("不能将菜单移动到自己的子级下")
-		}
-		if _, ok := seen[parent.ParentId]; ok {
-			return gerror.New("菜单层级存在循环引用")
-		}
-		seen[parent.ParentId] = struct{}{}
-		next := struct {
+	return treeutil.ValidateParent(parentID, currentID, func(id int64) (int64, int64, error) {
+		var parent struct {
 			Id       int64 `json:"id"`
 			ParentId int64 `json:"parentId"`
-		}{}
+		}
 		if err := dao.Menu.Ctx(ctx).
 			Fields(dao.Menu.Columns().Id, dao.Menu.Columns().ParentId).
-			Where(dao.Menu.Columns().Id, parent.ParentId).
+			Where(dao.Menu.Columns().Id, id).
 			Where(dao.Menu.Columns().DeletedAt, nil).
-			Scan(&next); err != nil {
-			return err
+			Scan(&parent); err != nil {
+			return 0, 0, err
 		}
-		if next.Id == 0 {
-			return gerror.New("上级菜单链路中存在无效节点")
-		}
-		parent = next
-	}
-	return nil
+		return parent.Id, parent.ParentId, nil
+	}, treeutil.Messages{
+		Self:         "上级菜单不能选择自己",
+		Missing:      "上级菜单不存在或已删除",
+		ChildLoop:    "不能将菜单移动到自己的子级下",
+		Cycle:        "菜单层级存在循环引用",
+		InvalidChain: "上级菜单链路中存在无效节点",
+	})
 }

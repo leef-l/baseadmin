@@ -5,6 +5,34 @@ import (
 	"strings"
 )
 
+var enumLabelIdents = map[string]string{
+	"启用": "Enabled", "禁用": "Disabled",
+	"正常": "Normal", "异常": "Abnormal",
+	"有效": "Valid", "无效": "Invalid",
+	"是": "Yes", "否": "No",
+	"男": "Male", "女": "Female",
+	"开启": "On", "关闭": "Off",
+	"显示": "Show", "隐藏": "Hide",
+	"已完成": "Done", "进行中": "InProgress",
+	"待处理": "Pending", "已取消": "Cancelled",
+	"待审核": "PendingReview", "已通过": "Approved", "已拒绝": "Rejected",
+	"待支付": "Unpaid", "已支付": "Paid", "已退款": "Refunded",
+	"草稿": "Draft", "已发布": "Published", "已下架": "Offline",
+	"目录": "Dir", "菜单": "Menu", "按钮": "Button",
+	"普通": "Regular", "VIP": "VIP", "管理员": "Admin",
+	"成功": "Success", "失败": "Failed",
+	"充值": "Recharge", "消费": "Consume", "提现": "Withdraw",
+	"置顶": "Pinned", "推荐": "Recommended", "热门": "Hot", "精华": "Featured",
+	"外部链接": "ExternalLink", "内部链接": "InternalLink",
+	"待确认": "Unconfirmed", "已确认": "Confirmed",
+	"待发货": "Unshipped", "已发货": "Shipped", "已签收": "Received",
+	"冻结": "Frozen", "解冻": "Unfrozen",
+	"上架": "Online", "下架": "OffShelf",
+	"免费": "Free", "付费": "Paid",
+	"公开": "Public", "私密": "Private",
+	"全部": "All", "本部门及以下": "DeptAndBelow", "本部门": "DeptOnly", "仅本人": "SelfOnly", "自定义": "Custom",
+}
+
 type CommentMeta struct {
 	Label          string
 	ShortLabel     string
@@ -157,34 +185,7 @@ func ParseComment(comment string) (label string, shortLabel string, tooltipText 
 
 // labelToIdent 将中文枚举标签转为语义化 Go 标识符
 func labelToIdent(label string) string {
-	m := map[string]string{
-		"启用": "Enabled", "禁用": "Disabled",
-		"正常": "Normal", "异常": "Abnormal",
-		"有效": "Valid", "无效": "Invalid",
-		"是": "Yes", "否": "No",
-		"男": "Male", "女": "Female",
-		"开启": "On", "关闭": "Off",
-		"显示": "Show", "隐藏": "Hide",
-		"已完成": "Done", "进行中": "InProgress",
-		"待处理": "Pending", "已取消": "Cancelled",
-		"待审核": "PendingReview", "已通过": "Approved", "已拒绝": "Rejected",
-		"待支付": "Unpaid", "已支付": "Paid", "已退款": "Refunded",
-		"草稿": "Draft", "已发布": "Published", "已下架": "Offline",
-		"目录": "Dir", "菜单": "Menu", "按钮": "Button",
-		"普通": "Regular", "VIP": "VIP", "管理员": "Admin",
-		"成功": "Success", "失败": "Failed",
-		"充值": "Recharge", "消费": "Consume", "提现": "Withdraw",
-		"置顶": "Pinned", "推荐": "Recommended", "热门": "Hot", "精华": "Featured",
-		"外部链接": "ExternalLink", "内部链接": "InternalLink",
-		"待确认": "Unconfirmed", "已确认": "Confirmed",
-		"待发货": "Unshipped", "已发货": "Shipped", "已签收": "Received",
-		"冻结": "Frozen", "解冻": "Unfrozen",
-		"上架": "Online", "下架": "OffShelf",
-		"免费": "Free", "付费": "Paid",
-		"公开": "Public", "私密": "Private",
-		"全部": "All", "本部门及以下": "DeptAndBelow", "本部门": "DeptOnly", "仅本人": "SelfOnly", "自定义": "Custom",
-	}
-	if ident, ok := m[label]; ok {
+	if ident, ok := enumLabelIdents[label]; ok {
 		return ident
 	}
 	return ""

@@ -60,6 +60,33 @@ go run . --table system_dept --only menu
 go run . --table system_dept --menu
 ```
 
+## 验证方式
+
+推荐至少跑两层：
+
+```bash
+cd admin-go/codegen
+
+# 1. 离线模板验证：不依赖真实生成目录
+go run verify_codegen.go
+
+# 2. 语法/单测验证
+go test ./...
+```
+
+如果本机有可用 MySQL 且 `admin-go/.env` 已配置完成，还可以继续跑生成级端到端验证：
+
+```bash
+cd admin-go/codegen
+go run ./cmd/verifye2e
+```
+
+说明：
+
+- `verify_codegen.go` 直接渲染模板并检查搜索、外键、字典、树形等关键片段是否生成
+- `cmd/verifye2e` 会临时建表、执行 `gf gen dao`、生成完整应用并尝试 `go build`
+- `sql/e2e_verify.sql` 是 `verifye2e` 使用的专用验证表结构
+
 ### CLI 参数一览
 
 | 参数 | 类型 | 默认值 | 说明 |

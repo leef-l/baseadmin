@@ -2,10 +2,12 @@ package uploader
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +25,8 @@ func init() {
 }
 
 type sUploader struct{}
+
+const maxInt64AsUint64 = ^uint64(0) >> 1
 
 var imageExts = map[string]bool{
 	"jpg": true, "jpeg": true, "png": true, "gif": true,
@@ -50,20 +54,14 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 		Where("deleted_at IS NULL").
 		Scan(&configRecord)
 	if err == nil && configRecord != nil {
-		if ms, ok := configRecord["max_size"]; ok {
-			if v, ok := ms.(int64); ok && v > 0 {
-				maxSize = v * 1024 * 1024
-			}
+		if v := getInt64(configRecord, "max_size"); v > 0 {
+			maxSize = v * 1024 * 1024
 		}
-		if st, ok := configRecord["storage"]; ok {
-			if v, ok := st.(int64); ok {
-				storageType = int(v)
-			}
+		if v := getInt64(configRecord, "storage"); v > 0 {
+			storageType = int(v)
 		}
-		if lp, ok := configRecord["local_path"]; ok {
-			if v, ok := lp.(string); ok && v != "" {
-				localPath = v
-			}
+		if v := getString(configRecord, "local_path"); v != "" {
+			localPath = v
 		}
 	}
 
@@ -100,7 +98,7 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 	// 生成唯一文件名和对象路径
 	now := time.Now()
 	dateDir := now.Format("2006-01-02")
-	uniqueName := fmt.Sprintf("%d%d%04d.%s", now.UnixMilli(), now.UnixNano()%1000, rand.Intn(10000), ext)
+	uniqueName := buildUniqueName(now, rand.Intn(10000), ext)
 
 	// 始终先保存到本地临时目录，云存储场景下上传后再清理
 	savePath := filepath.Join(localPath, dateDir)
@@ -221,6 +219,81 @@ func getString(m map[string]interface{}, key string) string {
 	if !ok {
 		return ""
 	}
-	s, _ := v.(string)
-	return s
+	switch value := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return value
+	case []byte:
+		return string(value)
+	case fmt.Stringer:
+		return value.String()
+	default:
+		return fmt.Sprintf("%v", value)
+	}
+}
+
+func getInt64(m map[string]interface{}, key string) int64 {
+	if m == nil {
+		return 0
+	}
+	v, ok := m[key]
+	if !ok {
+		return 0
+	}
+	switch value := v.(type) {
+	case int:
+		return int64(value)
+	case int8:
+		return int64(value)
+	case int16:
+		return int64(value)
+	case int32:
+		return int64(value)
+	case int64:
+		return value
+	case uint:
+		return int64(value)
+	case uint8:
+		return int64(value)
+	case uint16:
+		return int64(value)
+	case uint32:
+		return int64(value)
+	case uint64:
+		if value > maxInt64AsUint64 {
+			return 0
+		}
+		return int64(value)
+	case float32:
+		return int64(value)
+	case float64:
+		return int64(value)
+	case json.Number:
+		n, _ := value.Int64()
+		return n
+	case string:
+		n, _ := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+		return n
+	case []byte:
+		n, _ := strconv.ParseInt(strings.TrimSpace(string(value)), 10, 64)
+		return n
+	default:
+		return 0
+	}
+}
+
+func buildUniqueName(now time.Time, randSuffix int, ext string) string {
+	ext = normalizeExt(ext)
+	base := fmt.Sprintf("%d%d%04d", now.UnixMilli(), now.UnixNano()%1000, randSuffix)
+	if ext == "" {
+		return base
+	}
+	return base + "." + ext
+}
+
+func normalizeExt(ext string) string {
+	ext = strings.TrimSpace(ext)
+	ext = strings.TrimPrefix(ext, ".")
+	return strings.ToLower(ext)
 }

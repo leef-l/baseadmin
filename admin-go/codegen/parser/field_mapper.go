@@ -2,6 +2,26 @@ package parser
 
 import "strings"
 
+var (
+	hiddenFieldNames = map[string]bool{
+		"id":         true,
+		"created_at": true,
+		"updated_at": true,
+		"deleted_at": true,
+		"created_by": true,
+		"dept_id":    true,
+	}
+	imageFieldNames = map[string]bool{
+		"avatar":    true,
+		"cover":     true,
+		"logo":      true,
+		"banner":    true,
+		"thumbnail": true,
+		"poster":    true,
+	}
+	imageFieldSuffixes = []string{"_image", "_img", "_photo", "_pic", "_cover", "_banner", "_logo", "_thumbnail", "_poster"}
+)
+
 // snakeToCamel 将 snake_case 转为 CamelCase
 // 例：dept_name → DeptName, parent_id → ParentID, link_url → LinkURL
 func snakeToCamel(s string) string {
@@ -148,15 +168,7 @@ func MapTSType(dbType string, isID bool) string {
 // IsHiddenField 判断字段是否在表单中隐藏
 // 隐藏字段：id/created_at/updated_at/deleted_at/created_by/dept_id
 func IsHiddenField(name string) bool {
-	hidden := map[string]bool{
-		"id":         true,
-		"created_at": true,
-		"updated_at": true,
-		"deleted_at": true,
-		"created_by": true,
-		"dept_id":    true,
-	}
-	return hidden[name]
+	return hiddenFieldNames[name]
 }
 
 // MapComponent 根据字段信息映射前端组件类型
@@ -184,15 +196,10 @@ func MapComponent(field FieldMeta) string {
 	}
 
 	// 图片上传
-	imageExact := map[string]bool{
-		"avatar": true, "cover": true, "logo": true,
-		"banner": true, "thumbnail": true, "poster": true,
-	}
-	if imageExact[name] {
+	if imageFieldNames[name] {
 		return ComponentImageUpload
 	}
-	imageSuffixes := []string{"_image", "_img", "_photo", "_pic", "_cover", "_banner", "_logo", "_thumbnail", "_poster"}
-	for _, suffix := range imageSuffixes {
+	for _, suffix := range imageFieldSuffixes {
 		if strings.HasSuffix(name, suffix) {
 			return ComponentImageUpload
 		}

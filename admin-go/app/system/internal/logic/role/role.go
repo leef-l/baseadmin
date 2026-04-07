@@ -2,6 +2,7 @@ package role
 
 import (
 	"context"
+	"strings"
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -13,6 +14,7 @@ import (
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
 	"gbaseadmin/utility/snowflake"
+	"gbaseadmin/utility/treeutil"
 )
 
 func init() {
@@ -27,6 +29,7 @@ type sRole struct{}
 
 // Create 创建角色表
 func (s *sRole) Create(ctx context.Context, in *model.RoleCreateInput) error {
+	normalizeRoleCreateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
 		return err
 	}
@@ -47,6 +50,7 @@ func (s *sRole) Create(ctx context.Context, in *model.RoleCreateInput) error {
 
 // Update 更新角色表
 func (s *sRole) Update(ctx context.Context, in *model.RoleUpdateInput) error {
+	normalizeRoleUpdateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err
 	}
@@ -139,6 +143,10 @@ func (s *sRole) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.
 
 // List 获取角色表列表
 func (s *sRole) List(ctx context.Context, in *model.RoleListInput) (list []*model.RoleListOutput, total int, err error) {
+	if in == nil {
+		in = &model.RoleListInput{}
+	}
+	normalizeRoleListInput(in)
 	m := dao.Role.Ctx(ctx).Where(dao.Role.Columns().DeletedAt, nil)
 	if in.Keyword != "" {
 		m = m.WhereLike(dao.Role.Columns().Title, "%"+in.Keyword+"%")
@@ -166,6 +174,7 @@ func (s *sRole) Tree(ctx context.Context, in *model.RoleTreeInput) (tree []*mode
 	var list []*model.RoleTreeOutput
 	m := dao.Role.Ctx(ctx).Where(dao.Role.Columns().DeletedAt, nil)
 	if in != nil {
+		normalizeRoleTreeInput(in)
 		if in.Keyword != "" {
 			m = m.WhereLike(dao.Role.Columns().Title, "%"+in.Keyword+"%")
 		}
@@ -199,6 +208,34 @@ func (s *sRole) Tree(ctx context.Context, in *model.RoleTreeInput) (tree []*mode
 		}
 	}
 	return
+}
+
+func normalizeRoleCreateInput(in *model.RoleCreateInput) {
+	if in == nil {
+		return
+	}
+	in.Title = strings.TrimSpace(in.Title)
+}
+
+func normalizeRoleUpdateInput(in *model.RoleUpdateInput) {
+	if in == nil {
+		return
+	}
+	in.Title = strings.TrimSpace(in.Title)
+}
+
+func normalizeRoleListInput(in *model.RoleListInput) {
+	if in == nil {
+		return
+	}
+	in.Keyword = strings.TrimSpace(in.Keyword)
+}
+
+func normalizeRoleTreeInput(in *model.RoleTreeInput) {
+	if in == nil {
+		return
+	}
+	in.Keyword = strings.TrimSpace(in.Keyword)
 }
 
 // GrantMenu 角色授权菜单（先删后插）
@@ -359,50 +396,24 @@ func (s *sRole) ensureRoleDeletable(ctx context.Context, id snowflake.JsonInt64)
 }
 
 func (s *sRole) ensureParentValid(ctx context.Context, parentID, currentID snowflake.JsonInt64) error {
-	if parentID == 0 {
-		return nil
-	}
-	if currentID != 0 && parentID == currentID {
-		return gerror.New("上级角色不能选择自己")
-	}
-	var parent struct {
-		Id       int64 `json:"id"`
-		ParentId int64 `json:"parentId"`
-	}
-	if err := dao.Role.Ctx(ctx).
-		Fields(dao.Role.Columns().Id, dao.Role.Columns().ParentId).
-		Where(dao.Role.Columns().Id, parentID).
-		Where(dao.Role.Columns().DeletedAt, nil).
-		Scan(&parent); err != nil {
-		return err
-	}
-	if parent.Id == 0 {
-		return gerror.New("上级角色不存在或已删除")
-	}
-	seen := map[int64]struct{}{int64(parentID): {}}
-	for parent.ParentId != 0 {
-		if currentID != 0 && parent.ParentId == int64(currentID) {
-			return gerror.New("不能将角色移动到自己的子级下")
-		}
-		if _, ok := seen[parent.ParentId]; ok {
-			return gerror.New("角色层级存在循环引用")
-		}
-		seen[parent.ParentId] = struct{}{}
-		next := struct {
+	return treeutil.ValidateParent(parentID, currentID, func(id int64) (int64, int64, error) {
+		var parent struct {
 			Id       int64 `json:"id"`
 			ParentId int64 `json:"parentId"`
-		}{}
+		}
 		if err := dao.Role.Ctx(ctx).
 			Fields(dao.Role.Columns().Id, dao.Role.Columns().ParentId).
-			Where(dao.Role.Columns().Id, parent.ParentId).
+			Where(dao.Role.Columns().Id, id).
 			Where(dao.Role.Columns().DeletedAt, nil).
-			Scan(&next); err != nil {
-			return err
+			Scan(&parent); err != nil {
+			return 0, 0, err
 		}
-		if next.Id == 0 {
-			return gerror.New("上级角色链路中存在无效节点")
-		}
-		parent = next
-	}
-	return nil
+		return parent.Id, parent.ParentId, nil
+	}, treeutil.Messages{
+		Self:         "上级角色不能选择自己",
+		Missing:      "上级角色不存在或已删除",
+		ChildLoop:    "不能将角色移动到自己的子级下",
+		Cycle:        "角色层级存在循环引用",
+		InvalidChain: "上级角色链路中存在无效节点",
+	})
 }

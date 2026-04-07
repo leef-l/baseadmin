@@ -1,6 +1,8 @@
 package jwt
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
@@ -34,7 +36,11 @@ func init() {
 		memberSecret = secret
 	}
 	hours, _ := g.Cfg().Get(ctx, "jwt.expire", 24)
-	expireTime = time.Duration(hours.Int()) * time.Hour
+	expireHours := hours.Int()
+	if expireHours <= 0 {
+		expireHours = 24
+	}
+	expireTime = time.Duration(expireHours) * time.Hour
 }
 
 // GenerateToken 生成 JWT Token
@@ -56,9 +62,7 @@ func GenerateToken(userID int64, username string, deptID int64) (string, error) 
 
 // ParseToken 解析 JWT Token
 func ParseToken(tokenStr string) (*Claims, error) {
-	token, err := gojwt.ParseWithClaims(tokenStr, &Claims{}, func(t *gojwt.Token) (interface{}, error) {
-		return secret, nil
-	})
+	token, err := parseToken(tokenStr, &Claims{}, secret)
 	if err != nil {
 		return nil, err
 	}
@@ -109,9 +113,7 @@ func VerifyAnyToken(tokenStr string) bool {
 
 // ParseMemberToken 解析会员 JWT Token
 func ParseMemberToken(tokenStr string) (*MemberClaims, error) {
-	token, err := gojwt.ParseWithClaims(tokenStr, &MemberClaims{}, func(t *gojwt.Token) (interface{}, error) {
-		return memberSecret, nil
-	})
+	token, err := parseToken(tokenStr, &MemberClaims{}, memberSecret)
 	if err != nil {
 		return nil, err
 	}
@@ -119,4 +121,14 @@ func ParseMemberToken(tokenStr string) (*MemberClaims, error) {
 		return claims, nil
 	}
 	return nil, gojwt.ErrTokenInvalidClaims
+}
+
+func parseToken(tokenStr string, claims gojwt.Claims, key []byte) (*gojwt.Token, error) {
+	tokenStr = strings.TrimSpace(tokenStr)
+	return gojwt.ParseWithClaims(tokenStr, claims, func(t *gojwt.Token) (interface{}, error) {
+		if t.Method == nil || t.Method.Alg() != gojwt.SigningMethodHS256.Alg() {
+			return nil, fmt.Errorf("unexpected jwt signing method: %v", t.Header["alg"])
+		}
+		return key, nil
+	})
 }

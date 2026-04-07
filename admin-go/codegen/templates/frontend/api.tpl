@@ -40,11 +40,13 @@ export function update{{.ModelName}}(data: {{.ModelName}}UpdateParams) {
 export function delete{{.ModelName}}(id: string) {
   return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
 }
+{{- if not .HasParentID}}
 
 /** 批量删除{{.Comment}} */
 export function batchDelete{{.ModelName}}(ids: string[]) {
   return requestClient.delete(`${PREFIX}/batch-delete`, { data: { ids } });
 }
+{{- end}}
 
 /** 导出{{.Comment}} */
 export function export{{.ModelName}}(params?: Record<string, any>) {

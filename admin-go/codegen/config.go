@@ -1,13 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 
+	"gbaseadmin/codegen/internal/runtimeutil"
 	"gopkg.in/yaml.v3"
 )
 
@@ -51,9 +50,17 @@ type Config struct {
 }
 
 func LoadConfig(path string) (*Config, error) {
-	loadEnvFileIfExists(filepath.Join(filepath.Dir(path), "..", ".env"))
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("解析配置文件路径失败: %w", err)
+	}
+	configDir := filepath.Dir(absPath)
 
-	data, err := os.ReadFile(path)
+	if err := runtimeutil.LoadEnvFileIfExists(filepath.Join(configDir, "..", ".env")); err != nil {
+		return nil, fmt.Errorf("加载环境变量失败: %w", err)
+	}
+
+	data, err := os.ReadFile(absPath)
 	if err != nil {
 		return nil, fmt.Errorf("读取配置文件失败: %w", err)
 	}
@@ -62,6 +69,8 @@ func LoadConfig(path string) (*Config, error) {
 	if err := yaml.Unmarshal([]byte(expanded), &cfg); err != nil {
 		return nil, fmt.Errorf("解析配置文件失败: %w", err)
 	}
+	cfg.Backend.Output = resolveConfigPath(configDir, cfg.Backend.Output)
+	cfg.Frontend.Output = resolveConfigPath(configDir, cfg.Frontend.Output)
 	return &cfg, nil
 }
 
@@ -80,34 +89,11 @@ func expandEnvPlaceholders(input string) string {
 	})
 }
 
-func loadEnvFileIfExists(path string) {
-	file, err := os.Open(path)
-	if err != nil {
-		return
+func resolveConfigPath(configDir, value string) string {
+	if value == "" || filepath.IsAbs(value) {
+		return value
 	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		key, value, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-		key = strings.TrimSpace(key)
-		if key == "" {
-			continue
-		}
-		if _, exists := os.LookupEnv(key); exists {
-			continue
-		}
-		value = strings.TrimSpace(value)
-		value = strings.Trim(value, `"'`)
-		_ = os.Setenv(key, value)
-	}
+	return filepath.Clean(filepath.Join(configDir, value))
 }
 
 // DSN 生成数据库连接字符串

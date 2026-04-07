@@ -52,6 +52,33 @@ func NewTemplateCache() *TemplateCache {
 	return &TemplateCache{cache: make(map[string]*template.Template)}
 }
 
+// WriteFileIfChanged 仅在内容有变化时写入文件。
+// 返回值表示是否实际落盘。
+func WriteFileIfChanged(path string, content []byte) (bool, error) {
+	if info, err := os.Stat(path); err == nil {
+		if info.IsDir() {
+			return false, fmt.Errorf("目标路径是目录: %s", path)
+		}
+		existing, err := os.ReadFile(path)
+		if err != nil {
+			return false, err
+		}
+		if bytes.Equal(existing, content) {
+			return false, nil
+		}
+	} else if !os.IsNotExist(err) {
+		return false, err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // Get 获取或解析模板（自动注入 SharedFuncMap）
 func (tc *TemplateCache) Get(tplPath string) (*template.Template, error) {
 	tc.mu.RLock()
@@ -109,18 +136,18 @@ func GenerateFiles(mappings []TemplateMapping, tplDir, outDir, appName, moduleNa
 			}
 		}
 
-		dir := filepath.Dir(outPath)
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return generated, fmt.Errorf("创建目录 %s 失败: %w", dir, err)
-		}
-
 		var buf bytes.Buffer
 		if err := tpl.Execute(&buf, data); err != nil {
 			return generated, fmt.Errorf("渲染模板 %s 失败: %w", m.TplFile, err)
 		}
 
-		if err := os.WriteFile(outPath, buf.Bytes(), 0644); err != nil {
+		written, err := WriteFileIfChanged(outPath, buf.Bytes())
+		if err != nil {
 			return generated, fmt.Errorf("写入文件 %s 失败: %w", outPath, err)
+		}
+		if !written {
+			fmt.Printf("  [无变化] %s\n", outPath)
+			continue
 		}
 
 		generated = append(generated, outPath)

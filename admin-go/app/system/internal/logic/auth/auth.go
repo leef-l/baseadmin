@@ -29,6 +29,10 @@ func New() *sAuth {
 
 type sAuth struct{}
 
+type permissionRow struct {
+	Permission string `json:"permission"`
+}
+
 const (
 	authLoginFailLimit  = 5
 	authLoginFailWindow = 10 * time.Minute
@@ -160,73 +164,63 @@ func (s *sAuth) loadInfo(ctx context.Context, userID snowflake.JsonInt64) (out *
 		for _, ur := range userRoles {
 			roleIDs = append(roleIDs, ur.RoleId)
 		}
+		roleIDs = compactInt64s(roleIDs)
 
-		// 查询角色名称
-		var roles []struct {
-			Title string `json:"title"`
-		}
-		_ = g.DB().Ctx(ctx).Model("system_role").
-			Where("id", roleIDs).
-			Where("deleted_at", nil).
-			Where("status", 1).
-			Scan(&roles)
-		for _, r := range roles {
-			out.Roles = append(out.Roles, r.Title)
-		}
-
-		// 检查是否有超级管理员角色
-		isAdmin := false
-		adminCount, _ := g.DB().Ctx(ctx).Model("system_role").
-			Where("id", roleIDs).
-			Where("deleted_at", nil).
-			Where("status", 1).
-			Where("is_admin", 1).
-			Count()
-		isAdmin = adminCount > 0
-
-		if isAdmin {
-			// 超级管理员获取所有权限
-			var perms []struct {
-				Permission string `json:"permission"`
+		if len(roleIDs) > 0 {
+			// 查询角色名称
+			var roles []struct {
+				Title string `json:"title"`
 			}
-			_ = g.DB().Ctx(ctx).Model("system_menu").
+			_ = g.DB().Ctx(ctx).Model("system_role").
+				Where("id", roleIDs).
 				Where("deleted_at", nil).
 				Where("status", 1).
-				WhereNot("permission", "").
-				Scan(&perms)
-			seen := make(map[string]bool)
-			for _, p := range perms {
-				if p.Permission != "" && !seen[p.Permission] {
-					out.Perms = append(out.Perms, p.Permission)
-					seen[p.Permission] = true
-				}
+				Scan(&roles)
+			for _, r := range roles {
+				out.Roles = append(out.Roles, r.Title)
 			}
-		} else {
-			// 查询角色关联的菜单权限标识
-			var menuIDs []struct {
-				MenuId int64 `json:"menuId"`
-			}
-			_ = dao.RoleMenu.Ctx(ctx).WhereIn(dao.RoleMenu.Columns().RoleId, roleIDs).Scan(&menuIDs)
 
-			if len(menuIDs) > 0 {
-				mIDs := make([]int64, 0, len(menuIDs))
-				for _, m := range menuIDs {
-					mIDs = append(mIDs, m.MenuId)
-				}
-				var perms []struct {
-					Permission string `json:"permission"`
-				}
+			// 检查是否有超级管理员角色
+			isAdmin := false
+			adminCount, _ := g.DB().Ctx(ctx).Model("system_role").
+				Where("id", roleIDs).
+				Where("deleted_at", nil).
+				Where("status", 1).
+				Where("is_admin", 1).
+				Count()
+			isAdmin = adminCount > 0
+
+			if isAdmin {
+				// 超级管理员获取所有权限
+				var perms []permissionRow
 				_ = g.DB().Ctx(ctx).Model("system_menu").
-					Where("id", mIDs).
 					Where("deleted_at", nil).
 					Where("status", 1).
 					WhereNot("permission", "").
 					Scan(&perms)
-				seen := make(map[string]bool)
-				for _, p := range perms {
-					if p.Permission != "" && !seen[p.Permission] {
-						out.Perms = append(out.Perms, p.Permission)
-						seen[p.Permission] = true
+				out.Perms = compactPermissions(collectPermissions(perms))
+			} else {
+				// 查询角色关联的菜单权限标识
+				var menuIDs []struct {
+					MenuId int64 `json:"menuId"`
+				}
+				_ = dao.RoleMenu.Ctx(ctx).WhereIn(dao.RoleMenu.Columns().RoleId, roleIDs).Scan(&menuIDs)
+
+				if len(menuIDs) > 0 {
+					mIDs := make([]int64, 0, len(menuIDs))
+					for _, m := range menuIDs {
+						mIDs = append(mIDs, m.MenuId)
+					}
+					mIDs = compactInt64s(mIDs)
+					if len(mIDs) > 0 {
+						var perms []permissionRow
+						_ = g.DB().Ctx(ctx).Model("system_menu").
+							Where("id", mIDs).
+							Where("deleted_at", nil).
+							Where("status", 1).
+							WhereNot("permission", "").
+							Scan(&perms)
+						out.Perms = compactPermissions(collectPermissions(perms))
 					}
 				}
 			}
@@ -300,18 +294,20 @@ func (s *sAuth) loadMenus(ctx context.Context, userID snowflake.JsonInt64) ([]*m
 	for _, ur := range userRoles {
 		roleIDs = append(roleIDs, ur.RoleId)
 	}
+	roleIDs = compactInt64s(roleIDs)
+	if len(roleIDs) == 0 {
+		return make([]*model.AuthMenuOutput, 0), nil
+	}
 
 	// 检查是否有超级管理员角色
 	isAdmin := false
-	if len(roleIDs) > 0 {
-		adminCount, _ := g.DB().Ctx(ctx).Model("system_role").
-			Where("id", roleIDs).
-			Where("deleted_at", nil).
-			Where("status", 1).
-			Where("is_admin", 1).
-			Count()
-		isAdmin = adminCount > 0
-	}
+	adminCount, _ := g.DB().Ctx(ctx).Model("system_role").
+		Where("id", roleIDs).
+		Where("deleted_at", nil).
+		Where("status", 1).
+		Where("is_admin", 1).
+		Count()
+	isAdmin = adminCount > 0
 
 	if isAdmin {
 		// 超级管理员获取所有菜单
@@ -324,22 +320,7 @@ func (s *sAuth) loadMenus(ctx context.Context, userID snowflake.JsonInt64) ([]*m
 		if err != nil {
 			return nil, err
 		}
-		nodeMap := make(map[int64]*model.AuthMenuOutput, len(list))
-		for _, item := range list {
-			item.Children = make([]*model.AuthMenuOutput, 0)
-			nodeMap[int64(item.ID)] = item
-		}
-		tree := make([]*model.AuthMenuOutput, 0)
-		for _, item := range list {
-			if int64(item.ParentID) == 0 {
-				tree = append(tree, item)
-			} else if parent, ok := nodeMap[int64(item.ParentID)]; ok {
-				parent.Children = append(parent.Children, item)
-			} else {
-				tree = append(tree, item)
-			}
-		}
-		return tree, nil
+		return buildMenuTree(list), nil
 	}
 
 	// 查询角色关联的菜单ID（去重）
@@ -355,13 +336,13 @@ func (s *sAuth) loadMenus(ctx context.Context, userID snowflake.JsonInt64) ([]*m
 		return make([]*model.AuthMenuOutput, 0), nil
 	}
 
-	menuIDSet := make(map[int64]bool)
-	menuIDs := make([]int64, 0)
+	menuIDs := make([]int64, 0, len(roleMenus))
 	for _, rm := range roleMenus {
-		if !menuIDSet[rm.MenuId] {
-			menuIDSet[rm.MenuId] = true
-			menuIDs = append(menuIDs, rm.MenuId)
-		}
+		menuIDs = append(menuIDs, rm.MenuId)
+	}
+	menuIDs = compactInt64s(menuIDs)
+	if len(menuIDs) == 0 {
+		return make([]*model.AuthMenuOutput, 0), nil
 	}
 
 	// 查询菜单详情
@@ -375,26 +356,7 @@ func (s *sAuth) loadMenus(ctx context.Context, userID snowflake.JsonInt64) ([]*m
 	if err != nil {
 		return nil, err
 	}
-
-	// 组装树
-	nodeMap := make(map[int64]*model.AuthMenuOutput, len(list))
-	for _, item := range list {
-		item.Children = make([]*model.AuthMenuOutput, 0)
-		nodeMap[int64(item.ID)] = item
-	}
-
-	tree := make([]*model.AuthMenuOutput, 0)
-	for _, item := range list {
-		if int64(item.ParentID) == 0 {
-			tree = append(tree, item)
-		} else if parent, ok := nodeMap[int64(item.ParentID)]; ok {
-			parent.Children = append(parent.Children, item)
-		} else {
-			// 父节点不在权限范围内，作为顶级节点
-			tree = append(tree, item)
-		}
-	}
-	return tree, nil
+	return buildMenuTree(list), nil
 }
 
 func (s *sAuth) isLoginRateLimited(ctx context.Context, username string) bool {
@@ -443,11 +405,7 @@ func (s *sAuth) setCachedMenus(ctx context.Context, userID snowflake.JsonInt64, 
 }
 
 func (s *sAuth) clearAuthCache(ctx context.Context, userID int64) {
-	_ = cache.Delete(
-		ctx,
-		fmt.Sprintf("system:auth:info:%d", userID),
-		fmt.Sprintf("system:auth:menus:%d", userID),
-	)
+	_ = cache.Delete(ctx, userCacheKeys(userID)...)
 }
 
 func ClearUserCaches(ctx context.Context, userIDs ...int64) {
@@ -464,10 +422,7 @@ func ClearUserCaches(ctx context.Context, userIDs ...int64) {
 			continue
 		}
 		seen[userID] = struct{}{}
-		keys = append(keys,
-			fmt.Sprintf("system:auth:info:%d", userID),
-			fmt.Sprintf("system:auth:menus:%d", userID),
-		)
+		keys = append(keys, userCacheKeys(userID)...)
 	}
 	_ = cache.Delete(ctx, keys...)
 }
@@ -496,13 +451,124 @@ func (s *sAuth) loginFailKey(ctx context.Context, username string) string {
 			ip = clientIP
 		}
 	}
-	return fmt.Sprintf("system:auth:login_fail:%s:%s", strings.ToLower(strings.TrimSpace(username)), ip)
+	return loginFailCacheKey(username, ip)
 }
 
 func (s *sAuth) infoCacheKey(userID snowflake.JsonInt64) string {
-	return fmt.Sprintf("system:auth:info:%d", int64(userID))
+	return infoCacheKey(int64(userID))
 }
 
 func (s *sAuth) menusCacheKey(userID snowflake.JsonInt64) string {
-	return fmt.Sprintf("system:auth:menus:%d", int64(userID))
+	return menusCacheKey(int64(userID))
+}
+
+func userCacheKeys(userID int64) []string {
+	if userID <= 0 {
+		return nil
+	}
+	return []string{
+		infoCacheKey(userID),
+		menusCacheKey(userID),
+	}
+}
+
+func infoCacheKey(userID int64) string {
+	return fmt.Sprintf("system:auth:info:%d", userID)
+}
+
+func menusCacheKey(userID int64) string {
+	return fmt.Sprintf("system:auth:menus:%d", userID)
+}
+
+func loginFailCacheKey(username, ip string) string {
+	return fmt.Sprintf("system:auth:login_fail:%s:%s", normalizeAuthKeyPart(username), normalizeAuthKeyPart(ip))
+}
+
+func normalizeAuthKeyPart(value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	if normalized == "" {
+		return "unknown"
+	}
+	return normalized
+}
+
+func compactInt64s(values []int64) []int64 {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[int64]struct{}, len(values))
+	normalized := make([]int64, 0, len(values))
+	for _, value := range values {
+		if value <= 0 {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func compactPermissions(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	normalized := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, value)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func collectPermissions(rows []permissionRow) []string {
+	values := make([]string, 0, len(rows))
+	for _, row := range rows {
+		values = append(values, row.Permission)
+	}
+	return values
+}
+
+func buildMenuTree(list []*model.AuthMenuOutput) []*model.AuthMenuOutput {
+	if len(list) == 0 {
+		return make([]*model.AuthMenuOutput, 0)
+	}
+	nodeMap := make(map[int64]*model.AuthMenuOutput, len(list))
+	for _, item := range list {
+		if item == nil {
+			continue
+		}
+		item.Children = make([]*model.AuthMenuOutput, 0)
+		nodeMap[int64(item.ID)] = item
+	}
+	tree := make([]*model.AuthMenuOutput, 0, len(list))
+	for _, item := range list {
+		if item == nil {
+			continue
+		}
+		if int64(item.ParentID) == 0 {
+			tree = append(tree, item)
+		} else if parent, ok := nodeMap[int64(item.ParentID)]; ok {
+			parent.Children = append(parent.Children, item)
+		} else {
+			tree = append(tree, item)
+		}
+	}
+	return tree
 }

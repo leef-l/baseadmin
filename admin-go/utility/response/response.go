@@ -2,6 +2,7 @@ package response
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gogf/gf/v2/net/ghttp"
 )
@@ -39,20 +40,23 @@ func FailCode(r *ghttp.Request, code int, msg string) {
 
 // Unauthorized 401 未授权
 func Unauthorized(r *ghttp.Request, msg ...string) {
-	m := "未登录或登录已过期"
-	if len(msg) > 0 {
-		m = msg[0]
-	}
+	m := resolveMessage("未登录或登录已过期", msg...)
 	r.Response.Status = http.StatusUnauthorized
 	r.Response.WriteJsonExit(R{Code: 401, Message: m})
 }
 
 // Forbidden 403 无权限
 func Forbidden(r *ghttp.Request, msg ...string) {
-	m := "无访问权限"
-	if len(msg) > 0 {
-		m = msg[0]
-	}
+	m := resolveMessage("无访问权限", msg...)
 	r.Response.Status = http.StatusForbidden
 	r.Response.WriteJsonExit(R{Code: 403, Message: m})
+}
+
+func resolveMessage(fallback string, msg ...string) string {
+	for _, item := range msg {
+		if value := strings.TrimSpace(item); value != "" {
+			return value
+		}
+	}
+	return fallback
 }

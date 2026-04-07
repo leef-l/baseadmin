@@ -20,6 +20,7 @@ RUN go mod download
 COPY . .
 
 RUN go build -ldflags "-s -w" -o /build/upload ./app/upload/main.go
+RUN go build -ldflags "-s -w" -o /build/migrate ./cmd/migrate
 
 FROM docker.1ms.run/alpine:3.19
 
@@ -36,8 +37,12 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 WORKDIR /app
 
 COPY --from=builder /build/upload ./upload
+COPY --from=builder /build/migrate ./migrate
 COPY --from=builder /build/app/upload/manifest ./manifest
+COPY --from=builder /build/database ./database
+COPY --from=builder /build/docker/build/start-go-app.sh ./start-go-app.sh
 
+RUN chmod +x ./upload ./migrate ./start-go-app.sh
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
@@ -46,4 +51,4 @@ EXPOSE 8002
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD nc -z 127.0.0.1 8002 || exit 1
 
-CMD ["./upload"]
+CMD ["./start-go-app.sh", "upload"]

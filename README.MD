@@ -10,6 +10,7 @@
 详细说明统一放在 `docs/` 目录：
 
 - [文档索引](docs/README.md)
+- [Git 提交流程铁律](docs/Git提交流程铁律.md)
 - [基础框架说明](docs/基础框架说明.md)
 - [Docker 开发说明](docs/Docker开发说明.md)
 
@@ -86,7 +87,8 @@ Docker 开发入口已迁移到根目录：
 
 ### 初始化数据
 
-- `admin-go/codegen/sql/init.sql` 只保留 `system` / `upload` 当前相关表和最小种子数据
+- 初始化现在统一走 `admin-go/database/migrations/`
+- Docker 与部署启动前都会先执行 `golang-migrate up`
 - 默认初始化账号为 `admin` / `admin123`
 
 ### 默认开发端口
@@ -105,7 +107,19 @@ docker compose --env-file .\docker\dev\.env -f .\docker\dev\docker-compose.yml p
 docker compose --env-file .\docker\dev\.env -f .\docker\dev\docker-compose.yml logs --tail=100
 ```
 
+## Git 提交铁律
+
+- 整体功能完成后必须立即提交并推送到 GitHub，禁止把“本地已完成但未推送”当作结束状态
+- 统一使用仓库脚本：
+
+```bash
+./scripts/feature-publish.sh "feat(scope): summary"
+```
+
+- 如果这次功能包含数据库改动，必须先补 `admin-go/database/migrations/`，再执行提交脚本
+
 更多说明见：
 
+- [Git 提交流程铁律](docs/Git提交流程铁律.md)
 - [Docker 开发说明](docs/Docker开发说明.md)
 - [基础框架说明](docs/基础框架说明.md)

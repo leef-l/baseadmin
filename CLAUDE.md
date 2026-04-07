@@ -70,6 +70,8 @@ admin-go/app/*/internal/model/entity/
    - sort 排序字段
    - 自定义时间字段（*_at）
    - 验证规则（email/phone/url/max-length）
+8. 整体功能完成后必须立即提交到 GitHub：禁止把“已完成但未提交”当作稳定状态。默认使用仓库脚本 `./scripts/feature-publish.sh "type(scope): summary"` 一次性执行 `git add -A`、`git commit`、`git push origin 当前分支`
+9. 数据库铁律与提交流程同时生效：只要整体功能包含数据库变更，必须先补齐 `golang-migrate` 迁移文件，再执行功能提交流程；禁止跳过迁移直接提交业务代码
 
 ## 常用命令
 

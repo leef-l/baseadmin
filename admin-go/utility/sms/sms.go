@@ -2,8 +2,11 @@ package sms
 
 import (
 	"context"
+	crand "crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
+	mrand "math/rand"
+	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/dysmsapi"
 	"github.com/gogf/gf/v2/frame/g"
@@ -49,7 +52,10 @@ func loadConfig(ctx context.Context) smsConfig {
 
 // generateCode 生成 6 位随机数字验证码
 func generateCode() string {
-	return fmt.Sprintf("%06d", rand.Intn(1000000))
+	if n, err := crand.Int(crand.Reader, big.NewInt(1000000)); err == nil {
+		return fmt.Sprintf("%06d", n.Int64())
+	}
+	return fmt.Sprintf("%06d", mrand.New(mrand.NewSource(time.Now().UnixNano())).Intn(1000000))
 }
 
 // SendCode 发送验证码短信

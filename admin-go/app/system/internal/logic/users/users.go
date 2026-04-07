@@ -2,6 +2,7 @@ package users
 
 import (
 	"context"
+	"strings"
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -28,6 +29,7 @@ type sUsers struct{}
 
 // Create 创建用户表
 func (s *sUsers) Create(ctx context.Context, in *model.UsersCreateInput) error {
+	normalizeUsersWriteInput(in)
 	if err := s.ensureDeptExists(ctx, in.DeptID); err != nil {
 		return err
 	}
@@ -74,6 +76,7 @@ func (s *sUsers) Create(ctx context.Context, in *model.UsersCreateInput) error {
 
 // Update 更新用户表
 func (s *sUsers) Update(ctx context.Context, in *model.UsersUpdateInput) error {
+	normalizeUsersUpdateInput(in)
 	// 内置管理员不可禁用
 	if in.Status == 0 {
 		isAdmin, err := s.isBuiltinAdmin(ctx, in.ID)
@@ -206,6 +209,10 @@ func (s *sUsers) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model
 
 // List 获取用户表列表
 func (s *sUsers) List(ctx context.Context, in *model.UsersListInput) (list []*model.UsersListOutput, total int, err error) {
+	if in == nil {
+		in = &model.UsersListInput{}
+	}
+	normalizeUsersListInput(in)
 	m := dao.Users.Ctx(ctx).Where(dao.Users.Columns().DeletedAt, nil)
 	if in.Keyword != "" {
 		keywordBuilder := m.Builder().
@@ -356,22 +363,7 @@ func (s *sUsers) ensureDeptExists(ctx context.Context, deptID snowflake.JsonInt6
 }
 
 func (s *sUsers) normalizeRoleIDs(ctx context.Context, roleIDs []snowflake.JsonInt64) ([]snowflake.JsonInt64, error) {
-	if len(roleIDs) == 0 {
-		return nil, nil
-	}
-	seen := make(map[int64]struct{}, len(roleIDs))
-	normalized := make([]snowflake.JsonInt64, 0, len(roleIDs))
-	for _, roleID := range roleIDs {
-		id := int64(roleID)
-		if id <= 0 {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		normalized = append(normalized, roleID)
-	}
+	normalized := compactRoleIDs(roleIDs)
 	if len(normalized) == 0 {
 		return nil, nil
 	}
@@ -393,4 +385,57 @@ func (s *sUsers) normalizeRoleIDs(ctx context.Context, roleIDs []snowflake.JsonI
 		return nil, gerror.New("包含不存在或已删除的角色")
 	}
 	return normalized, nil
+}
+
+func compactRoleIDs(roleIDs []snowflake.JsonInt64) []snowflake.JsonInt64 {
+	if len(roleIDs) == 0 {
+		return nil
+	}
+	seen := make(map[int64]struct{}, len(roleIDs))
+	normalized := make([]snowflake.JsonInt64, 0, len(roleIDs))
+	for _, roleID := range roleIDs {
+		id := int64(roleID)
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		normalized = append(normalized, roleID)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func normalizeUsersWriteInput(in *model.UsersCreateInput) {
+	if in == nil {
+		return
+	}
+	in.Username = strings.TrimSpace(in.Username)
+	in.Nickname = strings.TrimSpace(in.Nickname)
+	in.Email = strings.TrimSpace(in.Email)
+	in.Avatar = strings.TrimSpace(in.Avatar)
+}
+
+func normalizeUsersUpdateInput(in *model.UsersUpdateInput) {
+	if in == nil {
+		return
+	}
+	in.Username = strings.TrimSpace(in.Username)
+	in.Nickname = strings.TrimSpace(in.Nickname)
+	in.Email = strings.TrimSpace(in.Email)
+	in.Avatar = strings.TrimSpace(in.Avatar)
+}
+
+func normalizeUsersListInput(in *model.UsersListInput) {
+	if in == nil {
+		return
+	}
+	in.Keyword = strings.TrimSpace(in.Keyword)
+	in.Username = strings.TrimSpace(in.Username)
+	in.Nickname = strings.TrimSpace(in.Nickname)
+	in.Email = strings.TrimSpace(in.Email)
 }

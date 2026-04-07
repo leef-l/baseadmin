@@ -184,6 +184,7 @@ func (s *s{{.ModelName}}) doCollectChildIDs(ctx context.Context, parentID snowfl
 	return childIDs, nil
 }
 {{- end}}
+{{- if not .HasParentID}}
 
 // BatchDelete 批量软删除{{.Comment}}
 func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error {
@@ -197,6 +198,7 @@ func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonI
 {{- end}}
 	return err
 }
+{{- end}}
 
 // Detail 获取{{.Comment}}详情
 func (s *s{{.ModelName}}) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.{{.ModelName}}DetailOutput, err error) {

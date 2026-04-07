@@ -18,6 +18,7 @@ func Hash(plain string) (string, error) {
 
 // Verify 校验密码，兼容历史 SHA-256 存量摘要。
 func Verify(stored, plain string) bool {
+	stored = normalizeStoredHash(stored)
 	if stored == "" {
 		return false
 	}
@@ -29,11 +30,24 @@ func Verify(stored, plain string) bool {
 
 // NeedsRehash 判断是否需要升级为 bcrypt 摘要。
 func NeedsRehash(stored string) bool {
-	return stored != "" && !isBCryptHash(stored)
+	stored = normalizeStoredHash(stored)
+	if stored == "" {
+		return false
+	}
+	if !isBCryptHash(stored) {
+		return true
+	}
+	cost, err := bcrypt.Cost([]byte(stored))
+	return err != nil || cost < bcrypt.DefaultCost
 }
 
 func isBCryptHash(stored string) bool {
+	stored = normalizeStoredHash(stored)
 	return strings.HasPrefix(stored, "$2a$") ||
 		strings.HasPrefix(stored, "$2b$") ||
 		strings.HasPrefix(stored, "$2y$")
+}
+
+func normalizeStoredHash(stored string) string {
+	return strings.TrimSpace(stored)
 }

@@ -27,6 +27,7 @@ type sConfig struct{}
 
 // Create 创建上传配置
 func (s *sConfig) Create(ctx context.Context, in *model.ConfigCreateInput) error {
+	normalizeConfigCreateInput(in)
 	if err := validateConfigFields(
 		in.Storage,
 		in.LocalPath,
@@ -80,6 +81,7 @@ func (s *sConfig) Create(ctx context.Context, in *model.ConfigCreateInput) error
 
 // Update 更新上传配置
 func (s *sConfig) Update(ctx context.Context, in *model.ConfigUpdateInput) error {
+	normalizeConfigUpdateInput(in)
 	now := gtime.Now()
 	return dao.UploadConfig.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		var current struct {
@@ -186,6 +188,10 @@ func (s *sConfig) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mode
 
 // List 获取上传配置列表
 func (s *sConfig) List(ctx context.Context, in *model.ConfigListInput) (list []*model.ConfigListOutput, total int, err error) {
+	if in == nil {
+		in = &model.ConfigListInput{}
+	}
+	normalizeConfigListInput(in)
 	m := dao.UploadConfig.Ctx(ctx).Where(dao.UploadConfig.Columns().DeletedAt, nil)
 	if in.Keyword != "" {
 		keywordBuilder := m.Builder().
@@ -221,10 +227,10 @@ func (s *sConfig) List(ctx context.Context, in *model.ConfigListInput) (list []*
 }
 
 func pickSensitiveValue(input, fallback string) string {
-	if input == "" {
+	if strings.TrimSpace(input) == "" {
 		return fallback
 	}
-	return input
+	return strings.TrimSpace(input)
 }
 
 func sanitizeConfigOutput(v any) {
@@ -272,4 +278,43 @@ func validateConfigFields(storage int, localPath, ossEndpoint, ossBucket, ossAcc
 		return gerror.New("不支持的存储类型")
 	}
 	return nil
+}
+
+func normalizeConfigCreateInput(in *model.ConfigCreateInput) {
+	if in == nil {
+		return
+	}
+	in.Name = strings.TrimSpace(in.Name)
+	in.LocalPath = strings.TrimSpace(in.LocalPath)
+	in.OssEndpoint = strings.TrimSpace(in.OssEndpoint)
+	in.OssBucket = strings.TrimSpace(in.OssBucket)
+	in.OssAccessKey = strings.TrimSpace(in.OssAccessKey)
+	in.OssSecretKey = strings.TrimSpace(in.OssSecretKey)
+	in.CosRegion = strings.TrimSpace(in.CosRegion)
+	in.CosBucket = strings.TrimSpace(in.CosBucket)
+	in.CosSecretID = strings.TrimSpace(in.CosSecretID)
+	in.CosSecretKey = strings.TrimSpace(in.CosSecretKey)
+}
+
+func normalizeConfigUpdateInput(in *model.ConfigUpdateInput) {
+	if in == nil {
+		return
+	}
+	in.Name = strings.TrimSpace(in.Name)
+	in.LocalPath = strings.TrimSpace(in.LocalPath)
+	in.OssEndpoint = strings.TrimSpace(in.OssEndpoint)
+	in.OssBucket = strings.TrimSpace(in.OssBucket)
+	in.OssAccessKey = strings.TrimSpace(in.OssAccessKey)
+	in.OssSecretKey = strings.TrimSpace(in.OssSecretKey)
+	in.CosRegion = strings.TrimSpace(in.CosRegion)
+	in.CosBucket = strings.TrimSpace(in.CosBucket)
+	in.CosSecretID = strings.TrimSpace(in.CosSecretID)
+	in.CosSecretKey = strings.TrimSpace(in.CosSecretKey)
+}
+
+func normalizeConfigListInput(in *model.ConfigListInput) {
+	if in == nil {
+		return
+	}
+	in.Keyword = strings.TrimSpace(in.Keyword)
 }

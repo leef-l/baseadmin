@@ -6,19 +6,19 @@ import (
 )
 
 var mappings = []util.TemplateMapping{
-	{"api.tpl", "api/{app}/v1/{module}.go"},
-	{"controller.tpl", "internal/controller/{module}/{module}.go"},
-	{"logic.tpl", "internal/logic/{module}/{module}.go"},
-	{"service.tpl", "internal/service/{module}.go"},
-	{"model.tpl", "internal/model/{module}.go"},
-	{"consts.tpl", "internal/consts/{module}.go"},
+	{TplFile: "api.tpl", OutputPath: "api/{app}/v1/{module}.go"},
+	{TplFile: "controller.tpl", OutputPath: "internal/controller/{module}/{module}.go"},
+	{TplFile: "logic.tpl", OutputPath: "internal/logic/{module}/{module}.go"},
+	{TplFile: "service.tpl", OutputPath: "internal/service/{module}.go"},
+	{TplFile: "model.tpl", OutputPath: "internal/model/{module}.go"},
+	{TplFile: "consts.tpl", OutputPath: "internal/consts/{module}.go"},
 }
 
 // Config 后端生成器配置
 type Config struct {
-	TemplateDir string             // 模板目录路径
-	OutputDir   string             // 输出根目录，如 ./app/system/
-	Force       bool               // 是否强制覆盖
+	TemplateDir string              // 模板目录路径
+	OutputDir   string              // 输出根目录，如 ./app/system/
+	Force       bool                // 是否强制覆盖
 	Cache       *util.TemplateCache // 模板缓存（可选）
 }
 

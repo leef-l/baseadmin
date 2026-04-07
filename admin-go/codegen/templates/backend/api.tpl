@@ -54,6 +54,7 @@ type {{.ModelName}}DeleteReq struct {
 type {{.ModelName}}DeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
+{{- if not .HasParentID}}
 
 // {{.ModelName}}BatchDeleteReq 批量删除{{.Comment}}请求
 type {{.ModelName}}BatchDeleteReq struct {
@@ -65,6 +66,7 @@ type {{.ModelName}}BatchDeleteReq struct {
 type {{.ModelName}}BatchDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
+{{- end}}
 {{- if .HasBatchEdit}}
 
 // {{.ModelName}}BatchUpdateReq 批量编辑{{.Comment}}请求

@@ -34,6 +34,7 @@ type sFile struct{}
 
 // Create 创建文件记录
 func (s *sFile) Create(ctx context.Context, in *model.FileCreateInput) error {
+	normalizeFileCreateInput(in)
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
 		return err
 	}
@@ -56,6 +57,7 @@ func (s *sFile) Create(ctx context.Context, in *model.FileCreateInput) error {
 
 // Update 更新文件记录
 func (s *sFile) Update(ctx context.Context, in *model.FileUpdateInput) error {
+	normalizeFileUpdateInput(in)
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
 		return err
 	}
@@ -163,8 +165,18 @@ func getStr(m map[string]interface{}, key string) string {
 	if !ok {
 		return ""
 	}
-	s, _ := v.(string)
-	return s
+	switch value := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return value
+	case []byte:
+		return string(value)
+	case fmt.Stringer:
+		return value.String()
+	default:
+		return fmt.Sprintf("%v", value)
+	}
 }
 
 // Detail 获取文件记录详情
@@ -186,6 +198,10 @@ func (s *sFile) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.
 
 // List 获取文件记录列表
 func (s *sFile) List(ctx context.Context, in *model.FileListInput) (list []*model.FileListOutput, total int, err error) {
+	if in == nil {
+		in = &model.FileListInput{}
+	}
+	normalizeFileListInput(in)
 	m := dao.UploadFile.Ctx(ctx).Where(dao.UploadFile.Columns().DeletedAt, nil)
 	if in.Keyword != "" {
 		keywordBuilder := m.Builder().
@@ -250,6 +266,34 @@ func (s *sFile) fillDirNames(ctx context.Context, list []*model.FileListOutput) 
 	}
 }
 
+func normalizeFileCreateInput(in *model.FileCreateInput) {
+	if in == nil {
+		return
+	}
+	in.Name = strings.TrimSpace(in.Name)
+	in.URL = strings.TrimSpace(in.URL)
+	in.Ext = strings.TrimSpace(in.Ext)
+	in.Mime = strings.TrimSpace(in.Mime)
+}
+
+func normalizeFileUpdateInput(in *model.FileUpdateInput) {
+	if in == nil {
+		return
+	}
+	in.Name = strings.TrimSpace(in.Name)
+	in.URL = strings.TrimSpace(in.URL)
+	in.Ext = strings.TrimSpace(in.Ext)
+	in.Mime = strings.TrimSpace(in.Mime)
+}
+
+func normalizeFileListInput(in *model.FileListInput) {
+	if in == nil {
+		return
+	}
+	in.Keyword = strings.TrimSpace(in.Keyword)
+	in.Name = strings.TrimSpace(in.Name)
+}
+
 func (s *sFile) ensureDirExists(ctx context.Context, dirID snowflake.JsonInt64) error {
 	if dirID == 0 {
 		return nil
@@ -283,17 +327,21 @@ func loadUploadConfigByURL(ctx context.Context, storage int, fileURL string) (*e
 }
 
 func matchUploadConfigByURL(configs []*entity.UploadConfig, storage int, fileURL string) (*entity.UploadConfig, string) {
+	parsedURL, err := url.Parse(fileURL)
+	if err != nil {
+		return nil, ""
+	}
 	for _, config := range configs {
 		if config == nil {
 			continue
 		}
 		switch storage {
 		case 2:
-			if objectKey, ok := matchOSSObjectKey(fileURL, config); ok {
+			if objectKey, ok := matchOSSObjectKeyParsed(parsedURL, config); ok {
 				return config, objectKey
 			}
 		case 3:
-			if objectKey, ok := matchCOSObjectKey(fileURL, config); ok {
+			if objectKey, ok := matchCOSObjectKeyParsed(parsedURL, config); ok {
 				return config, objectKey
 			}
 		}
@@ -302,18 +350,25 @@ func matchUploadConfigByURL(configs []*entity.UploadConfig, storage int, fileURL
 }
 
 func matchOSSObjectKey(fileURL string, config *entity.UploadConfig) (string, bool) {
-	if config == nil || config.OssBucket == "" || config.OssEndpoint == "" {
-		return "", false
-	}
 	parsedURL, err := url.Parse(fileURL)
 	if err != nil {
 		return "", false
 	}
-	expectedHost := strings.ToLower(fmt.Sprintf("%s.%s", config.OssBucket, config.OssEndpoint))
-	if strings.ToLower(parsedURL.Host) != expectedHost {
+	return matchOSSObjectKeyParsed(parsedURL, config)
+}
+
+func matchOSSObjectKeyParsed(parsedURL *url.URL, config *entity.UploadConfig) (string, bool) {
+	if config == nil || config.OssBucket == "" || config.OssEndpoint == "" {
 		return "", false
 	}
-	objectKey := strings.TrimPrefix(parsedURL.Path, "/")
+	if parsedURL == nil {
+		return "", false
+	}
+	expectedHost := strings.ToLower(fmt.Sprintf("%s.%s", normalizeHostPart(config.OssBucket), normalizeHostPart(config.OssEndpoint)))
+	if strings.ToLower(parsedURL.Hostname()) != expectedHost {
+		return "", false
+	}
+	objectKey := objectKeyFromPath(parsedURL.Path)
 	if objectKey == "" {
 		return "", false
 	}
@@ -321,20 +376,42 @@ func matchOSSObjectKey(fileURL string, config *entity.UploadConfig) (string, boo
 }
 
 func matchCOSObjectKey(fileURL string, config *entity.UploadConfig) (string, bool) {
-	if config == nil || config.CosBucket == "" || config.CosRegion == "" {
-		return "", false
-	}
 	parsedURL, err := url.Parse(fileURL)
 	if err != nil {
 		return "", false
 	}
-	expectedHost := strings.ToLower(fmt.Sprintf("%s.cos.%s.myqcloud.com", config.CosBucket, config.CosRegion))
-	if strings.ToLower(parsedURL.Host) != expectedHost {
+	return matchCOSObjectKeyParsed(parsedURL, config)
+}
+
+func matchCOSObjectKeyParsed(parsedURL *url.URL, config *entity.UploadConfig) (string, bool) {
+	if config == nil || config.CosBucket == "" || config.CosRegion == "" {
 		return "", false
 	}
-	objectKey := strings.TrimPrefix(parsedURL.Path, "/")
+	if parsedURL == nil {
+		return "", false
+	}
+	expectedHost := strings.ToLower(fmt.Sprintf("%s.cos.%s.myqcloud.com", normalizeHostPart(config.CosBucket), normalizeHostPart(config.CosRegion)))
+	if strings.ToLower(parsedURL.Hostname()) != expectedHost {
+		return "", false
+	}
+	objectKey := objectKeyFromPath(parsedURL.Path)
 	if objectKey == "" {
 		return "", false
 	}
 	return objectKey, true
+}
+
+func normalizeHostPart(value string) string {
+	return strings.TrimSpace(value)
+}
+
+func objectKeyFromPath(path string) string {
+	objectKey := strings.TrimPrefix(path, "/")
+	if objectKey == "" {
+		return ""
+	}
+	if decoded, err := url.PathUnescape(objectKey); err == nil && decoded != "" {
+		return decoded
+	}
+	return objectKey
 }

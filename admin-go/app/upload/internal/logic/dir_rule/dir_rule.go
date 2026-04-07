@@ -2,6 +2,7 @@ package dir_rule
 
 import (
 	"context"
+	"strings"
 
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
@@ -84,6 +85,10 @@ func (s *sDirRule) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mod
 
 // List 获取文件目录规则列表
 func (s *sDirRule) List(ctx context.Context, in *model.DirRuleListInput) (list []*model.DirRuleListOutput, total int, err error) {
+	if in == nil {
+		in = &model.DirRuleListInput{}
+	}
+	normalizeDirRuleListInput(in)
 	m := dao.UploadDirRule.Ctx(ctx).Where(dao.UploadDirRule.Columns().DeletedAt, nil)
 	if in.Keyword != "" {
 		m = m.WhereLike(dao.UploadDirRule.Columns().SavePath, "%"+in.Keyword+"%")
@@ -152,4 +157,11 @@ func (s *sDirRule) ensureDirExists(ctx context.Context, dirID snowflake.JsonInt6
 		return gerror.New("所选目录不存在或已删除")
 	}
 	return nil
+}
+
+func normalizeDirRuleListInput(in *model.DirRuleListInput) {
+	if in == nil {
+		return
+	}
+	in.Keyword = strings.TrimSpace(in.Keyword)
 }

@@ -45,6 +45,7 @@ for app in "${APPS[@]}"; do
   mkdir -p "$DEPLOY_DIR/$app/manifest/config"
   mkdir -p "$DEPLOY_DIR/$app/resource/upload"
 done
+mkdir -p "$DEPLOY_DIR/database/migrations"
 
 # ---------- 2. 停止旧服务 ----------
 info "停止旧服务..."
@@ -67,6 +68,12 @@ for i in "${!APPS[@]}"; do
   cd "$SCRIPT_DIR"
   info "$app 编译完成"
 done
+info "编译 migrate ..."
+cd "$SCRIPT_DIR"
+CGO_ENABLED=0 GOOS=linux go build -o "$DEPLOY_DIR/migrate" ./cmd/migrate
+chmod +x "$DEPLOY_DIR/migrate"
+cp -R "$SCRIPT_DIR/database/migrations/." "$DEPLOY_DIR/database/migrations/"
+info "migrate 编译完成"
 
 # ---------- 4. 生成配置文件 ----------
 info "生成配置文件..."
@@ -107,20 +114,17 @@ done
 info "检查数据库..."
 # 用 root 检查数据库是否存在（DB_USER 可能尚无权限）
 if mysql -u root -p"$DB_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "USE $DB_NAME" 2>/dev/null; then
-  warn "数据库 $DB_NAME 已存在，跳过初始化"
+  warn "数据库 $DB_NAME 已存在，跳过创建"
 else
-  info "创建数据库并导入..."
+  info "创建数据库..."
   mysql -u root -p"$DB_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_general_ci;"
   mysql -u root -p"$DB_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';"
   mysql -u root -p"$DB_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';"
   mysql -u root -p"$DB_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "GRANT ALL ON \`$DB_NAME\`.* TO '$DB_USER'@'%'; GRANT ALL ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost'; FLUSH PRIVILEGES;"
-  if [ -f "$SCRIPT_DIR/codegen/sql/init.sql" ]; then
-    mysql -u root -p"$DB_PASS" -h"$DB_HOST" -P"$DB_PORT" --default-character-set=utf8mb4 "$DB_NAME" < "$SCRIPT_DIR/codegen/sql/init.sql"
-    info "数据库导入完成"
-  else
-    warn "init.sql 不存在，请手动导入数据库"
-  fi
 fi
+info "执行数据库迁移..."
+"$DEPLOY_DIR/migrate" --config "$DEPLOY_DIR/system/manifest/config/config.yaml" --dir "$DEPLOY_DIR/database/migrations" up
+info "数据库迁移完成"
 
 # ---------- 6. 创建 systemd 服务 ----------
 info "创建 systemd 服务..."

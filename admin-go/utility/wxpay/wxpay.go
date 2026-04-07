@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -214,15 +215,7 @@ func (c *Client) doRequest(ctx context.Context, method, rawURL string, body []by
 func (c *Client) buildAuthorization(method, rawURL string, body []byte) (string, error) {
 	ts := fmt.Sprintf("%d", time.Now().Unix())
 	nonce := randomString(32)
-
-	// 提取 path+query 部分
-	pathPart := rawURL
-	if idx := strings.Index(rawURL, "://"); idx >= 0 {
-		rest := rawURL[idx+3:]
-		if slashIdx := strings.Index(rest, "/"); slashIdx >= 0 {
-			pathPart = rest[slashIdx:]
-		}
-	}
+	pathPart := requestURI(rawURL)
 
 	message := method + "\n" + pathPart + "\n" + ts + "\n" + nonce + "\n" + string(body) + "\n"
 	sig, err := c.sign([]byte(message))
@@ -234,6 +227,17 @@ func (c *Client) buildAuthorization(method, rawURL string, body []byte) (string,
 		`WECHATPAY2-SHA256-RSA2048 mchid="%s",nonce_str="%s",signature="%s",timestamp="%s",serial_no="%s"`,
 		c.cfg.MchID, nonce, sig, ts, c.cfg.SerialNo,
 	), nil
+}
+
+func requestURI(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	if parsed.RequestURI() != "" {
+		return parsed.RequestURI()
+	}
+	return "/"
 }
 
 // sign 使用商户私钥对消息进行 SHA256WithRSA 签名
@@ -316,10 +320,28 @@ func decryptAES256GCM(apiKey, associatedData, nonce, cipherTextBase64 string) ([
 // randomString 生成指定长度的随机字母数字字符串
 func randomString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, n)
-	_, _ = rand.Read(b)
-	for i := range b {
-		b[i] = letters[int(b[i])%len(letters)]
+	if n <= 0 {
+		return ""
+	}
+	b := make([]byte, 0, n)
+	buf := make([]byte, n)
+	maxrb := byte(256 - (256 % len(letters)))
+	for len(b) < n {
+		if _, err := rand.Read(buf); err != nil {
+			break
+		}
+		for _, rb := range buf {
+			if rb >= maxrb {
+				continue
+			}
+			b = append(b, letters[int(rb)%len(letters)])
+			if len(b) == n {
+				break
+			}
+		}
+	}
+	if len(b) < n {
+		return string(append(b, []byte(strings.Repeat("0", n-len(b)))...))
 	}
 	return string(b)
 }

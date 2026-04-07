@@ -14,7 +14,6 @@ services:
       TZ: Asia/Shanghai
     volumes:
       - mysql_data:/var/lib/mysql
-      - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
       - "${MYSQL_PORT:-40001}:3306"
     healthcheck:
@@ -67,6 +66,7 @@ services:
       - REDIS_PASS=${REDIS_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
       - GF_SERVER_ADDRESS=:8000
+      - DB_MIGRATE_AUTO=auto
       - TZ=Asia/Shanghai
     ports:
       - "${SYSTEM_PORT:-40003}:8000"
@@ -99,6 +99,7 @@ services:
       - REDIS_PASS=${REDIS_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
       - GF_SERVER_ADDRESS=:8002
+      - DB_MIGRATE_AUTO=auto
       - TZ=Asia/Shanghai
     ports:
       - "${UPLOAD_PORT:-40004}:8002"

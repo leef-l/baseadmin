@@ -1,0 +1,77 @@
+-- codegen e2e 验证用表
+-- 仅用于本机临时验证，执行后可删除 verifydemo_* 表
+
+CREATE TABLE IF NOT EXISTS `system_users` (
+  `id` BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
+  `username` VARCHAR(50) NOT NULL COMMENT '登录用户名',
+  `password` VARCHAR(255) NOT NULL COMMENT '密码',
+  `nickname` VARCHAR(50) DEFAULT '' COMMENT '昵称',
+  `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '部门ID',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:0=禁用,1=启用',
+  `created_at` DATETIME DEFAULT NULL,
+  `updated_at` DATETIME DEFAULT NULL,
+  `deleted_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统用户';
+
+CREATE TABLE IF NOT EXISTS `verifydemo_category` (
+  `id` BIGINT UNSIGNED NOT NULL COMMENT 'ID',
+  `parent_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '父分类',
+  `name` VARCHAR(50) NOT NULL COMMENT '分类名称',
+  `icon` VARCHAR(100) DEFAULT '' COMMENT '图标',
+  `sort` INT NOT NULL DEFAULT 0 COMMENT '排序（升序）',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:0=禁用,1=启用',
+  `created_by` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `created_at` DATETIME DEFAULT NULL,
+  `updated_at` DATETIME DEFAULT NULL,
+  `deleted_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分类';
+
+CREATE TABLE IF NOT EXISTS `verifydemo_article` (
+  `id` BIGINT UNSIGNED NOT NULL COMMENT 'ID',
+  `category_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '分类',
+  `user_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '作者|ref:system_users.username',
+  `title` VARCHAR(200) NOT NULL COMMENT '文章标题',
+  `order_no` VARCHAR(50) NOT NULL COMMENT '文章编号',
+  `cover` VARCHAR(500) DEFAULT '' COMMENT '封面',
+  `attachment_file` VARCHAR(500) DEFAULT '' COMMENT '附件',
+  `body_content` TEXT COMMENT '正文内容',
+  `extra_json` TEXT COMMENT 'JSON扩展',
+  `link_url` VARCHAR(500) DEFAULT '' COMMENT '外部链接',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:0=草稿,1=已发布,2=已下架',
+  `type` TINYINT NOT NULL DEFAULT 1 COMMENT '类型:1=普通,2=置顶,3=推荐,4=热门',
+  `is_top` TINYINT NOT NULL DEFAULT 0 COMMENT '是否置顶:0=否,1=是',
+  `price` INT NOT NULL DEFAULT 0 COMMENT '价格（分）',
+  `pay_password` VARCHAR(100) DEFAULT '' COMMENT '支付密码',
+  `sort` INT NOT NULL DEFAULT 0 COMMENT '排序（升序）',
+  `icon` VARCHAR(100) DEFAULT '' COMMENT '图标',
+  `email` VARCHAR(100) DEFAULT '' COMMENT '联系邮箱',
+  `phone` VARCHAR(20) DEFAULT '' COMMENT '联系电话',
+  `remark` TEXT COMMENT '备注',
+  `level` VARCHAR(20) DEFAULT '' COMMENT '等级:dict:article_level',
+  `extra_field` VARCHAR(100) DEFAULT '',
+  `publish_at` DATETIME COMMENT '发布时间',
+  `expire_at` DATETIME COMMENT '过期时间',
+  `created_by` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `created_at` DATETIME DEFAULT NULL,
+  `updated_at` DATETIME DEFAULT NULL,
+  `deleted_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文章';
+
+CREATE TABLE IF NOT EXISTS `verifydemo_tag` (
+  `id` BIGINT UNSIGNED NOT NULL COMMENT 'ID',
+  `name` VARCHAR(50) NOT NULL COMMENT '标签名称',
+  `color` VARCHAR(20) DEFAULT '' COMMENT '颜色',
+  `sort` INT NOT NULL DEFAULT 0 COMMENT '排序',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:0=禁用,1=启用',
+  `created_by` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `created_at` DATETIME DEFAULT NULL,
+  `updated_at` DATETIME DEFAULT NULL,
+  `deleted_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='标签';

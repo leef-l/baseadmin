@@ -2,6 +2,7 @@ package dir
 
 import (
 	"context"
+	"strings"
 
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
@@ -11,6 +12,7 @@ import (
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/service"
 	"gbaseadmin/utility/snowflake"
+	"gbaseadmin/utility/treeutil"
 )
 
 func init() {
@@ -89,6 +91,10 @@ func (s *sDir) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.D
 
 // List 获取文件目录列表
 func (s *sDir) List(ctx context.Context, in *model.DirListInput) (list []*model.DirListOutput, total int, err error) {
+	if in == nil {
+		in = &model.DirListInput{}
+	}
+	normalizeDirListInput(in)
 	m := dao.UploadDir.Ctx(ctx).Where(dao.UploadDir.Columns().DeletedAt, nil)
 	if in.Keyword != "" {
 		keywordBuilder := m.Builder().
@@ -116,6 +122,7 @@ func (s *sDir) Tree(ctx context.Context, in *model.DirTreeInput) (tree []*model.
 	var list []*model.DirTreeOutput
 	m := dao.UploadDir.Ctx(ctx).Where(dao.UploadDir.Columns().DeletedAt, nil)
 	if in != nil {
+		normalizeDirTreeInput(in)
 		if in.Keyword != "" {
 			keywordBuilder := m.Builder().
 				WhereLike(dao.UploadDir.Columns().Name, "%"+in.Keyword+"%").
@@ -149,6 +156,20 @@ func (s *sDir) Tree(ctx context.Context, in *model.DirTreeInput) (tree []*model.
 		}
 	}
 	return
+}
+
+func normalizeDirListInput(in *model.DirListInput) {
+	if in == nil {
+		return
+	}
+	in.Keyword = strings.TrimSpace(in.Keyword)
+}
+
+func normalizeDirTreeInput(in *model.DirTreeInput) {
+	if in == nil {
+		return
+	}
+	in.Keyword = strings.TrimSpace(in.Keyword)
 }
 
 func (s *sDir) fillParentNames(ctx context.Context, list []*model.DirListOutput) {
@@ -217,50 +238,24 @@ func (s *sDir) ensureDirDeletable(ctx context.Context, id snowflake.JsonInt64) e
 }
 
 func (s *sDir) ensureParentValid(ctx context.Context, parentID, currentID snowflake.JsonInt64) error {
-	if parentID == 0 {
-		return nil
-	}
-	if currentID != 0 && parentID == currentID {
-		return gerror.New("上级目录不能选择自己")
-	}
-	var parent struct {
-		Id       int64 `json:"id"`
-		ParentId int64 `json:"parentId"`
-	}
-	if err := dao.UploadDir.Ctx(ctx).
-		Fields(dao.UploadDir.Columns().Id, dao.UploadDir.Columns().ParentId).
-		Where(dao.UploadDir.Columns().Id, parentID).
-		Where(dao.UploadDir.Columns().DeletedAt, nil).
-		Scan(&parent); err != nil {
-		return err
-	}
-	if parent.Id == 0 {
-		return gerror.New("上级目录不存在或已删除")
-	}
-	seen := map[int64]struct{}{int64(parentID): {}}
-	for parent.ParentId != 0 {
-		if currentID != 0 && parent.ParentId == int64(currentID) {
-			return gerror.New("不能将目录移动到自己的子级下")
-		}
-		if _, ok := seen[parent.ParentId]; ok {
-			return gerror.New("目录层级存在循环引用")
-		}
-		seen[parent.ParentId] = struct{}{}
-		next := struct {
+	return treeutil.ValidateParent(parentID, currentID, func(id int64) (int64, int64, error) {
+		var parent struct {
 			Id       int64 `json:"id"`
 			ParentId int64 `json:"parentId"`
-		}{}
+		}
 		if err := dao.UploadDir.Ctx(ctx).
 			Fields(dao.UploadDir.Columns().Id, dao.UploadDir.Columns().ParentId).
-			Where(dao.UploadDir.Columns().Id, parent.ParentId).
+			Where(dao.UploadDir.Columns().Id, id).
 			Where(dao.UploadDir.Columns().DeletedAt, nil).
-			Scan(&next); err != nil {
-			return err
+			Scan(&parent); err != nil {
+			return 0, 0, err
 		}
-		if next.Id == 0 {
-			return gerror.New("上级目录链路中存在无效节点")
-		}
-		parent = next
-	}
-	return nil
+		return parent.Id, parent.ParentId, nil
+	}, treeutil.Messages{
+		Self:         "上级目录不能选择自己",
+		Missing:      "上级目录不存在或已删除",
+		ChildLoop:    "不能将目录移动到自己的子级下",
+		Cycle:        "目录层级存在循环引用",
+		InvalidChain: "上级目录链路中存在无效节点",
+	})
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"text/template"
@@ -17,6 +18,7 @@ import (
 	"gbaseadmin/codegen/generator/menu"
 	"gbaseadmin/codegen/generator/util"
 	"gbaseadmin/codegen/parser"
+	"gopkg.in/yaml.v3"
 )
 
 func main() {
@@ -43,6 +45,16 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
+	if err := validateOnlyFlag(only); err != nil {
+		fmt.Printf("参数错误: %v\n", err)
+		os.Exit(1)
+	}
+
+	tableNames, err := parseTableNames(table)
+	if err != nil {
+		fmt.Printf("参数错误: %v\n", err)
+		os.Exit(1)
+	}
 
 	// 加载配置
 	cfg, err := LoadConfig(config)
@@ -59,17 +71,15 @@ func main() {
 	}
 	defer p.Close()
 
-	// 解析表名列表
-	tableNames := strings.Split(table, ",")
-	for i := range tableNames {
-		tableNames[i] = strings.TrimSpace(tableNames[i])
-	}
-
 	start := time.Now()
 	totalFiles := 0
 
 	// 获取当前工作目录（用于计算模板路径）
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Printf("获取当前目录失败: %v\n", err)
+		os.Exit(1)
+	}
 	templateDir := filepath.Join(cwd, "templates")
 
 	// 创建全局模板缓存
@@ -253,15 +263,16 @@ func main() {
 					"DBLink": cfg.Database.DSNForHack(),
 					"Tables": strings.Join(allTables, ","),
 				}
-				if err := renderTemplate(
+				written, err := renderTemplate(
 					filepath.Join(templateDir, "backend", "hack_config.tpl"),
 					hackFile,
 					hackData,
 					true, // hack/config.yaml 总是覆盖
 					tplCache,
-				); err != nil {
+				)
+				if err != nil {
 					fmt.Printf("[codegen] ✗ 生成 hack/config.yaml 失败: %v\n", err)
-				} else {
+				} else if written {
 					fmt.Printf("[codegen] hack/config.yaml\n")
 					totalFiles++
 				}
@@ -285,15 +296,16 @@ func main() {
 				"AppName": appName,
 				"Modules": allModules,
 			}
-			if err := renderTemplate(
+			written, err := renderTemplate(
 				filepath.Join(templateDir, "backend", "main.tpl"),
 				mainFile,
 				mainData,
 				force,
 				tplCache,
-			); err != nil {
+			)
+			if err != nil {
 				fmt.Printf("[codegen] ✗ 生成 main.go 失败: %v\n", err)
-			} else {
+			} else if written {
 				fmt.Printf("[codegen] main.go\n")
 				totalFiles++
 			}
@@ -308,15 +320,16 @@ func main() {
 					"AppName": appName,
 					"Modules": allModules,
 				}
-				if err := renderTemplate(
+				written, err := renderTemplate(
 					filepath.Join(templateDir, "backend", "cmd.tpl"),
 					cmdFile,
 					cmdData,
 					force,
 					tplCache,
-				); err != nil {
+				)
+				if err != nil {
 					fmt.Printf("[codegen] ✗ 生成 cmd.go 失败: %v\n", err)
-				} else {
+				} else if written {
 					fmt.Printf("[codegen] internal/cmd/cmd.go\n")
 					totalFiles++
 				}
@@ -325,62 +338,39 @@ func main() {
 			// 7. 复制 middleware/auth.go（如果不存在）
 			mwDir := filepath.Join(appDir, "internal", "middleware")
 			mwFile := filepath.Join(mwDir, "auth.go")
-			if _, err := os.Stat(mwFile); os.IsNotExist(err) {
-				if err := os.MkdirAll(mwDir, 0755); err != nil {
-					fmt.Printf("[codegen] ✗ 创建 middleware 目录失败: %v\n", err)
-				} else {
-					tplPath := filepath.Join(templateDir, "backend", "middleware_auth.tpl")
-					content, err := os.ReadFile(tplPath)
-					if err != nil {
-						fmt.Printf("[codegen] ✗ 读取 middleware 模板失败: %v\n", err)
-					} else {
-						if err := os.WriteFile(mwFile, content, 0644); err != nil {
-							fmt.Printf("[codegen] ✗ 写入 middleware/auth.go 失败: %v\n", err)
-						} else {
-							fmt.Printf("[codegen] internal/middleware/auth.go\n")
-							totalFiles++
-						}
-					}
-				}
+			written, err = copyFileIfAbsent(filepath.Join(templateDir, "backend", "middleware_auth.tpl"), mwFile)
+			if err != nil {
+				fmt.Printf("[codegen] ✗ 写入 middleware/auth.go 失败: %v\n", err)
+			} else if written {
+				fmt.Printf("[codegen] internal/middleware/auth.go\n")
+				totalFiles++
 			} else {
 				fmt.Printf("[codegen] 跳过（已存在）: internal/middleware/auth.go\n")
 			}
 
 			// 7.1 复制 middleware/context.go（如果不存在）
 			mwCtxFile := filepath.Join(mwDir, "context.go")
-			if _, err := os.Stat(mwCtxFile); os.IsNotExist(err) {
-				if err := os.MkdirAll(mwDir, 0755); err != nil {
-					fmt.Printf("[codegen] ✗ 创建 middleware 目录失败: %v\n", err)
-				} else {
-					tplPath := filepath.Join(templateDir, "backend", "middleware_context.tpl")
-					content, err := os.ReadFile(tplPath)
-					if err != nil {
-						fmt.Printf("[codegen] ✗ 读取 middleware_context 模板失败: %v\n", err)
-					} else {
-						if err := os.WriteFile(mwCtxFile, content, 0644); err != nil {
-							fmt.Printf("[codegen] ✗ 写入 middleware/context.go 失败: %v\n", err)
-						} else {
-							fmt.Printf("[codegen] internal/middleware/context.go\n")
-							totalFiles++
-						}
-					}
-				}
+			written, err = copyFileIfAbsent(filepath.Join(templateDir, "backend", "middleware_context.tpl"), mwCtxFile)
+			if err != nil {
+				fmt.Printf("[codegen] ✗ 写入 middleware/context.go 失败: %v\n", err)
+			} else if written {
+				fmt.Printf("[codegen] internal/middleware/context.go\n")
+				totalFiles++
+			} else {
+				fmt.Printf("[codegen] 跳过（已存在）: internal/middleware/context.go\n")
 			}
 
 			// 8. 确保 internal/packed/packed.go 存在
 			packedDir := filepath.Join(appDir, "internal", "packed")
 			packedFile := filepath.Join(packedDir, "packed.go")
-			if _, err := os.Stat(packedFile); os.IsNotExist(err) {
-				if err := os.MkdirAll(packedDir, 0755); err != nil {
-					fmt.Printf("[codegen] ✗ 创建 packed 目录失败: %v\n", err)
-				} else {
-					if err := os.WriteFile(packedFile, []byte("package packed\n"), 0644); err != nil {
-						fmt.Printf("[codegen] ✗ 写入 packed.go 失败: %v\n", err)
-					} else {
-						fmt.Printf("[codegen] internal/packed/packed.go\n")
-						totalFiles++
-					}
-				}
+			written, err = writeFileIfAbsent(packedFile, []byte("package packed\n"))
+			if err != nil {
+				fmt.Printf("[codegen] ✗ 写入 packed.go 失败: %v\n", err)
+			} else if written {
+				fmt.Printf("[codegen] internal/packed/packed.go\n")
+				totalFiles++
+			} else {
+				fmt.Printf("[codegen] 跳过（已存在）: internal/packed/packed.go\n")
 			}
 		}
 	}
@@ -389,9 +379,46 @@ func main() {
 	fmt.Printf("\n[codegen] 全部完成！共生成 %d 个文件，耗时 %.1fs\n", totalFiles, elapsed.Seconds())
 }
 
+func validateOnlyFlag(only string) error {
+	switch only {
+	case "", "backend", "frontend", "menu":
+		return nil
+	default:
+		return fmt.Errorf("--only 只支持 backend、frontend、menu，当前值为 %q", only)
+	}
+}
+
+func parseTableNames(input string) ([]string, error) {
+	parts := strings.Split(input, ",")
+	seen := make(map[string]struct{}, len(parts))
+	tableNames := make([]string, 0, len(parts))
+	for _, part := range parts {
+		name := strings.TrimSpace(part)
+		if name == "" {
+			continue
+		}
+		if _, exists := seen[name]; exists {
+			continue
+		}
+		seen[name] = struct{}{}
+		tableNames = append(tableNames, name)
+	}
+	if len(tableNames) == 0 {
+		return nil, fmt.Errorf("--table 未提供有效表名")
+	}
+	return tableNames, nil
+}
+
 // printDiff 打印文件 diff 预览
 func printDiff(files map[string][]byte) {
-	for path, newContent := range files {
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+
+	for _, path := range paths {
+		newContent := files[path]
 		existing, err := os.ReadFile(path)
 		if err != nil {
 			// 新文件
@@ -417,27 +444,8 @@ func scanExistingModules(appDir string, newModules []string) []string {
 		moduleSet[m] = true
 	}
 
-	// 扫描 internal/logic/ 下的子目录（只包含有 .go 文件的目录）
-	logicDir := filepath.Join(appDir, "internal", "logic")
-	entries, err := os.ReadDir(logicDir)
-	if err == nil {
-		for _, e := range entries {
-			if e.IsDir() {
-				// 检查该目录下是否有 .go 文件，避免引入空目录或仅存在于 controller 的模块
-				subEntries, _ := os.ReadDir(filepath.Join(logicDir, e.Name()))
-				hasGo := false
-				for _, se := range subEntries {
-					if !se.IsDir() && filepath.Ext(se.Name()) == ".go" {
-						hasGo = true
-						break
-					}
-				}
-				if hasGo {
-					moduleSet[e.Name()] = true
-				}
-			}
-		}
-	}
+	mergeModulesFromDir(moduleSet, filepath.Join(appDir, "internal", "logic"))
+	mergeModulesFromDir(moduleSet, filepath.Join(appDir, "internal", "controller"))
 
 	// 去重排序
 	var modules []string
@@ -448,45 +456,64 @@ func scanExistingModules(appDir string, newModules []string) []string {
 	return modules
 }
 
+func mergeModulesFromDir(moduleSet map[string]bool, root string) {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		hasGo, err := dirHasGoFiles(filepath.Join(root, entry.Name()))
+		if err != nil || !hasGo {
+			continue
+		}
+		moduleSet[entry.Name()] = true
+	}
+}
+
+func dirHasGoFiles(path string) (bool, error) {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return false, err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".go" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // scanExistingTables 扫描已有的 hack/config.yaml 中的表名，合并新表名，返回去重排序后的列表
 func scanExistingTables(appDir string, newTables []string) []string {
 	tableSet := make(map[string]bool)
+	appName := filepath.Base(appDir)
 	for _, t := range newTables {
-		tableSet[t] = true
-	}
-
-	// 尝试从已有的 hack/config.yaml 中提取 tables 字段
-	hackFile := filepath.Join(appDir, "hack", "config.yaml")
-	data, err := os.ReadFile(hackFile)
-	if err == nil {
-		content := string(data)
-		// 简单解析: 找到 tables: "xxx,yyy" 行
-		for _, line := range strings.Split(content, "\n") {
-			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "tables:") {
-				val := strings.TrimPrefix(line, "tables:")
-				val = strings.TrimSpace(val)
-				val = strings.Trim(val, "\"")
-				for _, t := range strings.Split(val, ",") {
-					t = strings.TrimSpace(t)
-					if t != "" {
-						tableSet[t] = true
-					}
-				}
-			}
+		normalized := normalizeTableName(appName, t)
+		if normalized != "" {
+			tableSet[normalized] = true
 		}
 	}
 
-	// 也扫描 internal/dao/internal/ 下的 .go 文件名作为表名推断
-	// DAO 文件名就是完整表名（如 play_activity.go -> play_activity）
+	// 尝试从已有的 hack/config.yaml 中提取 tables 字段
+	for _, tableName := range readHackConfigTables(filepath.Join(appDir, "hack", "config.yaml")) {
+		normalized := normalizeTableName(appName, tableName)
+		if normalized != "" {
+			tableSet[normalized] = true
+		}
+	}
+
+	// 也扫描 internal/dao/internal/ 下的 DAO 源文件，提取真实 table 名。
 	daoInternalDir := filepath.Join(appDir, "internal", "dao", "internal")
 	entries, err := os.ReadDir(daoInternalDir)
 	if err == nil {
 		for _, e := range entries {
 			if !e.IsDir() && strings.HasSuffix(e.Name(), ".go") {
-				name := strings.TrimSuffix(e.Name(), ".go")
-				if name != "" {
-					tableSet[name] = true
+				tableName, extractErr := extractDAOFileTableName(filepath.Join(daoInternalDir, e.Name()))
+				if extractErr == nil && tableName != "" {
+					tableSet[normalizeTableName(appName, tableName)] = true
 				}
 			}
 		}
@@ -500,12 +527,181 @@ func scanExistingTables(appDir string, newTables []string) []string {
 	return tables
 }
 
+type hackConfig struct {
+	GFCli struct {
+		Gen struct {
+			DAO []struct {
+				Tables string `yaml:"tables"`
+			} `yaml:"dao"`
+		} `yaml:"gen"`
+	} `yaml:"gfcli"`
+}
+
+func readHackConfigTables(path string) []string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+
+	var cfg hackConfig
+	if err := yaml.Unmarshal(data, &cfg); err == nil {
+		var tables []string
+		for _, dao := range cfg.GFCli.Gen.DAO {
+			tables = appendUniqueStrings(tables, splitCSVValues(dao.Tables)...)
+		}
+		if len(tables) > 0 {
+			return tables
+		}
+	}
+
+	return readHackTablesFromText(string(data))
+}
+
+func readHackTablesFromText(content string) []string {
+	var tables []string
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "tables:") {
+			continue
+		}
+		tables = appendUniqueStrings(tables, splitCSVValues(strings.TrimSpace(strings.TrimPrefix(line, "tables:")))...)
+	}
+	return tables
+}
+
+func splitCSVValues(value string) []string {
+	value = trimInlineHashComment(strings.TrimSpace(value))
+	value = strings.Trim(value, "\"'")
+	if value == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	values := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(strings.Trim(part, "\"'"))
+		if part == "" {
+			continue
+		}
+		values = append(values, part)
+	}
+	return values
+}
+
+func trimInlineHashComment(value string) string {
+	inSingleQuote := false
+	inDoubleQuote := false
+	for i := 0; i < len(value); i++ {
+		switch value[i] {
+		case '\'':
+			if !inDoubleQuote {
+				inSingleQuote = !inSingleQuote
+			}
+		case '"':
+			if !inSingleQuote {
+				inDoubleQuote = !inDoubleQuote
+			}
+		case '#':
+			if inSingleQuote || inDoubleQuote {
+				continue
+			}
+			if i == 0 || value[i-1] == ' ' || value[i-1] == '\t' {
+				return strings.TrimSpace(value[:i])
+			}
+		}
+	}
+	return value
+}
+
+func appendUniqueStrings(dst []string, values ...string) []string {
+	if len(values) == 0 {
+		return dst
+	}
+	seen := make(map[string]struct{}, len(dst)+len(values))
+	for _, item := range dst {
+		seen[item] = struct{}{}
+	}
+	for _, item := range values {
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		dst = append(dst, item)
+	}
+	return dst
+}
+
+func normalizeTableName(appName, tableName string) string {
+	tableName = strings.TrimSpace(tableName)
+	tableName = strings.Trim(tableName, "\"'")
+	if tableName == "" {
+		return ""
+	}
+	if appName == "" {
+		return tableName
+	}
+	if strings.HasPrefix(tableName, appName+"_") {
+		return tableName
+	}
+	return appName + "_" + tableName
+}
+
+var (
+	daoTablePattern        = regexp.MustCompile(`table:\s*"([^"]+)"`)
+	daoCommentTablePattern = regexp.MustCompile(`data access object for the table\s+([A-Za-z0-9_]+)\.`)
+)
+
+func extractDAOFileTableName(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	content := string(data)
+	if match := daoTablePattern.FindStringSubmatch(content); len(match) == 2 {
+		return strings.TrimSpace(match[1]), nil
+	}
+	if match := daoCommentTablePattern.FindStringSubmatch(content); len(match) == 2 {
+		return strings.TrimSpace(match[1]), nil
+	}
+	return "", fmt.Errorf("未找到 DAO table 名: %s", path)
+}
+
+func copyFileIfAbsent(src, dst string) (bool, error) {
+	content, err := os.ReadFile(src)
+	if err != nil {
+		return false, err
+	}
+	return writeFileIfAbsent(dst, content)
+}
+
+func writeFileIfAbsent(path string, content []byte) (bool, error) {
+	if info, err := os.Stat(path); err == nil {
+		if info.IsDir() {
+			return false, fmt.Errorf("目标路径是目录: %s", path)
+		}
+		return false, nil
+	} else if !os.IsNotExist(err) {
+		return false, err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // renderTemplate 渲染模板到文件，overwrite 控制是否覆盖已有文件
-func renderTemplate(tplPath, outPath string, data interface{}, overwrite bool, cache *util.TemplateCache) error {
+func renderTemplate(tplPath, outPath string, data interface{}, overwrite bool, cache *util.TemplateCache) (bool, error) {
 	if !overwrite {
-		if _, err := os.Stat(outPath); err == nil {
+		if info, err := os.Stat(outPath); err == nil {
+			if info.IsDir() {
+				return false, fmt.Errorf("目标路径是目录: %s", outPath)
+			}
 			fmt.Printf("  跳过（已存在）: %s\n", outPath)
-			return nil
+			return false, nil
+		} else if !os.IsNotExist(err) {
+			return false, err
 		}
 	}
 	var tpl *template.Template
@@ -516,14 +712,18 @@ func renderTemplate(tplPath, outPath string, data interface{}, overwrite bool, c
 		tpl, err = template.New(filepath.Base(tplPath)).Funcs(util.SharedFuncMap).ParseFiles(tplPath)
 	}
 	if err != nil {
-		return fmt.Errorf("解析模板 %s 失败: %v", tplPath, err)
+		return false, fmt.Errorf("解析模板 %s 失败: %v", tplPath, err)
 	}
 	var buf bytes.Buffer
 	if err := tpl.Execute(&buf, data); err != nil {
-		return fmt.Errorf("渲染模板失败: %v", err)
+		return false, fmt.Errorf("渲染模板失败: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
-		return fmt.Errorf("创建目录失败: %v", err)
+	written, err := util.WriteFileIfChanged(outPath, buf.Bytes())
+	if err != nil {
+		return false, err
 	}
-	return os.WriteFile(outPath, buf.Bytes(), 0644)
+	if !written {
+		fmt.Printf("  无变化: %s\n", outPath)
+	}
+	return written, nil
 }
