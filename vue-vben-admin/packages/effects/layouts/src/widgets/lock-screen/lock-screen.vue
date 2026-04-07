@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 
 import { LockKeyhole } from '@vben/icons';
 import { $t, useI18n } from '@vben/locales';
@@ -36,6 +36,7 @@ const date = useDateFormat(now, 'YYYY-MM-DD dddd', { locales: locale.value });
 
 const showUnlockForm = ref(false);
 const { lockScreenPassword } = storeToRefs(accessStore);
+let focusFrame: null | number = null;
 
 const [Form, { form, validate, getFieldComponentRef }] = useVbenForm(
   reactive({
@@ -76,7 +77,14 @@ async function handleSubmit() {
 function toggleUnlockForm() {
   showUnlockForm.value = !showUnlockForm.value;
   if (showUnlockForm.value) {
-    requestAnimationFrame(() => {
+    if (focusFrame) {
+      cancelAnimationFrame(focusFrame);
+    }
+    focusFrame = requestAnimationFrame(() => {
+      focusFrame = null;
+      if (!showUnlockForm.value) {
+        return;
+      }
       getFieldComponentRef('password')
         ?.$el?.querySelector('[name="password"]')
         ?.focus();
@@ -85,6 +93,13 @@ function toggleUnlockForm() {
 }
 
 useScrollLock();
+
+onBeforeUnmount(() => {
+  if (focusFrame) {
+    cancelAnimationFrame(focusFrame);
+    focusFrame = null;
+  }
+});
 </script>
 
 <template>

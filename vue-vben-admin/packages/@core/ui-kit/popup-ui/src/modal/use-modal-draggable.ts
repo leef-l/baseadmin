@@ -22,6 +22,8 @@ export function useModalDraggable(
   });
 
   const dragging = ref(false);
+  let activeDragDom: HTMLElement | null = null;
+  let removeDraggingListeners: null | (() => void) = null;
 
   const onMousedown = (e: MouseEvent) => {
     const downX = e.clientX;
@@ -86,23 +88,40 @@ export function useModalDraggable(
       dragging.value = false;
       document.removeEventListener('mousemove', onMousemove);
       document.removeEventListener('mouseup', onMouseup);
+      removeDraggingListeners = null;
     };
 
     document.addEventListener('mousemove', onMousemove);
     document.addEventListener('mouseup', onMouseup);
+    removeDraggingListeners = () => {
+      dragging.value = false;
+      document.removeEventListener('mousemove', onMousemove);
+      document.removeEventListener('mouseup', onMouseup);
+      removeDraggingListeners = null;
+    };
   };
 
   const onDraggable = () => {
     const dragDom = unrefElement(dragRef);
-    if (dragDom && targetRef.value) {
-      dragDom.addEventListener('mousedown', onMousedown);
+    if (!dragDom || !targetRef.value) {
+      offDraggable();
+      return;
     }
+    if (activeDragDom === dragDom) {
+      return;
+    }
+    offDraggable();
+    dragDom.addEventListener('mousedown', onMousedown);
+    activeDragDom = dragDom;
   };
 
   const offDraggable = () => {
-    const dragDom = unrefElement(dragRef);
-    if (dragDom && targetRef.value) {
-      dragDom.removeEventListener('mousedown', onMousedown);
+    if (activeDragDom) {
+      activeDragDom.removeEventListener('mousedown', onMousedown);
+      activeDragDom = null;
+    }
+    if (removeDraggingListeners) {
+      removeDraggingListeners();
     }
   };
 

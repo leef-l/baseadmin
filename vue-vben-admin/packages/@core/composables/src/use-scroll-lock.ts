@@ -9,14 +9,15 @@ import {
 export const SCROLL_FIXED_CLASS = `_scroll__fixed_`;
 
 export function useScrollLock() {
-  const isLocked = _useScrollLock(document.body);
+  const body = typeof document === 'undefined' ? undefined : document.body;
+  const isLocked = _useScrollLock(body ?? undefined);
   const scrollbarWidth = getScrollbarWidth();
 
   tryOnMounted(() => {
-    if (!needsScrollbar()) {
+    if (!body || !needsScrollbar()) {
       return;
     }
-    document.body.style.paddingRight = `${scrollbarWidth}px`;
+    body.style.paddingRight = `${scrollbarWidth}px`;
 
     const layoutFixedNodes = document.querySelectorAll<HTMLElement>(
       `.${SCROLL_FIXED_CLASS}`,
@@ -33,7 +34,7 @@ export function useScrollLock() {
   });
 
   tryOnBeforeUnmount(() => {
-    if (!needsScrollbar()) {
+    if (!body || !needsScrollbar()) {
       return;
     }
     isLocked.value = false;
@@ -45,10 +46,13 @@ export function useScrollLock() {
       nodes.forEach((node) => {
         node.style.paddingRight = '';
         requestAnimationFrame(() => {
+          if (!node.isConnected) {
+            return;
+          }
           node.style.transition = node.dataset.transition || '';
         });
       });
     }
-    document.body.style.paddingRight = '';
+    body.style.paddingRight = '';
   });
 }

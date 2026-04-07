@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { MenuRecordRaw } from '@vben/types';
 
-import { nextTick, onMounted, ref, shallowRef, watch } from 'vue';
+import { nextTick, ref, shallowRef, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { SearchX, X } from '@vben/icons';
@@ -45,6 +45,7 @@ function search(searchKey: string) {
   // 如果搜索关键词为空，清空搜索结果并返回
   if (!searchKey) {
     searchResults.value = [];
+    activeIndex.value = -1;
     return;
   }
 
@@ -64,19 +65,15 @@ function search(searchKey: string) {
 
   // 更新搜索结果
   searchResults.value = results;
-
-  // 如果有搜索结果，设置索引为 0
-  if (results.length > 0) {
-    activeIndex.value = 0;
-  }
-
-  // 赋值索引为 0
-  activeIndex.value = 0;
+  activeIndex.value = results.length > 0 ? 0 : -1;
 }
 
 // When the keyboard up and down keys move to an invisible place
 // the scroll bar needs to scroll automatically
 function scrollIntoView() {
+  if (typeof document === 'undefined' || activeIndex.value < 0) {
+    return;
+  }
   const element = document.querySelector(
     `[data-search-item="${activeIndex.value}"]`,
   );
@@ -136,13 +133,14 @@ function handleDown() {
 // close search modal
 function handleClose() {
   searchResults.value = [];
+  activeIndex.value = -1;
   emit('close');
 }
 
 // Activate when the mouse moves to a certain line
 function handleMouseenter(e: MouseEvent) {
-  const index = (e.target as HTMLElement)?.dataset.index;
-  activeIndex.value = Number(index);
+  const index = Number((e.currentTarget as HTMLElement)?.dataset.index);
+  activeIndex.value = Number.isNaN(index) ? -1 : index;
 }
 
 function removeItem(index: number) {
@@ -197,28 +195,37 @@ watch(
       handleSearch(val);
     } else {
       searchResults.value = searchHistory.value;
+      activeIndex.value = searchResults.value.length > 0 ? 0 : -1;
     }
   },
+  { immediate: true },
 );
 
-onMounted(() => {
-  searchItems.value = mapTree(props.menus, (item) => {
-    return {
-      ...item,
-      name: $t(item?.name),
-    };
-  });
-  if (searchHistory.value.length > 0) {
-    searchResults.value = searchHistory.value;
-  }
-  // enter search
-  onKeyStroke('Enter', handleEnter);
-  // Monitor keyboard arrow keys
-  onKeyStroke('ArrowUp', handleUp);
-  onKeyStroke('ArrowDown', handleDown);
-  // esc close
-  onKeyStroke('Escape', handleClose);
-});
+watch(
+  () => props.menus,
+  (menus) => {
+    searchItems.value = mapTree(menus, (item) => {
+      return {
+        ...item,
+        name: $t(item?.name),
+      };
+    });
+  },
+  { deep: true, immediate: true },
+);
+
+// enter search
+onKeyStroke('Enter', handleEnter);
+// Monitor keyboard arrow keys
+onKeyStroke('ArrowUp', handleUp);
+onKeyStroke('ArrowDown', handleDown);
+// esc close
+onKeyStroke('Escape', handleClose);
+
+if (searchHistory.value.length > 0) {
+  searchResults.value = searchHistory.value;
+  activeIndex.value = 0;
+}
 </script>
 
 <template>

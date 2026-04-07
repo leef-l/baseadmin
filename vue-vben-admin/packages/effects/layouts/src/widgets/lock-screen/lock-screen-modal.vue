@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Recordable } from '@vben/types';
 
-import { computed, reactive } from 'vue';
+import { computed, onBeforeUnmount, reactive } from 'vue';
 
 import { $t } from '@vben/locales';
 
@@ -26,6 +26,7 @@ withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   submit: [Recordable<any>];
 }>();
+let focusFrame: null | number = null;
 
 const [Form, { resetForm, validate, getValues, getFieldComponentRef }] =
   useVbenForm(
@@ -62,7 +63,11 @@ const [Modal] = useVbenModal({
     }
   },
   onOpened() {
-    requestAnimationFrame(() => {
+    if (focusFrame) {
+      cancelAnimationFrame(focusFrame);
+    }
+    focusFrame = requestAnimationFrame(() => {
+      focusFrame = null;
       getFieldComponentRef('lockScreenPassword')
         ?.$el?.querySelector('[name="lockScreenPassword"]')
         ?.focus();
@@ -77,6 +82,13 @@ async function handleSubmit() {
     emit('submit', values?.lockScreenPassword);
   }
 }
+
+onBeforeUnmount(() => {
+  if (focusFrame) {
+    cancelAnimationFrame(focusFrame);
+    focusFrame = null;
+  }
+});
 </script>
 
 <template>
