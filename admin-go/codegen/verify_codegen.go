@@ -242,6 +242,14 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			} else {
 				chk(!strings.Contains(output, `json:"keyword"`), "未启用关键词搜索时不应生成 keyword 请求字段")
 			}
+			for _, f := range meta.Fields {
+				if f.IsHidden || f.IsID || len(f.ValidationRules) == 0 {
+					continue
+				}
+				for _, rule := range f.ValidationRules {
+					chk(strings.Contains(output, rule), f.Name+" 缺少后端校验规则 "+rule)
+				}
+			}
 		}
 
 		if strings.Contains(tplFile, "model") {
