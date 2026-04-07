@@ -87,7 +87,11 @@ func (s *sMenu) Update(ctx context.Context, in *model.MenuUpdateInput) error {
 		dao.Menu.Columns().Status:     in.Status,
 		dao.Menu.Columns().UpdatedAt:  gtime.Now(),
 	}
-	_, err := dao.Menu.Ctx(ctx).Where(dao.Menu.Columns().Id, in.ID).Data(data).Update()
+	_, err := dao.Menu.Ctx(ctx).
+		Where(dao.Menu.Columns().Id, in.ID).
+		Where(dao.Menu.Columns().DeletedAt, nil).
+		Data(data).
+		Update()
 	if err == nil {
 		authlogic.ClearAllUserCaches(ctx)
 	}

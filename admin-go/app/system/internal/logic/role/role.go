@@ -75,6 +75,7 @@ func (s *sRole) Update(ctx context.Context, in *model.RoleUpdateInput) error {
 	err := dao.Role.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Model(dao.Role.Table()).Ctx(ctx).
 			Where(dao.Role.Columns().Id, in.ID).
+			Where(dao.Role.Columns().DeletedAt, nil).
 			Data(data).
 			Update(); err != nil {
 			return err
@@ -287,9 +288,14 @@ func (s *sRole) GrantDept(ctx context.Context, in *model.RoleGrantDeptInput) err
 		return err
 	}
 	err := dao.Role.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		if _, err := tx.Model(dao.Role.Table()).Ctx(ctx).Where(dao.Role.Columns().Id, in.ID).Data(g.Map{
-			dao.Role.Columns().DataScope: in.DataScope,
-		}).Update(); err != nil {
+		if _, err := tx.Model(dao.Role.Table()).Ctx(ctx).
+			Where(dao.Role.Columns().Id, in.ID).
+			Where(dao.Role.Columns().DeletedAt, nil).
+			Data(g.Map{
+				dao.Role.Columns().DataScope: in.DataScope,
+				dao.Role.Columns().UpdatedAt: gtime.Now(),
+			}).
+			Update(); err != nil {
 			return err
 		}
 		if _, err := tx.Model(dao.RoleDept.Table()).Ctx(ctx).Where(dao.RoleDept.Columns().RoleId, in.ID).Delete(); err != nil {

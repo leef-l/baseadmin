@@ -74,7 +74,11 @@ func (s *sDept) Update(ctx context.Context, in *model.DeptUpdateInput) error {
 		dao.Dept.Columns().Status:    in.Status,
 		dao.Dept.Columns().UpdatedAt: gtime.Now(),
 	}
-	_, err := dao.Dept.Ctx(ctx).Where(dao.Dept.Columns().Id, in.ID).Data(data).Update()
+	_, err := dao.Dept.Ctx(ctx).
+		Where(dao.Dept.Columns().Id, in.ID).
+		Where(dao.Dept.Columns().DeletedAt, nil).
+		Data(data).
+		Update()
 	if err == nil {
 		authlogic.ClearAllUserCaches(ctx)
 	}
@@ -86,9 +90,13 @@ func (s *sDept) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if err := s.ensureDeptDeletable(ctx, id); err != nil {
 		return err
 	}
-	_, err := dao.Dept.Ctx(ctx).Where(dao.Dept.Columns().Id, id).Data(g.Map{
-		dao.Dept.Columns().DeletedAt: gtime.Now(),
-	}).Update()
+	_, err := dao.Dept.Ctx(ctx).
+		Where(dao.Dept.Columns().Id, id).
+		Where(dao.Dept.Columns().DeletedAt, nil).
+		Data(g.Map{
+			dao.Dept.Columns().DeletedAt: gtime.Now(),
+		}).
+		Update()
 	if err == nil {
 		authlogic.ClearAllUserCaches(ctx)
 	}

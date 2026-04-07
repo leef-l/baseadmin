@@ -120,7 +120,11 @@ func (s *sUsers) Update(ctx context.Context, in *model.UsersUpdateInput) error {
 		data[dao.Users.Columns().Password] = hashedPassword
 	}
 	err = dao.Users.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		if _, err := tx.Model(dao.Users.Table()).Ctx(ctx).Where(dao.Users.Columns().Id, in.ID).Data(data).Update(); err != nil {
+		if _, err := tx.Model(dao.Users.Table()).Ctx(ctx).
+			Where(dao.Users.Columns().Id, in.ID).
+			Where(dao.Users.Columns().DeletedAt, nil).
+			Data(data).
+			Update(); err != nil {
 			return err
 		}
 		if _, err := tx.Model(dao.UserRole.Table()).Ctx(ctx).Where(dao.UserRole.Columns().UserId, in.ID).Delete(); err != nil {
@@ -264,10 +268,14 @@ func (s *sUsers) ResetPassword(ctx context.Context, in *model.UsersResetPassword
 	if err != nil {
 		return err
 	}
-	_, err = dao.Users.Ctx(ctx).Where(dao.Users.Columns().Id, in.ID).Data(g.Map{
-		dao.Users.Columns().Password:  hashedPassword,
-		dao.Users.Columns().UpdatedAt: gtime.Now(),
-	}).Update()
+	_, err = dao.Users.Ctx(ctx).
+		Where(dao.Users.Columns().Id, in.ID).
+		Where(dao.Users.Columns().DeletedAt, nil).
+		Data(g.Map{
+			dao.Users.Columns().Password:  hashedPassword,
+			dao.Users.Columns().UpdatedAt: gtime.Now(),
+		}).
+		Update()
 	if err == nil {
 		authlogic.ClearUserCaches(ctx, int64(in.ID))
 	}
