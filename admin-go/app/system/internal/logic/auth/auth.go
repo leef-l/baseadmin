@@ -17,6 +17,7 @@ import (
 	"gbaseadmin/utility/jwt"
 	"gbaseadmin/utility/password"
 	"gbaseadmin/utility/snowflake"
+	"gbaseadmin/utility/treeutil"
 )
 
 func init() {
@@ -554,29 +555,28 @@ func collectPermissions(rows []permissionRow) []string {
 }
 
 func buildMenuTree(list []*model.AuthMenuOutput) []*model.AuthMenuOutput {
-	if len(list) == 0 {
-		return make([]*model.AuthMenuOutput, 0)
-	}
-	nodeMap := make(map[int64]*model.AuthMenuOutput, len(list))
-	for _, item := range list {
-		if item == nil {
-			continue
-		}
-		item.Children = make([]*model.AuthMenuOutput, 0)
-		nodeMap[int64(item.ID)] = item
-	}
-	tree := make([]*model.AuthMenuOutput, 0, len(list))
-	for _, item := range list {
-		if item == nil {
-			continue
-		}
-		if int64(item.ParentID) == 0 {
-			tree = append(tree, item)
-		} else if parent, ok := nodeMap[int64(item.ParentID)]; ok {
-			parent.Children = append(parent.Children, item)
-		} else {
-			tree = append(tree, item)
-		}
-	}
-	return tree
+	return treeutil.BuildForest(list, treeutil.TreeNodeAccessor[*model.AuthMenuOutput]{
+		ID: func(item *model.AuthMenuOutput) int64 {
+			if item == nil {
+				return 0
+			}
+			return int64(item.ID)
+		},
+		ParentID: func(item *model.AuthMenuOutput) int64 {
+			if item == nil {
+				return 0
+			}
+			return int64(item.ParentID)
+		},
+		Init: func(item *model.AuthMenuOutput) {
+			if item != nil {
+				item.Children = make([]*model.AuthMenuOutput, 0)
+			}
+		},
+		Append: func(parent *model.AuthMenuOutput, child *model.AuthMenuOutput) {
+			if parent != nil && child != nil {
+				parent.Children = append(parent.Children, child)
+			}
+		},
+	})
 }

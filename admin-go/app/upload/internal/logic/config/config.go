@@ -12,6 +12,7 @@ import (
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/service"
+	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
 )
 
@@ -216,6 +217,7 @@ func (s *sConfig) List(ctx context.Context, in *model.ConfigListInput) (list []*
 	if err != nil {
 		return
 	}
+	in.PageNum, in.PageSize = pageutil.Normalize(in.PageNum, in.PageSize)
 	err = m.Page(in.PageNum, in.PageSize).OrderAsc(dao.UploadConfig.Columns().Id).Scan(&list)
 	if err != nil {
 		return

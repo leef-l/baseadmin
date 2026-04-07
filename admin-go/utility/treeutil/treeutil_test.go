@@ -7,6 +7,12 @@ import (
 	"gbaseadmin/utility/snowflake"
 )
 
+type testNode struct {
+	ID       int64
+	ParentID int64
+	Children []*testNode
+}
+
 func TestValidateParent(t *testing.T) {
 	msgs := Messages{
 		Self:         "self",
@@ -98,4 +104,31 @@ func TestValidateParent(t *testing.T) {
 			t.Fatalf("expected success, got %v", err)
 		}
 	})
+}
+
+func TestBuildForest(t *testing.T) {
+	root := &testNode{ID: 1}
+	child := &testNode{ID: 2, ParentID: 1}
+	orphan := &testNode{ID: 3, ParentID: 99}
+
+	tree := BuildForest([]*testNode{root, child, orphan}, TreeNodeAccessor[*testNode]{
+		ID:       func(item *testNode) int64 { return item.ID },
+		ParentID: func(item *testNode) int64 { return item.ParentID },
+		Init: func(item *testNode) {
+			item.Children = make([]*testNode, 0)
+		},
+		Append: func(parent *testNode, child *testNode) {
+			parent.Children = append(parent.Children, child)
+		},
+	})
+
+	if len(tree) != 2 {
+		t.Fatalf("BuildForest tree size mismatch: %d", len(tree))
+	}
+	if len(root.Children) != 1 || root.Children[0] != child {
+		t.Fatalf("BuildForest should append child under root: %+v", root.Children)
+	}
+	if tree[1] != orphan {
+		t.Fatalf("BuildForest should keep orphan on root level: %+v", tree[1])
+	}
 }

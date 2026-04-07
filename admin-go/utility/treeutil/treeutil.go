@@ -16,6 +16,13 @@ type Messages struct {
 
 type ParentLoader func(id int64) (nodeID int64, parentID int64, err error)
 
+type TreeNodeAccessor[T any] struct {
+	ID       func(item T) int64
+	ParentID func(item T) int64
+	Init     func(item T)
+	Append   func(parent T, child T)
+}
+
 func ValidateParent(parentID, currentID snowflake.JsonInt64, load ParentLoader, messages Messages) error {
 	if parentID == 0 {
 		return nil
@@ -54,4 +61,37 @@ func ValidateParent(parentID, currentID snowflake.JsonInt64, load ParentLoader, 
 		}
 	}
 	return nil
+}
+
+func BuildForest[T any](list []T, accessor TreeNodeAccessor[T]) []T {
+	if len(list) == 0 {
+		return make([]T, 0)
+	}
+	if accessor.ID == nil || accessor.ParentID == nil || accessor.Append == nil {
+		return list
+	}
+
+	nodeMap := make(map[int64]T, len(list))
+	for _, item := range list {
+		if accessor.Init != nil {
+			accessor.Init(item)
+		}
+		nodeMap[accessor.ID(item)] = item
+	}
+
+	tree := make([]T, 0, len(list))
+	for _, item := range list {
+		parentID := accessor.ParentID(item)
+		if parentID == 0 {
+			tree = append(tree, item)
+			continue
+		}
+		parent, ok := nodeMap[parentID]
+		if !ok {
+			tree = append(tree, item)
+			continue
+		}
+		accessor.Append(parent, item)
+	}
+	return tree
 }

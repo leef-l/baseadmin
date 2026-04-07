@@ -13,6 +13,7 @@ import (
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
+	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/password"
 	"gbaseadmin/utility/snowflake"
 )
@@ -240,6 +241,7 @@ func (s *sUsers) List(ctx context.Context, in *model.UsersListInput) (list []*mo
 	if err != nil {
 		return
 	}
+	in.PageNum, in.PageSize = pageutil.Normalize(in.PageNum, in.PageSize)
 	err = m.Page(in.PageNum, in.PageSize).OrderAsc(dao.Users.Columns().Id).Scan(&list)
 	if err != nil {
 		return

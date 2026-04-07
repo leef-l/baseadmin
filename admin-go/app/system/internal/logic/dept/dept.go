@@ -12,6 +12,7 @@ import (
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
+	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
 	"gbaseadmin/utility/treeutil"
 )
@@ -122,6 +123,7 @@ func (s *sDept) List(ctx context.Context, in *model.DeptListInput) (list []*mode
 	if err != nil {
 		return
 	}
+	in.PageNum, in.PageSize = pageutil.Normalize(in.PageNum, in.PageSize)
 	err = m.Page(in.PageNum, in.PageSize).OrderAsc(dao.Dept.Columns().Id).Scan(&list)
 	if err != nil {
 		return
@@ -152,23 +154,16 @@ func (s *sDept) Tree(ctx context.Context, in *model.DeptTreeInput) (tree []*mode
 		return
 	}
 
-	// 使用 map 迭代方式组装树
-	nodeMap := make(map[int64]*model.DeptTreeOutput, len(list))
-	for _, item := range list {
-		item.Children = make([]*model.DeptTreeOutput, 0)
-		nodeMap[int64(item.ID)] = item
-	}
-
-	tree = make([]*model.DeptTreeOutput, 0)
-	for _, item := range list {
-		if int64(item.ParentID) == 0 {
-			tree = append(tree, item)
-		} else if parent, ok := nodeMap[int64(item.ParentID)]; ok {
-			parent.Children = append(parent.Children, item)
-		} else {
-			tree = append(tree, item)
-		}
-	}
+	tree = treeutil.BuildForest(list, treeutil.TreeNodeAccessor[*model.DeptTreeOutput]{
+		ID:       func(item *model.DeptTreeOutput) int64 { return int64(item.ID) },
+		ParentID: func(item *model.DeptTreeOutput) int64 { return int64(item.ParentID) },
+		Init: func(item *model.DeptTreeOutput) {
+			item.Children = make([]*model.DeptTreeOutput, 0)
+		},
+		Append: func(parent *model.DeptTreeOutput, child *model.DeptTreeOutput) {
+			parent.Children = append(parent.Children, child)
+		},
+	})
 	return
 }
 

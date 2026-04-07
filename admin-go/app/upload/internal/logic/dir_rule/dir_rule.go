@@ -11,6 +11,7 @@ import (
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/service"
+	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
 )
 
@@ -105,6 +106,7 @@ func (s *sDirRule) List(ctx context.Context, in *model.DirRuleListInput) (list [
 	if err != nil {
 		return
 	}
+	in.PageNum, in.PageSize = pageutil.Normalize(in.PageNum, in.PageSize)
 	err = m.Page(in.PageNum, in.PageSize).OrderAsc(dao.UploadDirRule.Columns().Id).Scan(&list)
 	if err != nil {
 		return

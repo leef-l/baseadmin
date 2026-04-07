@@ -19,6 +19,7 @@ import (
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/model/entity"
 	"gbaseadmin/app/upload/internal/service"
+	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
 )
 
@@ -227,6 +228,7 @@ func (s *sFile) List(ctx context.Context, in *model.FileListInput) (list []*mode
 	if err != nil {
 		return
 	}
+	in.PageNum, in.PageSize = pageutil.Normalize(in.PageNum, in.PageSize)
 	err = m.Page(in.PageNum, in.PageSize).OrderDesc(dao.UploadFile.Columns().Id).Scan(&list)
 	if err != nil {
 		return

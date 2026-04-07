@@ -11,6 +11,7 @@ import (
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/service"
+	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
 	"gbaseadmin/utility/treeutil"
 )
@@ -111,6 +112,7 @@ func (s *sDir) List(ctx context.Context, in *model.DirListInput) (list []*model.
 	if err != nil {
 		return
 	}
+	in.PageNum, in.PageSize = pageutil.Normalize(in.PageNum, in.PageSize)
 	err = m.Page(in.PageNum, in.PageSize).OrderAsc(dao.UploadDir.Columns().Id).Scan(&list)
 	if err != nil {
 		return
@@ -140,23 +142,16 @@ func (s *sDir) Tree(ctx context.Context, in *model.DirTreeInput) (tree []*model.
 		return
 	}
 
-	// 使用 map 迭代方式组装树
-	nodeMap := make(map[int64]*model.DirTreeOutput, len(list))
-	for _, item := range list {
-		item.Children = make([]*model.DirTreeOutput, 0)
-		nodeMap[int64(item.ID)] = item
-	}
-
-	tree = make([]*model.DirTreeOutput, 0)
-	for _, item := range list {
-		if int64(item.ParentID) == 0 {
-			tree = append(tree, item)
-		} else if parent, ok := nodeMap[int64(item.ParentID)]; ok {
-			parent.Children = append(parent.Children, item)
-		} else {
-			tree = append(tree, item)
-		}
-	}
+	tree = treeutil.BuildForest(list, treeutil.TreeNodeAccessor[*model.DirTreeOutput]{
+		ID:       func(item *model.DirTreeOutput) int64 { return int64(item.ID) },
+		ParentID: func(item *model.DirTreeOutput) int64 { return int64(item.ParentID) },
+		Init: func(item *model.DirTreeOutput) {
+			item.Children = make([]*model.DirTreeOutput, 0)
+		},
+		Append: func(parent *model.DirTreeOutput, child *model.DirTreeOutput) {
+			parent.Children = append(parent.Children, child)
+		},
+	})
 	return
 }
 
