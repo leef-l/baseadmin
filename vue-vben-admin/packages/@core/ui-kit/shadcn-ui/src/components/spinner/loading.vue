@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, watch } from 'vue';
+import { onBeforeUnmount, ref, watch } from 'vue';
 
 import { cn } from '@vben-core/shared/utils';
 
@@ -37,9 +37,12 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 watch(
   () => props.spinning,
   (show) => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = undefined;
+    }
     if (!show) {
       showSpinner.value = false;
-      timer && clearTimeout(timer);
       return;
     }
 
@@ -51,6 +54,7 @@ watch(
       if (showSpinner.value) {
         renderSpinner.value = true;
       }
+      timer = undefined;
     }, props.minLoadingTime);
   },
   {
@@ -63,6 +67,13 @@ function onTransitionEnd() {
     renderSpinner.value = false;
   }
 }
+
+onBeforeUnmount(() => {
+  if (timer) {
+    clearTimeout(timer);
+    timer = undefined;
+  }
+});
 </script>
 
 <template>

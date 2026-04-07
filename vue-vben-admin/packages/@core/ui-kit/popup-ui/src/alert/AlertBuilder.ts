@@ -16,6 +16,22 @@ const alerts = ref<Array<{ container: HTMLElement; instance: Component }>>([]);
 
 const { $t } = useSimpleLocale();
 
+function createAlertContainer() {
+  if (typeof document === 'undefined') {
+    throw new Error('Alert can only be used in browser environment');
+  }
+  const container = document.createElement('div');
+  document.body.append(container);
+  return container;
+}
+
+function removeAlertContainer(container: HTMLElement) {
+  render(null, container);
+  if (container.isConnected) {
+    container.remove();
+  }
+}
+
 export function vbenAlert(options: AlertProps): Promise<void>;
 export function vbenAlert(
   message: string,
@@ -51,8 +67,7 @@ export function vbenAlert(
       Object.assign(options, arg2);
     }
     // 创建容器元素
-    const container = document.createElement('div');
-    document.body.append(container);
+    const container = createAlertContainer();
 
     // 创建一个引用，用于在回调中访问实例
     const alertRef = { container, instance: null as any };
@@ -64,10 +79,7 @@ export function vbenAlert(
         alerts.value = alerts.value.filter((item) => item !== alertRef);
 
         // 从DOM中移除容器
-        render(null, container);
-        if (container.parentNode) {
-          container.remove();
-        }
+        removeAlertContainer(container);
 
         // 解析 Promise，传递用户操作结果
         if (isConfirm) {
@@ -236,11 +248,7 @@ export async function vbenPrompt<T = any>(
 
 export function clearAllAlerts() {
   alerts.value.forEach((alert) => {
-    // 从DOM中移除容器
-    render(null, alert.container);
-    if (alert.container.parentNode) {
-      alert.container.remove();
-    }
+    removeAlertContainer(alert.container);
   });
   alerts.value = [];
 }
