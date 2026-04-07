@@ -338,11 +338,21 @@ func (s *sUsers) fillRoleTitles(ctx context.Context, list []*model.UsersListOutp
 	}
 	for _, item := range list {
 		for _, roleID := range userRoleMap[int64(item.ID)] {
-			if title := roleMap[roleID]; title != "" {
-				item.RoleTitles = append(item.RoleTitles, title)
-			}
+			appendUniqueRoleTitle(item, roleMap[roleID])
 		}
 	}
+}
+
+func appendUniqueRoleTitle(item *model.UsersListOutput, title string) {
+	if item == nil || title == "" {
+		return
+	}
+	for _, existing := range item.RoleTitles {
+		if existing == title {
+			return
+		}
+	}
+	item.RoleTitles = append(item.RoleTitles, title)
 }
 
 func (s *sUsers) ensureDeptExists(ctx context.Context, deptID snowflake.JsonInt64) error {

@@ -40,8 +40,16 @@ const (
 	authMenusCacheTTL   = time.Minute
 )
 
+func normalizeAuthLoginInput(in *model.AuthLoginInput) {
+	if in == nil {
+		return
+	}
+	in.Username = strings.TrimSpace(in.Username)
+}
+
 // Login 用户登录
 func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model.AuthLoginOutput, err error) {
+	normalizeAuthLoginInput(in)
 	if s.isLoginRateLimited(ctx, in.Username) {
 		return nil, gerror.New("登录失败次数过多，请10分钟后再试")
 	}

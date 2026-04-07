@@ -27,6 +27,7 @@ type sDir struct{}
 
 // Create 创建文件目录
 func (s *sDir) Create(ctx context.Context, in *model.DirCreateInput) error {
+	normalizeDirCreateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
 		return err
 	}
@@ -46,6 +47,7 @@ func (s *sDir) Create(ctx context.Context, in *model.DirCreateInput) error {
 
 // Update 更新文件目录
 func (s *sDir) Update(ctx context.Context, in *model.DirUpdateInput) error {
+	normalizeDirUpdateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err
 	}
@@ -170,6 +172,22 @@ func normalizeDirTreeInput(in *model.DirTreeInput) {
 		return
 	}
 	in.Keyword = strings.TrimSpace(in.Keyword)
+}
+
+func normalizeDirCreateInput(in *model.DirCreateInput) {
+	if in == nil {
+		return
+	}
+	in.Name = strings.TrimSpace(in.Name)
+	in.Path = strings.TrimSpace(in.Path)
+}
+
+func normalizeDirUpdateInput(in *model.DirUpdateInput) {
+	if in == nil {
+		return
+	}
+	in.Name = strings.TrimSpace(in.Name)
+	in.Path = strings.TrimSpace(in.Path)
 }
 
 func (s *sDir) fillParentNames(ctx context.Context, list []*model.DirListOutput) {

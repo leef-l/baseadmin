@@ -64,3 +64,17 @@ func TestBuildMenuTree(t *testing.T) {
 		t.Fatalf("orphan node should remain top-level: %+v", tree[1])
 	}
 }
+
+func TestNormalizeAuthLoginInput(t *testing.T) {
+	in := &model.AuthLoginInput{
+		Username: " admin ",
+		Password: " 123456 ",
+	}
+	normalizeAuthLoginInput(in)
+	if in.Username != "admin" {
+		t.Fatalf("normalizeAuthLoginInput username mismatch: %+v", in)
+	}
+	if in.Password != " 123456 " {
+		t.Fatalf("normalizeAuthLoginInput should not trim password: %+v", in)
+	}
+}

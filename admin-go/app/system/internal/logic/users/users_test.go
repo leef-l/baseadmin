@@ -48,3 +48,14 @@ func TestNormalizeUsersInputs(t *testing.T) {
 		t.Fatalf("normalizeUsersListInput mismatch: %+v", listIn)
 	}
 }
+
+func TestAppendUniqueRoleTitle(t *testing.T) {
+	item := &model.UsersListOutput{RoleTitles: make([]string, 0)}
+	appendUniqueRoleTitle(item, "管理员")
+	appendUniqueRoleTitle(item, "管理员")
+	appendUniqueRoleTitle(item, "")
+	appendUniqueRoleTitle(item, "访客")
+	if !reflect.DeepEqual(item.RoleTitles, []string{"管理员", "访客"}) {
+		t.Fatalf("appendUniqueRoleTitle mismatch: %+v", item.RoleTitles)
+	}
+}

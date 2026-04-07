@@ -26,6 +26,7 @@ type sDirRule struct{}
 
 // Create 创建文件目录规则
 func (s *sDirRule) Create(ctx context.Context, in *model.DirRuleCreateInput) error {
+	normalizeDirRuleCreateInput(in)
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
 		return err
 	}
@@ -44,6 +45,7 @@ func (s *sDirRule) Create(ctx context.Context, in *model.DirRuleCreateInput) err
 
 // Update 更新文件目录规则
 func (s *sDirRule) Update(ctx context.Context, in *model.DirRuleUpdateInput) error {
+	normalizeDirRuleUpdateInput(in)
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
 		return err
 	}
@@ -164,4 +166,18 @@ func normalizeDirRuleListInput(in *model.DirRuleListInput) {
 		return
 	}
 	in.Keyword = strings.TrimSpace(in.Keyword)
+}
+
+func normalizeDirRuleCreateInput(in *model.DirRuleCreateInput) {
+	if in == nil {
+		return
+	}
+	in.SavePath = strings.TrimSpace(in.SavePath)
+}
+
+func normalizeDirRuleUpdateInput(in *model.DirRuleUpdateInput) {
+	if in == nil {
+		return
+	}
+	in.SavePath = strings.TrimSpace(in.SavePath)
 }
