@@ -47,9 +47,10 @@ const delegatedProps = computed(() => {
 });
 
 function isAppendToBody() {
+  const body = typeof document === 'undefined' ? undefined : document.body;
   return (
     props.appendTo === 'body' ||
-    props.appendTo === document.body ||
+    props.appendTo === body ||
     !props.appendTo
   );
 }
