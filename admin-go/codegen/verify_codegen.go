@@ -344,6 +344,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 		}
 
 		if strings.Contains(tplFile, "form") {
+			chk(strings.Contains(output, "const openToken = ref(0);"), "form 缺少 openToken 防串写保护")
 			if meta.HasTooltip {
 				chk(strings.Contains(output, "tooltipLabel"), "有 Tooltip 但缺少 tooltipLabel")
 			}
@@ -370,6 +371,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 		}
 
 		if strings.Contains(tplFile, "detail-drawer") {
+			chk(strings.Contains(output, "const openToken = ref(0);"), "detail-drawer 缺少 openToken 防串写保护")
 			if meta.HasEnum {
 				chk(strings.Contains(output, "Tag"), "有枚举但 detail-drawer 缺少 Tag")
 			}
@@ -428,6 +430,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			if meta.HasImport {
 				chk(strings.Contains(output, "import"+meta.ModelName), "缺少 import API")
 				chk(strings.Contains(output, "downloadImportTemplate"+meta.ModelName), "缺少模板下载 API")
+				chk(strings.Contains(output, "input.accept = '.csv'"), "导入应限制为 CSV 格式")
 			} else {
 				chk(!strings.Contains(output, "import"+meta.ModelName), "未启用导入时不应生成 import API")
 				chk(!strings.Contains(output, "downloadImportTemplate"+meta.ModelName), "未启用导入时不应生成模板下载 API")

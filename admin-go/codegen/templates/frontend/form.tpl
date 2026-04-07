@@ -71,6 +71,7 @@ function tooltipLabel(label: string, tip: string) {
 const emit = defineEmits<{ success: [] }>();
 const isEdit = ref(false);
 const editId = ref('');
+const openToken = ref(0);
 
 /** 表单配置 */
 const [Form, formApi] = useVbenForm({
@@ -379,11 +380,13 @@ const [Modal, modalApi] = useVbenModal({
   },
   async onOpenChange(isOpen: boolean) {
     if (isOpen) {
+      const currentToken = ++openToken.value;
       const data = modalApi.getData<{ id?: string } | null>();
 {{- if .HasParentID}}
       // 加载树形数据
       try {
         const res = await get{{.ModelName}}Tree();
+        if (currentToken !== openToken.value) return;
         treeData.value = [
           { id: '0', {{if .ParentDisplayField}}{{.ParentDisplayField}}{{else}}title{{end}}: '顶级节点', children: res ?? [] } as any,
         ];
@@ -403,6 +406,7 @@ const [Modal, modalApi] = useVbenModal({
       // 加载{{.Label}}树形数据
       try {
         const {{.RefTableLower}}Res = await get{{.RefTableCamel}}Tree();
+        if (currentToken !== openToken.value) return;
         {{.NameLower}}Options.value = {{.RefTableLower}}Res ?? [];
         formApi.updateSchema([
           {
@@ -417,6 +421,7 @@ const [Modal, modalApi] = useVbenModal({
       // 加载{{.Label}}选项
       try {
         const {{.RefTableLower}}Res = await get{{.RefTableCamel}}List({ pageNum: 1, pageSize: 1000 });
+        if (currentToken !== openToken.value) return;
         {{.NameLower}}Options.value = ({{.RefTableLower}}Res?.list ?? []).map((item: any) => ({
           label: item.{{.RefDisplayLower}} || item.id,
           value: item.id,
@@ -438,6 +443,7 @@ const [Modal, modalApi] = useVbenModal({
       // 加载{{.Label}}字典
       try {
         const dictRes = await getDictByType('{{.DictType}}');
+        if (currentToken !== openToken.value) return;
         {{.NameLower}}DictOptions.value = (dictRes ?? []).map((item: any) => ({
           label: item.label,
           value: item.value,
@@ -459,10 +465,12 @@ const [Modal, modalApi] = useVbenModal({
         modalApi.setState({ title: '编辑{{.Comment}}' });
         try {
           const detail = await get{{.ModelName}}Detail(data.id);
+          if (currentToken !== openToken.value) return;
           if (detail) {
             formApi.setValues(detail);
           }
         } catch {
+          if (currentToken !== openToken.value) return;
           message.error('获取详情失败');
         }
       } else {
@@ -471,6 +479,8 @@ const [Modal, modalApi] = useVbenModal({
         modalApi.setState({ title: '新建{{.Comment}}' });
         formApi.resetForm();
       }
+    } else {
+      openToken.value++
     }
   },
 });

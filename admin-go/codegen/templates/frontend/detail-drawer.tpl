@@ -27,6 +27,7 @@ function get{{.NameCamel}}Color(val: number | string): string {
 {{end}}
 {{- end}}
 const detail = ref<{{.ModelName}}Item | null>(null);
+const openToken = ref(0);
 
 function displayValue(value: null | number | string | undefined) {
   if (value === null || value === undefined || value === '') {
@@ -40,16 +41,21 @@ const [Modal, modalApi] = useVbenModal({
   footer: false,
   async onOpenChange(isOpen: boolean) {
     if (isOpen) {
+      const currentToken = ++openToken.value;
       const data = modalApi.getData<{ id: string }>();
       if (data?.id) {
         modalApi.setState({ title: '{{.Comment}}详情' });
         try {
-          detail.value = await get{{.ModelName}}Detail(data.id);
+          const res = await get{{.ModelName}}Detail(data.id);
+          if (currentToken !== openToken.value) return;
+          detail.value = res;
         } catch {
+          if (currentToken !== openToken.value) return;
           detail.value = null;
         }
       }
     } else {
+      openToken.value++;
       detail.value = null;
     }
   },

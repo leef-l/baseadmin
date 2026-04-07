@@ -273,7 +273,7 @@ func FinalizeTemplateMeta(meta *TableMeta) {
 	meta.ParentDisplayField = ""
 	meta.SearchFields = nil
 	meta.KeywordSearchFields = nil
-	batchEditableEnumCount := 0
+	hasBatchEditStatus := false
 
 	for i := range meta.Fields {
 		field := &meta.Fields[i]
@@ -323,7 +323,9 @@ func FinalizeTemplateMeta(meta *TableMeta) {
 		}
 		if field.IsEnum && !field.IsHidden {
 			meta.HasEnum = true
-			batchEditableEnumCount++
+			if field.Name == "status" {
+				hasBatchEditStatus = true
+			}
 		}
 		if field.Component == ComponentImageUpload && !field.IsHidden {
 			meta.HasImage = true
@@ -333,7 +335,7 @@ func FinalizeTemplateMeta(meta *TableMeta) {
 		}
 	}
 
-	meta.HasBatchEdit = batchEditableEnumCount > 0
+	meta.HasBatchEdit = hasBatchEditStatus
 	meta.HasImport = !meta.HasParentID
 
 	finalizeSearchMeta(meta)

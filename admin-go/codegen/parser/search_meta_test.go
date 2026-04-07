@@ -236,16 +236,16 @@ func TestFinalizeTemplateMetaRefreshesDerivedFlags(t *testing.T) {
 	}
 }
 
-func TestFinalizeTemplateMetaDisablesBatchEditWithoutVisibleEnums(t *testing.T) {
+func TestFinalizeTemplateMetaDisablesBatchEditWithoutVisibleStatusEnum(t *testing.T) {
 	meta := &TableMeta{
 		Fields: []FieldMeta{
 			{
-				Name:       "status",
-				NameLower:  "status",
-				Component:  ComponentInput,
-				GoType:     "int",
-				TSType:     "number",
-				IsRequired: true,
+				Name:      "type",
+				NameLower: "type",
+				Component: ComponentSelect,
+				GoType:    "int",
+				TSType:    "number",
+				IsEnum:    true,
 			},
 			{
 				Name:      "title",
@@ -261,10 +261,7 @@ func TestFinalizeTemplateMetaDisablesBatchEditWithoutVisibleEnums(t *testing.T) 
 	}
 	FinalizeTemplateMeta(meta)
 
-	if !meta.HasStatus {
-		t.Fatalf("status flag should still be enabled: %+v", meta)
-	}
 	if meta.HasBatchEdit {
-		t.Fatalf("batch edit should stay disabled without visible enum fields: %+v", meta)
+		t.Fatalf("batch edit should stay disabled without visible status enum: %+v", meta)
 	}
 }

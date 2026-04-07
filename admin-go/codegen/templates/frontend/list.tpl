@@ -463,7 +463,7 @@ async function handleExport() {
 async function handleImport() {
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.csv,.xlsx,.xls';
+  input.accept = '.csv';
   input.onchange = async () => {
     const file = input.files?.[0];
     if (!file) return;
