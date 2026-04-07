@@ -13,6 +13,7 @@ import (
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
+	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
 	"gbaseadmin/utility/treeutil"
@@ -30,6 +31,9 @@ type sRole struct{}
 
 // Create 创建角色表
 func (s *sRole) Create(ctx context.Context, in *model.RoleCreateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeRoleCreateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
 		return err
@@ -51,6 +55,9 @@ func (s *sRole) Create(ctx context.Context, in *model.RoleCreateInput) error {
 
 // Update 更新角色表
 func (s *sRole) Update(ctx context.Context, in *model.RoleUpdateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeRoleUpdateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err
@@ -235,6 +242,9 @@ func normalizeRoleTreeInput(in *model.RoleTreeInput) {
 
 // GrantMenu 角色授权菜单（先删后插）
 func (s *sRole) GrantMenu(ctx context.Context, in *model.RoleGrantMenuInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	err := dao.RoleMenu.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Model(dao.RoleMenu.Table()).Ctx(ctx).Where(dao.RoleMenu.Columns().RoleId, in.ID).Delete(); err != nil {
 			return err
@@ -276,6 +286,9 @@ func (s *sRole) GetMenuIDs(ctx context.Context, roleID snowflake.JsonInt64) ([]s
 
 // GrantDept 角色授权数据权限
 func (s *sRole) GrantDept(ctx context.Context, in *model.RoleGrantDeptInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	err := dao.Role.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Model(dao.Role.Table()).Ctx(ctx).Where(dao.Role.Columns().Id, in.ID).Data(g.Map{
 			dao.Role.Columns().DataScope: in.DataScope,

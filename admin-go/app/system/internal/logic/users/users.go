@@ -13,6 +13,7 @@ import (
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
+	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/password"
 	"gbaseadmin/utility/snowflake"
@@ -30,6 +31,9 @@ type sUsers struct{}
 
 // Create 创建用户表
 func (s *sUsers) Create(ctx context.Context, in *model.UsersCreateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeUsersWriteInput(in)
 	if err := s.ensureDeptExists(ctx, in.DeptID); err != nil {
 		return err
@@ -77,6 +81,9 @@ func (s *sUsers) Create(ctx context.Context, in *model.UsersCreateInput) error {
 
 // Update 更新用户表
 func (s *sUsers) Update(ctx context.Context, in *model.UsersUpdateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeUsersUpdateInput(in)
 	// 内置管理员不可禁用
 	if in.Status == 0 {
@@ -253,6 +260,9 @@ func (s *sUsers) List(ctx context.Context, in *model.UsersListInput) (list []*mo
 
 // ResetPassword 重置用户密码
 func (s *sUsers) ResetPassword(ctx context.Context, in *model.UsersResetPasswordInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	hashedPassword, err := password.Hash(in.Password)
 	if err != nil {
 		return err

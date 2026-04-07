@@ -12,6 +12,7 @@ import (
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
+	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
 	"gbaseadmin/utility/treeutil"
@@ -29,6 +30,9 @@ type sDept struct{}
 
 // Create 创建部门表
 func (s *sDept) Create(ctx context.Context, in *model.DeptCreateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeDeptCreateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
 		return err
@@ -53,6 +57,9 @@ func (s *sDept) Create(ctx context.Context, in *model.DeptCreateInput) error {
 
 // Update 更新部门表
 func (s *sDept) Update(ctx context.Context, in *model.DeptUpdateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeDeptUpdateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err

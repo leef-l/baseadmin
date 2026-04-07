@@ -11,6 +11,7 @@ import (
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/service"
+	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
 )
@@ -27,6 +28,9 @@ type sDirRule struct{}
 
 // Create 创建文件目录规则
 func (s *sDirRule) Create(ctx context.Context, in *model.DirRuleCreateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeDirRuleCreateInput(in)
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
 		return err
@@ -46,6 +50,9 @@ func (s *sDirRule) Create(ctx context.Context, in *model.DirRuleCreateInput) err
 
 // Update 更新文件目录规则
 func (s *sDirRule) Update(ctx context.Context, in *model.DirRuleUpdateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeDirRuleUpdateInput(in)
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
 		return err

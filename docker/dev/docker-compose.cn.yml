@@ -15,7 +15,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     ports:
-      - "${MYSQL_PORT:-40001}:3306"
+      - "${MYSQL_PORT:-44001}:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
@@ -33,7 +33,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "${REDIS_PORT:-40002}:6379"
+      - "${REDIS_PORT:-44002}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -69,7 +69,7 @@ services:
       - DB_MIGRATE_AUTO=auto
       - TZ=Asia/Shanghai
     ports:
-      - "${SYSTEM_PORT:-40003}:8000"
+      - "${SYSTEM_PORT:-44003}:8000"
     volumes:
       - ./start-go-app.sh:/docker/dev/start-go-app.sh:ro
     networks:
@@ -102,7 +102,7 @@ services:
       - DB_MIGRATE_AUTO=auto
       - TZ=Asia/Shanghai
     ports:
-      - "${UPLOAD_PORT:-40004}:8002"
+      - "${UPLOAD_PORT:-44004}:8002"
     volumes:
       - ./start-go-app.sh:/docker/dev/start-go-app.sh:ro
     networks:
@@ -119,9 +119,9 @@ services:
       - frontend_node_modules:/app/node_modules
       - ./docker-web-start.sh:/docker/dev/docker-web-start.sh:ro
     ports:
-      - "${FRONTEND_PORT:-40005}:5666"
+      - "${FRONTEND_PORT:-44005}:5666"
     environment:
-      - VITE_GLOB_API_URL=${VITE_GLOB_API_URL:-http://localhost:40003}
+      - VITE_GLOB_API_URL=${VITE_GLOB_API_URL:-http://localhost:44003}
       - NODE_OPTIONS=--max-old-space-size=4096
     networks:
       - gbaseadmin_net
@@ -131,7 +131,7 @@ services:
     container_name: gbaseadmin_adminer
     restart: unless-stopped
     ports:
-      - "${ADMINER_PORT:-40006}:8080"
+      - "${ADMINER_PORT:-44006}:8080"
     environment:
       ADMINER_DEFAULT_SERVER: mysql
       ADMINER_DESIGN: nette

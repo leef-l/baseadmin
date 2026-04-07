@@ -12,6 +12,7 @@ import (
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/service"
+	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
 )
@@ -28,6 +29,9 @@ type sConfig struct{}
 
 // Create 创建上传配置
 func (s *sConfig) Create(ctx context.Context, in *model.ConfigCreateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeConfigCreateInput(in)
 	if err := validateConfigFields(
 		in.Storage,
@@ -82,6 +86,9 @@ func (s *sConfig) Create(ctx context.Context, in *model.ConfigCreateInput) error
 
 // Update 更新上传配置
 func (s *sConfig) Update(ctx context.Context, in *model.ConfigUpdateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeConfigUpdateInput(in)
 	now := gtime.Now()
 	return dao.UploadConfig.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {

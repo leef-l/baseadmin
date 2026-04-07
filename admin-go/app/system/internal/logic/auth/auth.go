@@ -14,6 +14,7 @@ import (
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
 	"gbaseadmin/utility/cache"
+	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/jwt"
 	"gbaseadmin/utility/password"
 	"gbaseadmin/utility/snowflake"
@@ -50,6 +51,9 @@ func normalizeAuthLoginInput(in *model.AuthLoginInput) {
 
 // Login 用户登录
 func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model.AuthLoginOutput, err error) {
+	if err := inpututil.Require(in); err != nil {
+		return nil, err
+	}
 	normalizeAuthLoginInput(in)
 	if s.isLoginRateLimited(ctx, in.Username) {
 		return nil, gerror.New("登录失败次数过多，请10分钟后再试")

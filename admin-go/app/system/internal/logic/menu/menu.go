@@ -13,6 +13,7 @@ import (
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
+	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
 	"gbaseadmin/utility/treeutil"
@@ -30,6 +31,9 @@ type sMenu struct{}
 
 // Create 创建菜单表
 func (s *sMenu) Create(ctx context.Context, in *model.MenuCreateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeMenuCreateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
 		return err
@@ -60,6 +64,9 @@ func (s *sMenu) Create(ctx context.Context, in *model.MenuCreateInput) error {
 
 // Update 更新菜单表
 func (s *sMenu) Update(ctx context.Context, in *model.MenuUpdateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeMenuUpdateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err

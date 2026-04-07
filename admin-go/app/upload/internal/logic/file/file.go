@@ -19,6 +19,7 @@ import (
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/model/entity"
 	"gbaseadmin/app/upload/internal/service"
+	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
 )
@@ -35,6 +36,9 @@ type sFile struct{}
 
 // Create 创建文件记录
 func (s *sFile) Create(ctx context.Context, in *model.FileCreateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeFileCreateInput(in)
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
 		return err
@@ -58,6 +62,9 @@ func (s *sFile) Create(ctx context.Context, in *model.FileCreateInput) error {
 
 // Update 更新文件记录
 func (s *sFile) Update(ctx context.Context, in *model.FileUpdateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeFileUpdateInput(in)
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
 		return err

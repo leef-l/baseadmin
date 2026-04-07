@@ -11,6 +11,7 @@ import (
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/service"
+	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
 	"gbaseadmin/utility/treeutil"
@@ -28,6 +29,9 @@ type sDir struct{}
 
 // Create 创建文件目录
 func (s *sDir) Create(ctx context.Context, in *model.DirCreateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeDirCreateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
 		return err
@@ -48,6 +52,9 @@ func (s *sDir) Create(ctx context.Context, in *model.DirCreateInput) error {
 
 // Update 更新文件目录
 func (s *sDir) Update(ctx context.Context, in *model.DirUpdateInput) error {
+	if err := inpututil.Require(in); err != nil {
+		return err
+	}
 	normalizeDirUpdateInput(in)
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err
