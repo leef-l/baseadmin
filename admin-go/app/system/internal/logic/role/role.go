@@ -331,31 +331,13 @@ func (s *sRole) GetDeptIDs(ctx context.Context, roleID snowflake.JsonInt64) ([]s
 }
 
 func (s *sRole) fillParentTitles(ctx context.Context, list []*model.RoleListOutput) {
-	parentSet := make(map[int64]struct{})
+	parentIDs := make([]int64, 0, len(list))
 	for _, item := range list {
 		if item.ParentID != 0 {
-			parentSet[int64(item.ParentID)] = struct{}{}
+			parentIDs = append(parentIDs, int64(item.ParentID))
 		}
 	}
-	if len(parentSet) == 0 {
-		return
-	}
-	parentIDs := make([]int64, 0, len(parentSet))
-	for id := range parentSet {
-		parentIDs = append(parentIDs, id)
-	}
-	rows, err := g.DB().Ctx(ctx).Model("system_role").
-		Fields("id", "title").
-		Where("deleted_at", nil).
-		WhereIn("id", parentIDs).
-		All()
-	if err != nil {
-		return
-	}
-	parentMap := make(map[int64]string, len(rows))
-	for _, row := range rows {
-		parentMap[row["id"].Int64()] = row["title"].String()
-	}
+	parentMap := shared.LoadTitleMap(ctx, "system_role", parentIDs)
 	for _, item := range list {
 		item.RoleTitle = parentMap[int64(item.ParentID)]
 	}

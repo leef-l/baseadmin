@@ -275,31 +275,13 @@ func (s *sUsers) ResetPassword(ctx context.Context, in *model.UsersResetPassword
 }
 
 func (s *sUsers) fillDeptTitles(ctx context.Context, list []*model.UsersListOutput) {
-	deptSet := make(map[int64]struct{})
+	deptIDs := make([]int64, 0, len(list))
 	for _, item := range list {
 		if item.DeptID != 0 {
-			deptSet[int64(item.DeptID)] = struct{}{}
+			deptIDs = append(deptIDs, int64(item.DeptID))
 		}
 	}
-	if len(deptSet) == 0 {
-		return
-	}
-	deptIDs := make([]int64, 0, len(deptSet))
-	for id := range deptSet {
-		deptIDs = append(deptIDs, id)
-	}
-	rows, err := g.DB().Ctx(ctx).Model("system_dept").
-		Fields("id", "title").
-		Where("deleted_at", nil).
-		WhereIn("id", deptIDs).
-		All()
-	if err != nil {
-		return
-	}
-	deptMap := make(map[int64]string, len(rows))
-	for _, row := range rows {
-		deptMap[row["id"].Int64()] = row["title"].String()
-	}
+	deptMap := shared.LoadTitleMap(ctx, "system_dept", deptIDs)
 	for _, item := range list {
 		item.DeptTitle = deptMap[int64(item.DeptID)]
 	}
