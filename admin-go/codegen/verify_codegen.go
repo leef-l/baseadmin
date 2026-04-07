@@ -242,6 +242,11 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			} else {
 				chk(!strings.Contains(output, `json:"keyword"`), "未启用关键词搜索时不应生成 keyword 请求字段")
 			}
+			if strings.Contains(tplFile, "backend/api") {
+				chk(strings.Contains(output, `type `+meta.ModelName+`ExportReq struct`), "缺少 ExportReq")
+				chk(strings.Contains(output, `json:"orderBy"`), "ExportReq 缺少 orderBy")
+				chk(strings.Contains(output, `json:"orderDir"`), "ExportReq 缺少 orderDir")
+			}
 			for _, f := range meta.Fields {
 				if f.IsHidden || f.IsID || len(f.ValidationRules) == 0 {
 					continue

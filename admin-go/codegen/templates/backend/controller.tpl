@@ -104,6 +104,8 @@ func (c *c{{.ModelName}}) List(ctx context.Context, req *v1.{{.ModelName}}ListRe
 // Export 导出{{.Comment}}
 func (c *c{{.ModelName}}) Export(ctx context.Context, req *v1.{{.ModelName}}ExportReq) (res *v1.{{.ModelName}}ExportRes, err error) {
 	list, err := service.{{.ModelName}}().Export(ctx, &model.{{.ModelName}}ListInput{
+		OrderBy:   req.OrderBy,
+		OrderDir:  req.OrderDir,
 		StartTime: req.StartTime,
 		EndTime:   req.EndTime,
 {{- if .HasKeywordSearch}}

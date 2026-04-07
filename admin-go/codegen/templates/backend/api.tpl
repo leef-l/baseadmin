@@ -131,6 +131,8 @@ type {{.ModelName}}ListRes struct {
 // {{.ModelName}}ExportReq 导出{{.Comment}}请求
 type {{.ModelName}}ExportReq struct {
 	g.Meta    `path:"/{{.ModuleName}}/export" method:"get" tags:"{{.Comment}}" summary:"导出{{.Comment}}"`
+	OrderBy   string `json:"orderBy" dc:"排序字段"`
+	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 {{- if .HasKeywordSearch}}
