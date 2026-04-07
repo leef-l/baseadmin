@@ -162,6 +162,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			}
 			if meta.HasImport {
 				chk(strings.Contains(output, "Import("), "缺少 Import 方法")
+				chk(strings.Contains(output, "io.EOF"), "导入逻辑缺少 io.EOF 结束处理")
 			} else {
 				chk(!strings.Contains(output, "Import("), "未启用导入时不应生成 Import 方法")
 			}
@@ -383,6 +384,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			for _, f := range meta.Fields {
 				if f.Component == "InputUrl" && !f.IsHidden && !f.IsID && !f.IsPassword {
 					chk(strings.Contains(output, ":href=\"detail."+f.NameLower+"\""), f.Name+" 详情应渲染为可点击链接")
+					chk(strings.Contains(output, `rel="noreferrer noopener"`), f.Name+" 外链应补 rel 安全属性")
 					break
 				}
 			}

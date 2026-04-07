@@ -551,12 +551,12 @@ function handleBatchUpdateStatus() {
       </template>
 {{- else if and (not .IsHidden) (not .IsID) (not .IsParentID) (not .IsTimeField) (not .IsMultiFK) (eq .Component "InputUrl")}}
       <template #{{.NameLower}}_cell="{ row }">
-        <a v-if="row.{{.NameLower}}" :href="row.{{.NameLower}}" target="_blank" style="color: #1890ff;">{{"{{"}} row.{{.NameLower}} {{"}}"}}</a>
+        <a v-if="row.{{.NameLower}}" :href="row.{{.NameLower}}" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">{{"{{"}} row.{{.NameLower}} {{"}}"}}</a>
         <span v-else>-</span>
       </template>
 {{- else if and (not .IsHidden) (not .IsID) (not .IsParentID) (not .IsTimeField) (not .IsMultiFK) (eq .Component "FileUpload")}}
       <template #{{.NameLower}}_cell="{ row }">
-        <a v-if="row.{{.NameLower}}" :href="row.{{.NameLower}}" target="_blank" style="color: #1890ff;">下载</a>
+        <a v-if="row.{{.NameLower}}" :href="row.{{.NameLower}}" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">下载</a>
         <span v-else>-</span>
       </template>
 {{- end}}

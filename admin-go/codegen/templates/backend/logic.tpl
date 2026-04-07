@@ -4,6 +4,7 @@ import (
 	"context"
 {{- if .HasImport}}
 	"encoding/csv"
+	"io"
 {{- end}}
 {{- if or .EnableOpLog .HasImport}}
 	"fmt"
@@ -560,7 +561,10 @@ func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (s
 	for {
 		record, readErr := reader.Read()
 		if readErr != nil {
-			break
+			if readErr == io.EOF {
+				break
+			}
+			return success, fail, fmt.Errorf("读取CSV数据失败: %w", readErr)
 		}
 		if len(record) == 0 {
 			continue

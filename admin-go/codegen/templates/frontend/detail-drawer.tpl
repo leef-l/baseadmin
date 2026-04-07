@@ -83,12 +83,12 @@ const [Modal, modalApi] = useVbenModal({
       </DescriptionsItem>
 {{- else if eq .Component "FileUpload"}}
       <DescriptionsItem label="{{.ShortLabel}}">
-        <a v-if="detail.{{.NameLower}}" :href="detail.{{.NameLower}}" target="_blank">查看文件</a>
+        <a v-if="detail.{{.NameLower}}" :href="detail.{{.NameLower}}" target="_blank" rel="noreferrer noopener">查看文件</a>
         <span v-else>-</span>
       </DescriptionsItem>
 {{- else if eq .Component "InputUrl"}}
       <DescriptionsItem label="{{.ShortLabel}}">
-        <a v-if="detail.{{.NameLower}}" :href="detail.{{.NameLower}}" target="_blank">{{"{{"}} detail.{{.NameLower}} {{"}}"}}</a>
+        <a v-if="detail.{{.NameLower}}" :href="detail.{{.NameLower}}" target="_blank" rel="noreferrer noopener">{{"{{"}} detail.{{.NameLower}} {{"}}"}}</a>
         <span v-else>-</span>
       </DescriptionsItem>
 {{- else if eq .Component "RichText"}}
