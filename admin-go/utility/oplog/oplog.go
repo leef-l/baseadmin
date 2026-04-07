@@ -2,6 +2,7 @@ package oplog
 
 import (
 	"context"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gtime"
@@ -17,11 +18,16 @@ var insertOperationLog = func(ctx context.Context, data g.Map) {
 // targetID: 操作目标 ID
 // detail: 操作详情（可选）
 func Record(ctx context.Context, module, action, targetID, detail string) {
+	module = strings.TrimSpace(module)
+	action = strings.TrimSpace(action)
+	if module == "" || action == "" {
+		return
+	}
 	data := g.Map{
 		"module":     module,
 		"action":     action,
-		"target_id":  targetID,
-		"detail":     detail,
+		"target_id":  strings.TrimSpace(targetID),
+		"detail":     strings.TrimSpace(detail),
 		"created_at": gtime.Now(),
 	}
 	go insertOperationLog(context.Background(), data)

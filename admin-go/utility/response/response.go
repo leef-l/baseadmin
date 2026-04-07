@@ -25,17 +25,17 @@ func Ok(r *ghttp.Request, data ...interface{}) {
 
 // OkMsg 成功响应（自定义消息）
 func OkMsg(r *ghttp.Request, msg string) {
-	r.Response.WriteJsonExit(R{Code: 0, Message: msg})
+	r.Response.WriteJsonExit(R{Code: 0, Message: resolveMessage("ok", msg)})
 }
 
 // Fail 失败响应
 func Fail(r *ghttp.Request, msg string) {
-	r.Response.WriteJsonExit(R{Code: -1, Message: msg})
+	r.Response.WriteJsonExit(R{Code: -1, Message: resolveMessage("error", msg)})
 }
 
 // FailCode 失败响应（自定义 code）
 func FailCode(r *ghttp.Request, code int, msg string) {
-	r.Response.WriteJsonExit(R{Code: code, Message: msg})
+	r.Response.WriteJsonExit(R{Code: code, Message: resolveMessage("error", msg)})
 }
 
 // Unauthorized 401 未授权

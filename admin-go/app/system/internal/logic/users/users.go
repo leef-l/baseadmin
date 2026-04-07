@@ -11,6 +11,7 @@ import (
 
 	"gbaseadmin/app/system/internal/dao"
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
+	"gbaseadmin/app/system/internal/logic/shared"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
 	"gbaseadmin/utility/inpututil"
@@ -198,11 +199,7 @@ func (s *sUsers) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model
 	if err != nil {
 		return nil, err
 	}
-	// 查询部门名称
-	if out.DeptID != 0 {
-		val, _ := g.DB().Ctx(ctx).Model("system_dept").Where("id", out.DeptID).Where("deleted_at", nil).Value("title")
-		out.DeptTitle = val.String()
-	}
+	out.DeptTitle = shared.LookupTitle(ctx, "system_dept", int64(out.DeptID))
 	// 查询用户角色ID列表
 	var roles []struct {
 		RoleId int64 `json:"roleId"`

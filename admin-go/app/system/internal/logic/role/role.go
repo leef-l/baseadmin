@@ -11,6 +11,7 @@ import (
 
 	"gbaseadmin/app/system/internal/dao"
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
+	"gbaseadmin/app/system/internal/logic/shared"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
 	"gbaseadmin/utility/inpututil"
@@ -141,11 +142,7 @@ func (s *sRole) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.
 	if err != nil {
 		return nil, err
 	}
-	// 查询上级角色ID，0 表示顶级角色关联显示
-	if out.ParentID != 0 {
-		val, _ := g.DB().Ctx(ctx).Model("system_role").Where("id", out.ParentID).Where("deleted_at", nil).Value("title")
-		out.RoleTitle = val.String()
-	}
+	out.RoleTitle = shared.LookupTitle(ctx, "system_role", int64(out.ParentID))
 	return
 }
 

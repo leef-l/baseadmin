@@ -16,3 +16,9 @@ func TestResolveMessageUsesFallbackForEmptyOverrides(t *testing.T) {
 		t.Fatalf("resolveMessage custom mismatch: %q", got)
 	}
 }
+
+func TestResolveMessageTrimsFallback(t *testing.T) {
+	if got := resolveMessage(" fallback "); got != " fallback " {
+		t.Fatalf("resolveMessage should preserve explicit fallback text, got %q", got)
+	}
+}

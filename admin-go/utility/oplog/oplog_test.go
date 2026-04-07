@@ -33,3 +33,22 @@ func TestRecordDispatchesAsyncInsert(t *testing.T) {
 		t.Fatal("Record did not dispatch async insert in time")
 	}
 }
+
+func TestRecordSkipsBlankModuleOrAction(t *testing.T) {
+	original := insertOperationLog
+	defer func() {
+		insertOperationLog = original
+	}()
+
+	called := false
+	insertOperationLog = func(ctx context.Context, data g.Map) {
+		called = true
+	}
+
+	Record(context.Background(), " ", "create", "1001", "demo")
+	Record(context.Background(), "order", " ", "1001", "demo")
+	time.Sleep(20 * time.Millisecond)
+	if called {
+		t.Fatal("Record should skip blank module/action")
+	}
+}

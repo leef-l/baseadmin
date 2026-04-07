@@ -11,6 +11,7 @@ import (
 
 	"gbaseadmin/app/system/internal/dao"
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
+	"gbaseadmin/app/system/internal/logic/shared"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
 	"gbaseadmin/utility/inpututil"
@@ -128,11 +129,7 @@ func (s *sMenu) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.
 	if err != nil {
 		return nil, err
 	}
-	// 查询上级菜单ID，0 表示顶级菜单关联显示
-	if out.ParentID != 0 {
-		val, _ := g.DB().Ctx(ctx).Model("system_menu").Where("id", out.ParentID).Where("deleted_at", nil).Value("title")
-		out.MenuTitle = val.String()
-	}
+	out.MenuTitle = shared.LookupTitle(ctx, "system_menu", int64(out.ParentID))
 	return
 }
 
