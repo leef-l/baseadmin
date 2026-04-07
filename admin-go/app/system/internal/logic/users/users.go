@@ -369,17 +369,7 @@ func (s *sUsers) normalizeRoleIDs(ctx context.Context, roleIDs []snowflake.JsonI
 	for _, roleID := range normalized {
 		dbRoleIDs = append(dbRoleIDs, int64(roleID))
 	}
-	var rows []struct {
-		Id int64 `json:"id"`
-	}
-	if err := dao.Role.Ctx(ctx).
-		Fields(dao.Role.Columns().Id).
-		WhereIn(dao.Role.Columns().Id, dbRoleIDs).
-		Where(dao.Role.Columns().DeletedAt, nil).
-		Scan(&rows); err != nil {
-		return nil, err
-	}
-	if len(rows) != len(normalized) {
+	if !shared.ContainsAllIDs(ctx, dao.Role.Table(), dbRoleIDs) {
 		return nil, gerror.New("包含不存在或已删除的角色")
 	}
 	return normalized, nil

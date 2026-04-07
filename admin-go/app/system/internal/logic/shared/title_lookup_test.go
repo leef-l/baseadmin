@@ -12,3 +12,12 @@ func TestCompactPositiveIDs(t *testing.T) {
 		t.Fatalf("compactPositiveIDs mismatch: got=%v want=%v", got, want)
 	}
 }
+
+func TestCompactPositiveIDsNilWhenEmpty(t *testing.T) {
+	if got := compactPositiveIDs(nil); got != nil {
+		t.Fatalf("compactPositiveIDs(nil) should return nil, got=%v", got)
+	}
+	if got := compactPositiveIDs([]int64{0, -1}); got != nil {
+		t.Fatalf("compactPositiveIDs should drop invalid values, got=%v", got)
+	}
+}

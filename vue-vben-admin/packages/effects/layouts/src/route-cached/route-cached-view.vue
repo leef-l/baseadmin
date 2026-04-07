@@ -5,7 +5,7 @@ import { useRoute } from 'vue-router';
 import { preferences } from '@vben/preferences';
 import { getTabKey, storeToRefs, useTabbarStore } from '@vben/stores';
 
-import { transformComponent, useLayoutHook } from '../hooks';
+import { transformComponent } from '../hooks';
 
 const route = useRoute();
 
@@ -14,8 +14,6 @@ const tabbarStore = useTabbarStore();
 const { getTabs, getCachedRoutes, getExcludeCachedTabs } =
   storeToRefs(tabbarStore);
 const { removeCachedRoute } = tabbarStore;
-
-const { getEnabledTransition, getTransitionName } = useLayoutHook();
 
 /**
  * 是否启用tab
@@ -74,23 +72,10 @@ const computedCurrentRouteKey = computed(() => {
 <template>
   <template v-if="computedShowView">
     <template v-for="item in computedCachedRoutes" :key="item.key">
-      <Transition
-        v-if="getEnabledTransition"
-        appear
-        mode="out-in"
-        :name="getTransitionName(item.route)"
-      >
-        <component
-          v-show="item.key === computedCurrentRouteKey"
-          :is="transformComponent(item.component, item.route)"
-        />
-      </Transition>
-      <template v-else>
-        <component
-          v-show="item.key === computedCurrentRouteKey"
-          :is="transformComponent(item.component, item.route)"
-        />
-      </template>
+      <component
+        v-show="item.key === computedCurrentRouteKey"
+        :is="transformComponent(item.component, item.route)"
+      />
     </template>
   </template>
 </template>
