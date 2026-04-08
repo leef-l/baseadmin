@@ -176,6 +176,12 @@ menu_apps:                    # 菜单应用目录配置（新增应用在此添
   upload:
     title: 上传管理
     icon: CloudUploadOutlined
+
+menu_modules:                 # 模块级菜单配置（可选）
+  upload/file:
+    icon: FileTextOutlined
+  upload/dir_rule:
+    icon: PartitionOutlined
 ```
 
 ### 环境变量支持
@@ -194,6 +200,20 @@ database:
 ### 菜单应用配置
 
 `menu_apps` 定义了菜单生成器为每个应用创建目录时使用的标题和图标。新增应用只需在此添加一条配置，无需修改生成器源码。未配置的应用默认使用 `{应用名}管理` 和 `AppstoreOutlined` 图标。
+
+### 模块菜单图标
+
+页面菜单默认会根据模块名和表注释自动选择一个较合适的 Ant Design 图标，例如 `users -> UserOutlined`、`dept -> ApartmentOutlined`、`menu -> MenuOutlined`、`config -> ControlOutlined`、`dir -> FolderOpenOutlined`、`dir_rule -> PartitionOutlined`、`file -> FileTextOutlined`。
+
+如果自动推断不符合业务语义，可以在 `menu_modules` 里按 `应用名/模块名` 单独覆盖：
+
+```yaml
+menu_modules:
+  upload/file:
+    sort: 40
+    icon: FileTextOutlined
+    is_show: 1
+```
 
 ## 数据库表设计规范
 

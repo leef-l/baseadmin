@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	_ "github.com/go-sql-driver/mysql"
 
@@ -24,6 +25,7 @@ type MenuAppConfig struct {
 type MenuModuleConfig struct {
 	Sort   int
 	IsShow *int
+	Icon   string
 }
 
 // Config 菜单生成器配置
@@ -45,6 +47,45 @@ const (
 	menuTypePage      = 2
 	menuTypeButton    = 3
 )
+
+type menuIconRule struct {
+	icon     string
+	keywords []string
+}
+
+var menuIconByModule = map[string]string{
+	"api":      "ApiOutlined",
+	"config":   "ControlOutlined",
+	"dept":     "ApartmentOutlined",
+	"dict":     "TagsOutlined",
+	"dir":      "FolderOpenOutlined",
+	"dir_rule": "PartitionOutlined",
+	"file":     "FileTextOutlined",
+	"log":      "ProfileOutlined",
+	"menu":     "MenuOutlined",
+	"notice":   "NotificationOutlined",
+	"role":     "TeamOutlined",
+	"table":    "DatabaseOutlined",
+	"users":    "UserOutlined",
+	"user":     "UserOutlined",
+}
+
+var menuIconRules = []menuIconRule{
+	{icon: "MenuOutlined", keywords: []string{"菜单", "导航", "menu", "menus"}},
+	{icon: "UserOutlined", keywords: []string{"用户", "账号", "成员", "user", "users", "account", "member"}},
+	{icon: "TeamOutlined", keywords: []string{"角色", "岗位", "团队", "权限组", "role", "roles", "team"}},
+	{icon: "ApartmentOutlined", keywords: []string{"部门", "组织", "机构", "dept", "department", "organization", "org"}},
+	{icon: "ControlOutlined", keywords: []string{"配置", "设置", "参数", "config", "setting", "settings", "option", "options"}},
+	{icon: "PartitionOutlined", keywords: []string{"规则", "策略", "rule", "rules", "policy"}},
+	{icon: "FolderOpenOutlined", keywords: []string{"目录", "文件夹", "folder", "dir", "directory"}},
+	{icon: "FileTextOutlined", keywords: []string{"文件", "文档", "记录", "报表", "file", "files", "document", "record", "report"}},
+	{icon: "CloudUploadOutlined", keywords: []string{"上传", "存储", "upload", "storage", "bucket", "oss", "cos", "s3"}},
+	{icon: "ApiOutlined", keywords: []string{"接口", "api", "openapi", "webhook"}},
+	{icon: "NotificationOutlined", keywords: []string{"通知", "消息", "公告", "notice", "notification", "message", "mail"}},
+	{icon: "TagsOutlined", keywords: []string{"字典", "标签", "分类", "dict", "dictionary", "tag", "tags", "category"}},
+	{icon: "ProfileOutlined", keywords: []string{"日志", "审计", "log", "logs", "audit"}},
+	{icon: "DatabaseOutlined", keywords: []string{"数据", "数据库", "schema", "database", "data"}},
+}
 
 // New 创建菜单生成器
 func New(cfg Config) *Generator {
@@ -75,6 +116,7 @@ func (g *Generator) Generate(meta *parser.TableMeta) (int, error) {
 	// 2. 读取模块级配置
 	menuSort := 0
 	menuIsShow := 1
+	menuIcon := guessMenuIcon(meta)
 	moduleKey := meta.AppName + "/" + meta.ModuleName
 	if modCfg, ok := g.config.MenuModules[moduleKey]; ok {
 		if modCfg.Sort > 0 {
@@ -82,6 +124,9 @@ func (g *Generator) Generate(meta *parser.TableMeta) (int, error) {
 		}
 		if modCfg.IsShow != nil {
 			menuIsShow = *modCfg.IsShow
+		}
+		if modCfg.Icon != "" {
+			menuIcon = modCfg.Icon
 		}
 	}
 
@@ -91,7 +136,7 @@ func (g *Generator) Generate(meta *parser.TableMeta) (int, error) {
 	menuComponent := meta.AppName + "/" + meta.ModuleName + "/index"
 	menuPermission := meta.AppName + ":" + meta.ModuleName + ":list"
 
-	menuID, created, err := g.ensureMenu(db, dirID, menuTitle, menuPath, menuComponent, menuPermission, menuSort, menuIsShow)
+	menuID, created, err := g.ensureMenu(db, dirID, menuTitle, menuPath, menuComponent, menuPermission, menuIcon, menuSort, menuIsShow)
 	if err != nil {
 		return count, err
 	}
@@ -161,13 +206,13 @@ func (g *Generator) ensureDirectory(db *sql.DB, appName, path string) (int64, er
 }
 
 // ensureMenu 查找或创建菜单页（type=2）
-func (g *Generator) ensureMenu(db *sql.DB, parentID int64, title, path, component, permission string, sort int, isShow int) (int64, bool, error) {
+func (g *Generator) ensureMenu(db *sql.DB, parentID int64, title, path, component, permission, icon string, sort int, isShow int) (int64, bool, error) {
 	id, err := findMenuID(db, "path", path, menuTypePage)
 	if err == nil {
 		if g.config.Force {
 			_, err = db.Exec(
-				`UPDATE system_menu SET title=?, component=?, permission=?, sort=?, is_show=?, updated_at=NOW() WHERE id=?`,
-				title, component, permission, sort, isShow, id,
+				`UPDATE system_menu SET title=?, component=?, permission=?, icon=?, sort=?, is_show=?, updated_at=NOW() WHERE id=?`,
+				title, component, permission, icon, sort, isShow, id,
 			)
 			if err != nil {
 				return 0, false, fmt.Errorf("更新菜单失败: %w", err)
@@ -185,14 +230,14 @@ func (g *Generator) ensureMenu(db *sql.DB, parentID int64, title, path, componen
 	id = generateID()
 
 	if g.config.DryRun {
-		fmt.Printf("  [dry-run] INSERT 菜单: title=%s, path=%s, permission=%s, sort=%d, is_show=%d\n", title, path, permission, sort, isShow)
+		fmt.Printf("  [dry-run] INSERT 菜单: title=%s, path=%s, permission=%s, icon=%s, sort=%d, is_show=%d\n", title, path, permission, icon, sort, isShow)
 		return id, true, nil
 	}
 
 	_, err = db.Exec(
 		`INSERT INTO system_menu (id, parent_id, title, type, path, component, permission, icon, sort, is_show, is_cache, status, created_by, dept_id, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, '', ?, ?, 0, 1, 0, 0, NOW(), NOW())`,
-		id, parentID, title, menuTypePage, path, component, permission, sort, isShow,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 0, 0, NOW(), NOW())`,
+		id, parentID, title, menuTypePage, path, component, permission, icon, sort, isShow,
 	)
 	if err != nil {
 		return 0, false, fmt.Errorf("创建菜单失败: %w", err)
@@ -269,6 +314,76 @@ func buildMenuTitle(meta *parser.TableMeta) string {
 		return meta.ModuleName
 	}
 	return ""
+}
+
+func guessMenuIcon(meta *parser.TableMeta) string {
+	if meta == nil {
+		return "AppstoreOutlined"
+	}
+
+	moduleName := strings.ToLower(strings.TrimSpace(meta.ModuleName))
+	if icon, ok := menuIconByModule[moduleName]; ok {
+		return icon
+	}
+
+	searchText := normalizeMenuIconText(
+		meta.ModuleName,
+		meta.ModelName,
+		cleanTitle(meta.Comment),
+		meta.Comment,
+	)
+	for _, rule := range menuIconRules {
+		for _, keyword := range rule.keywords {
+			if matchMenuKeyword(searchText, keyword) {
+				return rule.icon
+			}
+		}
+	}
+
+	return "AppstoreOutlined"
+}
+
+func normalizeMenuIconText(parts ...string) string {
+	var builder strings.Builder
+	for _, part := range parts {
+		part = strings.TrimSpace(strings.ToLower(part))
+		if part == "" {
+			continue
+		}
+		part = strings.NewReplacer("_", " ", "-", " ", "/", " ").Replace(part)
+		if builder.Len() > 0 {
+			builder.WriteByte(' ')
+		}
+		builder.WriteString(part)
+	}
+	return builder.String()
+}
+
+func matchMenuKeyword(searchText, keyword string) bool {
+	keyword = strings.TrimSpace(strings.ToLower(keyword))
+	if keyword == "" {
+		return false
+	}
+
+	if isASCIIKeyword(keyword) {
+		for _, token := range strings.Fields(searchText) {
+			if token == keyword {
+				return true
+			}
+		}
+		return false
+	}
+
+	return strings.Contains(searchText, keyword)
+}
+
+func isASCIIKeyword(keyword string) bool {
+	for _, r := range keyword {
+		if r > unicode.MaxASCII {
+			return false
+		}
+	}
+	return true
 }
 
 type buttonSpec struct {

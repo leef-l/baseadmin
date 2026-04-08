@@ -227,7 +227,10 @@ func main() {
 			}
 			menuModules := make(map[string]menu.MenuModuleConfig, len(cfg.MenuModules))
 			for k, v := range cfg.MenuModules {
-				modCfg := menu.MenuModuleConfig{Sort: v.Sort}
+				modCfg := menu.MenuModuleConfig{
+					Sort: v.Sort,
+					Icon: v.Icon,
+				}
 				if v.IsShow != nil {
 					modCfg.IsShow = v.IsShow
 				}

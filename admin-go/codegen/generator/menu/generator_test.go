@@ -60,6 +60,56 @@ func TestBuildMenuTitleFallsBackWhenCommentEmpty(t *testing.T) {
 	}
 }
 
+func TestGuessMenuIconUsesModuleDefaults(t *testing.T) {
+	cases := []struct {
+		name string
+		meta *parser.TableMeta
+		want string
+	}{
+		{
+			name: "dir_rule",
+			meta: &parser.TableMeta{ModuleName: "dir_rule", Comment: "文件目录规则表"},
+			want: "PartitionOutlined",
+		},
+		{
+			name: "users",
+			meta: &parser.TableMeta{ModuleName: "users", Comment: "用户表"},
+			want: "UserOutlined",
+		},
+		{
+			name: "menu",
+			meta: &parser.TableMeta{ModuleName: "menu", Comment: "菜单表"},
+			want: "MenuOutlined",
+		},
+	}
+
+	for _, tt := range cases {
+		if got := guessMenuIcon(tt.meta); got != tt.want {
+			t.Fatalf("%s icon mismatch: want=%s got=%s", tt.name, tt.want, got)
+		}
+	}
+}
+
+func TestGuessMenuIconFallsBackToKeywords(t *testing.T) {
+	meta := &parser.TableMeta{
+		ModuleName: "profile_entry",
+		Comment:    "审计日志表",
+	}
+	if got := guessMenuIcon(meta); got != "ProfileOutlined" {
+		t.Fatalf("guessMenuIcon keyword mismatch: %q", got)
+	}
+}
+
+func TestGuessMenuIconFallsBackToDefault(t *testing.T) {
+	meta := &parser.TableMeta{
+		ModuleName: "widget",
+		Comment:    "控件中心",
+	}
+	if got := guessMenuIcon(meta); got != "AppstoreOutlined" {
+		t.Fatalf("guessMenuIcon default mismatch: %q", got)
+	}
+}
+
 func TestCleanTitleTrimsRepeatedSuffixes(t *testing.T) {
 	if got := cleanTitle("标签管理表 "); got != "标签" {
 		t.Fatalf("cleanTitle mismatch: %q", got)

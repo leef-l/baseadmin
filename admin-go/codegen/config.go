@@ -35,8 +35,9 @@ type MenuAppConfig struct {
 
 // MenuModuleConfig 模块级菜单配置
 type MenuModuleConfig struct {
-	Sort   int  `yaml:"sort"`    // 菜单排序
-	IsShow *int `yaml:"is_show"` // 菜单是否显示（nil=默认1）
+	Sort   int    `yaml:"sort"`    // 菜单排序
+	IsShow *int   `yaml:"is_show"` // 菜单是否显示（nil=默认1）
+	Icon   string `yaml:"icon"`    // 菜单图标（为空则自动推断）
 }
 
 type Config struct {

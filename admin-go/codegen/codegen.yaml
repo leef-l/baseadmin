@@ -37,9 +37,11 @@ menu_apps:
 # menu_modules:
 #   demo/article:
 #     sort: 10
+#     icon: FileTextOutlined
 #     is_show: 1
 #   demo/tag:
 #     sort: 20
+#     icon: TagsOutlined
 
 # 操作日志开关（生成的 CRUD 方法是否自动记录操作日志）
 operation_log: false
