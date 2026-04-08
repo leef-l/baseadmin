@@ -63,10 +63,22 @@ Docker 铁律：
 ./docker/dev/compose.sh up -d --build
 ```
 
+显式启动前端（低资源机器不要默认启动）：
+
+```bash
+./docker/dev/compose.sh --profile frontend up -d --build frontend
+```
+
 国内镜像：
 
 ```bash
 ./docker/dev/compose.sh -China up -d --build
+```
+
+国内镜像显式启动前端：
+
+```bash
+./docker/dev/compose.sh -China --profile frontend up -d --build frontend
 ```
 
 停止并删除容器/卷：
@@ -80,7 +92,8 @@ Docker 铁律：
 - 读取 `docker/dev/.env`
 - 同步覆盖到 `admin-go/.env`
 - 自动选择 `docker/dev/docker-compose.yml` 或 `docker/dev/docker-compose.cn.yml`
-- 执行 `docker compose up -d --build`
+- 默认执行 `docker compose up -d --build`，仅启动后端、数据库和 adminer
+- `frontend` 改为显式启用 profile，避免低配机器在启动时触发 `pnpm install`
 
 ### 默认开发账号和连接
 
@@ -102,7 +115,7 @@ Docker 铁律：
 - Redis：`44002`
 - system：`44003`
 - upload：`44004`
-- frontend：`44005`（容器内 `5666`）
+- frontend：`44005`（容器内 `5666`，需显式启用 `frontend` profile）
 - adminer：`44006`
 
 ### 常用排查命令

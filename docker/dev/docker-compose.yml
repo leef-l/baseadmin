@@ -112,8 +112,12 @@ services:
     image: node:22-alpine
     container_name: gbaseadmin_frontend
     restart: unless-stopped
+    profiles:
+      - frontend
     working_dir: /app
     command: ["/bin/sh", "/docker/dev/docker-web-start.sh"]
+    mem_limit: ${FRONTEND_MEM_LIMIT:-384m}
+    cpus: ${FRONTEND_CPUS:-0.75}
     volumes:
       - ../../vue-vben-admin:/app
       - frontend_node_modules:/app/node_modules
@@ -122,7 +126,10 @@ services:
       - "${FRONTEND_PORT:-44005}:5666"
     environment:
       - VITE_GLOB_API_URL=${VITE_GLOB_API_URL:-http://localhost:44003}
-      - NODE_OPTIONS=--max-old-space-size=4096
+      - NODE_OPTIONS=--max-old-space-size=${FRONTEND_NODE_MAX_OLD_SPACE_SIZE:-256}
+      - FRONTEND_INSTALL_NODE_MAX_OLD_SPACE_SIZE=${FRONTEND_INSTALL_NODE_MAX_OLD_SPACE_SIZE:-256}
+      - PNPM_NETWORK_CONCURRENCY=${PNPM_NETWORK_CONCURRENCY:-1}
+      - PNPM_CHILD_CONCURRENCY=${PNPM_CHILD_CONCURRENCY:-1}
     networks:
       - gbaseadmin_net
 

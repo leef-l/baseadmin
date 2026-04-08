@@ -26,13 +26,17 @@
 .\docker\dev\compose.ps1 up -d --build
 .\docker\dev\compose.ps1 down -v
 .\docker\dev\compose.ps1 -China up -d --build
+.\docker\dev\compose.ps1 --profile frontend up -d --build frontend
 ```
 
 ```bash
 ./docker/dev/compose.sh up -d --build
 ./docker/dev/compose.sh down -v
 ./docker/dev/compose.sh -China up -d --build
+./docker/dev/compose.sh --profile frontend up -d --build frontend
 ```
+
+默认启动只包含后端、数据库和 adminer；`frontend` 改为显式 profile，避免低配机器在容器启动时自动执行 `pnpm install`。
 
 ## env 同步规则
 
@@ -56,7 +60,7 @@
 - Redis：`127.0.0.1:44002`
 - system：`127.0.0.1:44003`
 - upload：`127.0.0.1:44004`
-- frontend：`127.0.0.1:44005`
+- frontend：`127.0.0.1:44005`（需显式启用 `frontend` profile）
 - adminer：`127.0.0.1:44006`
 
 ## 初始化来源
