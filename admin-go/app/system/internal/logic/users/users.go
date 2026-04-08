@@ -264,6 +264,10 @@ func (s *sUsers) ResetPassword(ctx context.Context, in *model.UsersResetPassword
 	if err := inpututil.Require(in); err != nil {
 		return err
 	}
+	normalizeUsersResetPasswordInput(in)
+	if in.Password == "" {
+		return gerror.New("新密码不能为空")
+	}
 	hashedPassword, err := password.Hash(in.Password)
 	if err != nil {
 		return err
@@ -426,4 +430,11 @@ func normalizeUsersListInput(in *model.UsersListInput) {
 	in.Username = strings.TrimSpace(in.Username)
 	in.Nickname = strings.TrimSpace(in.Nickname)
 	in.Email = strings.TrimSpace(in.Email)
+}
+
+func normalizeUsersResetPasswordInput(in *model.UsersResetPasswordInput) {
+	if in == nil {
+		return
+	}
+	in.Password = strings.TrimSpace(in.Password)
 }

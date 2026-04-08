@@ -56,6 +56,14 @@ func normalizeAuthLoginInput(in *model.AuthLoginInput) {
 	in.Username = strings.TrimSpace(in.Username)
 }
 
+func normalizeAuthChangePasswordInput(in *model.AuthChangePasswordInput) {
+	if in == nil {
+		return
+	}
+	in.OldPassword = strings.TrimSpace(in.OldPassword)
+	in.NewPassword = strings.TrimSpace(in.NewPassword)
+}
+
 // Login 用户登录
 func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model.AuthLoginOutput, err error) {
 	if err := inpututil.Require(in); err != nil {
@@ -198,8 +206,7 @@ func (s *sAuth) ChangePassword(ctx context.Context, in *model.AuthChangePassword
 	if err := inpututil.Require(in); err != nil {
 		return err
 	}
-	in.OldPassword = strings.TrimSpace(in.OldPassword)
-	in.NewPassword = strings.TrimSpace(in.NewPassword)
+	normalizeAuthChangePasswordInput(in)
 	if in.OldPassword == "" {
 		return gerror.New("旧密码不能为空")
 	}

@@ -39,3 +39,16 @@ func TestNormalizeDeptInputs(t *testing.T) {
 		t.Fatalf("normalizeDeptTreeInput mismatch: %+v", treeIn)
 	}
 }
+
+func TestDeptInputValidation(t *testing.T) {
+	deptSvc := &sDept{}
+	if err := deptSvc.Create(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("Create nil input mismatch: %v", err)
+	}
+	if err := deptSvc.Create(nil, &model.DeptCreateInput{Title: " "}); err == nil || err.Error() != "部门名称不能为空" {
+		t.Fatalf("Create blank title mismatch: %v", err)
+	}
+	if err := deptSvc.Update(nil, &model.DeptUpdateInput{ID: 1, Title: " "}); err == nil || err.Error() != "部门名称不能为空" {
+		t.Fatalf("Update blank title mismatch: %v", err)
+	}
+}

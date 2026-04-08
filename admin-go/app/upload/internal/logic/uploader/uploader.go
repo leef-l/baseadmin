@@ -16,6 +16,7 @@ import (
 	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/upload/internal/dao"
+	"gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/service"
 	"gbaseadmin/utility/snowflake"
@@ -28,7 +29,7 @@ func init() {
 type sUploader struct{}
 
 const maxInt64AsUint64 = ^uint64(0) >> 1
-const defaultLocalStoragePath = "resource/upload"
+const defaultLocalStoragePath = shared.DefaultLocalStoragePath
 
 var imageExts = map[string]bool{
 	"jpg": true, "jpeg": true, "png": true, "gif": true,
@@ -66,7 +67,7 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 			localPath = v
 		}
 	}
-	localPath = normalizeLocalStoragePath(localPath)
+	localPath = shared.NormalizeLocalStoragePath(localPath)
 
 	// 验证文件大小
 	if file.Size > maxSize {
@@ -299,52 +300,11 @@ func normalizeExt(ext string) string {
 	return strings.ToLower(ext)
 }
 
-func normalizeLocalStoragePath(path string) string {
-	path = strings.TrimSpace(path)
-	if path == "" {
-		return defaultLocalStoragePath
-	}
-	cleaned := filepath.Clean(path)
-	if cleaned == "." {
-		return defaultLocalStoragePath
-	}
-	return cleaned
-}
+func normalizeLocalStoragePath(path string) string { return shared.NormalizeLocalStoragePath(path) }
 
-func buildLocalFileURL(parts ...string) string {
-	filtered := make([]string, 0, len(parts))
-	for _, part := range parts {
-		part = strings.Trim(strings.TrimSpace(part), `/\`)
-		if part != "" {
-			filtered = append(filtered, part)
-		}
-	}
-	if len(filtered) == 0 {
-		return "/upload"
-	}
-	return "/upload/" + strings.Join(filtered, "/")
-}
+func buildLocalFileURL(parts ...string) string { return shared.BuildLocalFileURL(parts...) }
 
-func localStoragePhysicalPath(fileURL string) string {
-	fileURL = strings.TrimSpace(fileURL)
-	if fileURL == "" {
-		return defaultLocalStoragePath
-	}
-	trimmed := strings.TrimPrefix(fileURL, "/upload")
-	trimmed = strings.TrimPrefix(trimmed, "/")
-	if trimmed == "" {
-		return defaultLocalStoragePath
-	}
-	parts := strings.Split(trimmed, "/")
-	all := make([]string, 0, len(parts)+1)
-	all = append(all, defaultLocalStoragePath)
-	for _, part := range parts {
-		if part = strings.TrimSpace(part); part != "" {
-			all = append(all, part)
-		}
-	}
-	return filepath.Join(all...)
-}
+func localStoragePhysicalPath(fileURL string) string { return shared.LocalStoragePhysicalPath(fileURL) }
 
 func randomSuffix(max int) int {
 	if max <= 1 {

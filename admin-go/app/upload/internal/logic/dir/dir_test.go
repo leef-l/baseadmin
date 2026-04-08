@@ -37,3 +37,28 @@ func TestNormalizeDirInputs(t *testing.T) {
 		t.Fatalf("normalizeDirTreeInput mismatch: %+v", treeIn)
 	}
 }
+
+func TestValidateDirFields(t *testing.T) {
+	if err := validateDirFields("", "/upload/demo"); err == nil || err.Error() != "目录名称不能为空" {
+		t.Fatalf("validateDirFields blank name mismatch: %v", err)
+	}
+	if err := validateDirFields("目录", ""); err == nil || err.Error() != "目录路径不能为空" {
+		t.Fatalf("validateDirFields blank path mismatch: %v", err)
+	}
+	if err := validateDirFields("目录", "/upload/demo"); err != nil {
+		t.Fatalf("validateDirFields should succeed: %v", err)
+	}
+}
+
+func TestDirInputValidation(t *testing.T) {
+	dirSvc := &sDir{}
+	if err := dirSvc.Create(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("Create nil input mismatch: %v", err)
+	}
+	if err := dirSvc.Create(nil, &model.DirCreateInput{Name: " ", Path: "/upload/demo"}); err == nil || err.Error() != "目录名称不能为空" {
+		t.Fatalf("Create blank name mismatch: %v", err)
+	}
+	if err := dirSvc.Update(nil, &model.DirUpdateInput{ID: 1, Name: "目录", Path: " "}); err == nil || err.Error() != "目录路径不能为空" {
+		t.Fatalf("Update blank path mismatch: %v", err)
+	}
+}

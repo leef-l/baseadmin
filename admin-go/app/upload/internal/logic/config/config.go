@@ -10,6 +10,7 @@ import (
 	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/upload/internal/dao"
+	"gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/service"
 	"gbaseadmin/utility/inpututil"
@@ -33,6 +34,9 @@ func (s *sConfig) Create(ctx context.Context, in *model.ConfigCreateInput) error
 		return err
 	}
 	normalizeConfigCreateInput(in)
+	if err := validateConfigName(in.Name); err != nil {
+		return err
+	}
 	if err := validateConfigFields(
 		in.Storage,
 		in.LocalPath,
@@ -90,6 +94,9 @@ func (s *sConfig) Update(ctx context.Context, in *model.ConfigUpdateInput) error
 		return err
 	}
 	normalizeConfigUpdateInput(in)
+	if err := validateConfigName(in.Name); err != nil {
+		return err
+	}
 	now := gtime.Now()
 	return dao.UploadConfig.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		var current struct {
@@ -299,7 +306,7 @@ func normalizeConfigCreateInput(in *model.ConfigCreateInput) {
 		return
 	}
 	in.Name = strings.TrimSpace(in.Name)
-	in.LocalPath = strings.TrimSpace(in.LocalPath)
+	in.LocalPath = normalizeOptionalLocalPath(in.LocalPath)
 	in.OssEndpoint = strings.TrimSpace(in.OssEndpoint)
 	in.OssBucket = strings.TrimSpace(in.OssBucket)
 	in.OssAccessKey = strings.TrimSpace(in.OssAccessKey)
@@ -315,7 +322,7 @@ func normalizeConfigUpdateInput(in *model.ConfigUpdateInput) {
 		return
 	}
 	in.Name = strings.TrimSpace(in.Name)
-	in.LocalPath = strings.TrimSpace(in.LocalPath)
+	in.LocalPath = normalizeOptionalLocalPath(in.LocalPath)
 	in.OssEndpoint = strings.TrimSpace(in.OssEndpoint)
 	in.OssBucket = strings.TrimSpace(in.OssBucket)
 	in.OssAccessKey = strings.TrimSpace(in.OssAccessKey)
@@ -331,4 +338,18 @@ func normalizeConfigListInput(in *model.ConfigListInput) {
 		return
 	}
 	in.Keyword = strings.TrimSpace(in.Keyword)
+}
+
+func validateConfigName(name string) error {
+	if name == "" {
+		return gerror.New("配置名称不能为空")
+	}
+	return nil
+}
+
+func normalizeOptionalLocalPath(path string) string {
+	if strings.TrimSpace(path) == "" {
+		return ""
+	}
+	return shared.NormalizeLocalStoragePath(path)
 }

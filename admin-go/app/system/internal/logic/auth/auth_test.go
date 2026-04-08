@@ -84,6 +84,10 @@ func TestChangePasswordInputValidation(t *testing.T) {
 	if err := authSvc.ChangePassword(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
 		t.Fatalf("ChangePassword nil input mismatch: %v", err)
 	}
+	var typedNil *model.AuthChangePasswordInput
+	if err := authSvc.ChangePassword(nil, typedNil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("ChangePassword typed nil input mismatch: %v", err)
+	}
 	if err := authSvc.ChangePassword(nil, &model.AuthChangePasswordInput{
 		UserID:      1,
 		OldPassword: " ",
@@ -104,6 +108,17 @@ func TestChangePasswordInputValidation(t *testing.T) {
 		NewPassword: "abc123",
 	}); err == nil || err.Error() != "新密码不能与旧密码相同" {
 		t.Fatalf("ChangePassword same password mismatch: %v", err)
+	}
+}
+
+func TestNormalizeAuthChangePasswordInput(t *testing.T) {
+	in := &model.AuthChangePasswordInput{
+		OldPassword: " old-pass ",
+		NewPassword: " new-pass ",
+	}
+	normalizeAuthChangePasswordInput(in)
+	if in.OldPassword != "old-pass" || in.NewPassword != "new-pass" {
+		t.Fatalf("normalizeAuthChangePasswordInput mismatch: %+v", in)
 	}
 }
 

@@ -25,3 +25,17 @@ func TestNormalizeDirRuleInputs(t *testing.T) {
 		t.Fatalf("normalizeDirRuleListInput mismatch: %+v", listIn)
 	}
 }
+
+func TestDirRuleInputValidation(t *testing.T) {
+	dirRuleSvc := &sDirRule{}
+	if err := dirRuleSvc.Create(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("Create nil input mismatch: %v", err)
+	}
+	var typedNil *model.DirRuleCreateInput
+	if err := dirRuleSvc.Create(nil, typedNil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("Create typed nil input mismatch: %v", err)
+	}
+	if err := dirRuleSvc.Update(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("Update nil input mismatch: %v", err)
+	}
+}

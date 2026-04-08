@@ -47,6 +47,12 @@ func TestNormalizeUsersInputs(t *testing.T) {
 	if listIn.Keyword != "demo" || listIn.Username != "admin" || listIn.Nickname != "nick" || listIn.Email != "user@example.com" {
 		t.Fatalf("normalizeUsersListInput mismatch: %+v", listIn)
 	}
+
+	resetIn := &model.UsersResetPasswordInput{Password: " new-pass "}
+	normalizeUsersResetPasswordInput(resetIn)
+	if resetIn.Password != "new-pass" {
+		t.Fatalf("normalizeUsersResetPasswordInput mismatch: %+v", resetIn)
+	}
 }
 
 func TestAppendUniqueRoleTitle(t *testing.T) {
@@ -57,5 +63,19 @@ func TestAppendUniqueRoleTitle(t *testing.T) {
 	appendUniqueRoleTitle(item, "访客")
 	if !reflect.DeepEqual(item.RoleTitles, []string{"管理员", "访客"}) {
 		t.Fatalf("appendUniqueRoleTitle mismatch: %+v", item.RoleTitles)
+	}
+}
+
+func TestResetPasswordInputValidation(t *testing.T) {
+	usersSvc := &sUsers{}
+	if err := usersSvc.ResetPassword(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("ResetPassword nil input mismatch: %v", err)
+	}
+	var typedNil *model.UsersResetPasswordInput
+	if err := usersSvc.ResetPassword(nil, typedNil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("ResetPassword typed nil input mismatch: %v", err)
+	}
+	if err := usersSvc.ResetPassword(nil, &model.UsersResetPasswordInput{ID: 1, Password: "   "}); err == nil || err.Error() != "新密码不能为空" {
+		t.Fatalf("ResetPassword blank password mismatch: %v", err)
 	}
 }

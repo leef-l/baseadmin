@@ -36,6 +36,9 @@ func (s *sMenu) Create(ctx context.Context, in *model.MenuCreateInput) error {
 		return err
 	}
 	normalizeMenuCreateInput(in)
+	if err := validateMenuFields(in.Title); err != nil {
+		return err
+	}
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
 		return err
 	}
@@ -69,6 +72,9 @@ func (s *sMenu) Update(ctx context.Context, in *model.MenuUpdateInput) error {
 		return err
 	}
 	normalizeMenuUpdateInput(in)
+	if err := validateMenuFields(in.Title); err != nil {
+		return err
+	}
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err
 	}
@@ -258,6 +264,13 @@ func normalizeMenuTreeInput(in *model.MenuTreeInput) {
 		return
 	}
 	in.Keyword = strings.TrimSpace(in.Keyword)
+}
+
+func validateMenuFields(title string) error {
+	if title == "" {
+		return gerror.New("菜单名称不能为空")
+	}
+	return nil
 }
 
 func (s *sMenu) fillParentTitles(ctx context.Context, list []*model.MenuListOutput) {

@@ -191,3 +191,28 @@ func TestNormalizeFileInputs(t *testing.T) {
 		t.Fatalf("normalizeFileListInput mismatch: %+v", listIn)
 	}
 }
+
+func TestValidateFileFields(t *testing.T) {
+	if err := validateFileFields("", "/upload/demo.png"); err == nil || err.Error() != "文件名称不能为空" {
+		t.Fatalf("validateFileFields blank name mismatch: %v", err)
+	}
+	if err := validateFileFields("demo.png", ""); err == nil || err.Error() != "文件地址不能为空" {
+		t.Fatalf("validateFileFields blank url mismatch: %v", err)
+	}
+	if err := validateFileFields("demo.png", "/upload/demo.png"); err != nil {
+		t.Fatalf("validateFileFields should succeed: %v", err)
+	}
+}
+
+func TestFileInputValidation(t *testing.T) {
+	fileSvc := &sFile{}
+	if err := fileSvc.Create(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("Create nil input mismatch: %v", err)
+	}
+	if err := fileSvc.Create(nil, &model.FileCreateInput{Name: " ", URL: "/upload/demo.png"}); err == nil || err.Error() != "文件名称不能为空" {
+		t.Fatalf("Create blank name mismatch: %v", err)
+	}
+	if err := fileSvc.Update(nil, &model.FileUpdateInput{ID: 1, Name: "demo.png", URL: " "}); err == nil || err.Error() != "文件地址不能为空" {
+		t.Fatalf("Update blank url mismatch: %v", err)
+	}
+}

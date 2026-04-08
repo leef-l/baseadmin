@@ -3,6 +3,7 @@ package dbmigrate
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -35,14 +36,16 @@ func TestBaselineDashboardMenusGrantedToAdminRole(t *testing.T) {
 }
 
 func readBaselineMigration() (string, error) {
-	path := filepath.Join("..", "database", "migrations", "000001_baseline_system_upload.up.sql")
-	data, err := os.ReadFile(path)
-	if err == nil {
-		return string(data), nil
+	_, currentFile, _, ok := runtime.Caller(0)
+	if ok {
+		path := filepath.Join(filepath.Dir(currentFile), "..", "..", "database", "migrations", "000001_baseline_system_upload.up.sql")
+		if data, err := os.ReadFile(path); err == nil {
+			return string(data), nil
+		}
 	}
-	fallbackPath := filepath.Join("database", "migrations", "000001_baseline_system_upload.up.sql")
-	data, fallbackErr := os.ReadFile(fallbackPath)
-	if fallbackErr != nil {
+	path := filepath.Join("database", "migrations", "000001_baseline_system_upload.up.sql")
+	data, err := os.ReadFile(path)
+	if err != nil {
 		return "", err
 	}
 	return string(data), nil

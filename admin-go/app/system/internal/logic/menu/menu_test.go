@@ -45,3 +45,16 @@ func TestNormalizeMenuInputs(t *testing.T) {
 		t.Fatalf("normalizeMenuTreeInput mismatch: %+v", treeIn)
 	}
 }
+
+func TestMenuInputValidation(t *testing.T) {
+	menuSvc := &sMenu{}
+	if err := menuSvc.Create(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("Create nil input mismatch: %v", err)
+	}
+	if err := menuSvc.Create(nil, &model.MenuCreateInput{Title: " "}); err == nil || err.Error() != "菜单名称不能为空" {
+		t.Fatalf("Create blank title mismatch: %v", err)
+	}
+	if err := menuSvc.Update(nil, &model.MenuUpdateInput{ID: 1, Title: " "}); err == nil || err.Error() != "菜单名称不能为空" {
+		t.Fatalf("Update blank title mismatch: %v", err)
+	}
+}

@@ -36,6 +36,9 @@ func (s *sRole) Create(ctx context.Context, in *model.RoleCreateInput) error {
 		return err
 	}
 	normalizeRoleCreateInput(in)
+	if err := validateRoleFields(in.Title); err != nil {
+		return err
+	}
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
 		return err
 	}
@@ -60,6 +63,9 @@ func (s *sRole) Update(ctx context.Context, in *model.RoleUpdateInput) error {
 		return err
 	}
 	normalizeRoleUpdateInput(in)
+	if err := validateRoleFields(in.Title); err != nil {
+		return err
+	}
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err
 	}
@@ -236,6 +242,13 @@ func normalizeRoleTreeInput(in *model.RoleTreeInput) {
 		return
 	}
 	in.Keyword = strings.TrimSpace(in.Keyword)
+}
+
+func validateRoleFields(title string) error {
+	if title == "" {
+		return gerror.New("角色名称不能为空")
+	}
+	return nil
 }
 
 // GrantMenu 角色授权菜单（先删后插）

@@ -60,7 +60,7 @@ func TestValidateConfigFields(t *testing.T) {
 func TestNormalizeConfigInputs(t *testing.T) {
 	createIn := &model.ConfigCreateInput{
 		Name:         " 本地存储 ",
-		LocalPath:    " resource/upload ",
+		LocalPath:    " ./resource/upload//nested/ ",
 		OssEndpoint:  " oss-cn-shanghai.aliyuncs.com ",
 		OssBucket:    " bucket ",
 		OssAccessKey: " ak ",
@@ -71,13 +71,35 @@ func TestNormalizeConfigInputs(t *testing.T) {
 		CosSecretKey: " skey ",
 	}
 	normalizeConfigCreateInput(createIn)
-	if createIn.Name != "本地存储" || createIn.LocalPath != "resource/upload" || createIn.OssBucket != "bucket" || createIn.CosRegion != "ap-guangzhou" {
+	if createIn.Name != "本地存储" || createIn.LocalPath != "resource/upload/nested" || createIn.OssBucket != "bucket" || createIn.CosRegion != "ap-guangzhou" {
 		t.Fatalf("normalizeConfigCreateInput mismatch: %+v", createIn)
+	}
+
+	updateIn := &model.ConfigUpdateInput{
+		Name:      " 云存储 ",
+		LocalPath: "   ",
+	}
+	normalizeConfigUpdateInput(updateIn)
+	if updateIn.Name != "云存储" || updateIn.LocalPath != "" {
+		t.Fatalf("normalizeConfigUpdateInput mismatch: %+v", updateIn)
 	}
 
 	listIn := &model.ConfigListInput{Keyword: " demo "}
 	normalizeConfigListInput(listIn)
 	if listIn.Keyword != "demo" {
 		t.Fatalf("normalizeConfigListInput mismatch: %+v", listIn)
+	}
+}
+
+func TestConfigInputValidation(t *testing.T) {
+	configSvc := &sConfig{}
+	if err := configSvc.Create(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("Create nil input mismatch: %v", err)
+	}
+	if err := configSvc.Create(nil, &model.ConfigCreateInput{Name: " "}); err == nil || err.Error() != "配置名称不能为空" {
+		t.Fatalf("Create blank name mismatch: %v", err)
+	}
+	if err := configSvc.Update(nil, &model.ConfigUpdateInput{ID: 1, Name: " "}); err == nil || err.Error() != "配置名称不能为空" {
+		t.Fatalf("Update blank name mismatch: %v", err)
 	}
 }

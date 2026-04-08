@@ -35,6 +35,9 @@ func (s *sDept) Create(ctx context.Context, in *model.DeptCreateInput) error {
 		return err
 	}
 	normalizeDeptCreateInput(in)
+	if err := validateDeptFields(in.Title); err != nil {
+		return err
+	}
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
 		return err
 	}
@@ -62,6 +65,9 @@ func (s *sDept) Update(ctx context.Context, in *model.DeptUpdateInput) error {
 		return err
 	}
 	normalizeDeptUpdateInput(in)
+	if err := validateDeptFields(in.Title); err != nil {
+		return err
+	}
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err
 	}
@@ -209,6 +215,13 @@ func normalizeDeptTreeInput(in *model.DeptTreeInput) {
 		return
 	}
 	in.Keyword = strings.TrimSpace(in.Keyword)
+}
+
+func validateDeptFields(title string) error {
+	if title == "" {
+		return gerror.New("部门名称不能为空")
+	}
+	return nil
 }
 
 func (s *sDept) fillParentTitles(ctx context.Context, list []*model.DeptListOutput) {

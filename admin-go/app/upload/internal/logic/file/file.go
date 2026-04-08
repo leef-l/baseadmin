@@ -41,6 +41,9 @@ func (s *sFile) Create(ctx context.Context, in *model.FileCreateInput) error {
 		return err
 	}
 	normalizeFileCreateInput(in)
+	if err := validateFileFields(in.Name, in.URL); err != nil {
+		return err
+	}
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
 		return err
 	}
@@ -67,6 +70,9 @@ func (s *sFile) Update(ctx context.Context, in *model.FileUpdateInput) error {
 		return err
 	}
 	normalizeFileUpdateInput(in)
+	if err := validateFileFields(in.Name, in.URL); err != nil {
+		return err
+	}
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
 		return err
 	}
@@ -118,7 +124,7 @@ func (s *sFile) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if fileInfo.Url != "" {
 		switch fileInfo.Storage {
 		case 1: // 本地存储: URL /upload/xxx -> 物理路径 resource/upload/xxx
-			localPath := localStoragePhysicalPath(fileInfo.Url)
+			localPath := shared.LocalStoragePhysicalPath(fileInfo.Url)
 			_ = os.Remove(localPath)
 		case 2: // 阿里云OSS
 			if delErr := deleteCloudFileOSS(ctx, fileInfo.Url); delErr != nil {
@@ -286,6 +292,16 @@ func normalizeFileListInput(in *model.FileListInput) {
 	}
 	in.Keyword = strings.TrimSpace(in.Keyword)
 	in.Name = strings.TrimSpace(in.Name)
+}
+
+func validateFileFields(name, fileURL string) error {
+	if name == "" {
+		return gerror.New("文件名称不能为空")
+	}
+	if fileURL == "" {
+		return gerror.New("文件地址不能为空")
+	}
+	return nil
 }
 
 func (s *sFile) ensureDirExists(ctx context.Context, dirID snowflake.JsonInt64) error {

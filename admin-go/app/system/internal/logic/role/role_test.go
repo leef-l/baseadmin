@@ -31,3 +31,16 @@ func TestNormalizeRoleInputs(t *testing.T) {
 		t.Fatalf("normalizeRoleTreeInput mismatch: %+v", treeIn)
 	}
 }
+
+func TestRoleInputValidation(t *testing.T) {
+	roleSvc := &sRole{}
+	if err := roleSvc.Create(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("Create nil input mismatch: %v", err)
+	}
+	if err := roleSvc.Create(nil, &model.RoleCreateInput{Title: " "}); err == nil || err.Error() != "角色名称不能为空" {
+		t.Fatalf("Create blank title mismatch: %v", err)
+	}
+	if err := roleSvc.Update(nil, &model.RoleUpdateInput{ID: 1, Title: " "}); err == nil || err.Error() != "角色名称不能为空" {
+		t.Fatalf("Update blank title mismatch: %v", err)
+	}
+}

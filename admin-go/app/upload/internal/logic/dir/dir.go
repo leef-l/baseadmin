@@ -34,6 +34,9 @@ func (s *sDir) Create(ctx context.Context, in *model.DirCreateInput) error {
 		return err
 	}
 	normalizeDirCreateInput(in)
+	if err := validateDirFields(in.Name, in.Path); err != nil {
+		return err
+	}
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
 		return err
 	}
@@ -57,6 +60,9 @@ func (s *sDir) Update(ctx context.Context, in *model.DirUpdateInput) error {
 		return err
 	}
 	normalizeDirUpdateInput(in)
+	if err := validateDirFields(in.Name, in.Path); err != nil {
+		return err
+	}
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err
 	}
@@ -193,6 +199,16 @@ func normalizeDirUpdateInput(in *model.DirUpdateInput) {
 	}
 	in.Name = strings.TrimSpace(in.Name)
 	in.Path = strings.TrimSpace(in.Path)
+}
+
+func validateDirFields(name, path string) error {
+	if name == "" {
+		return gerror.New("目录名称不能为空")
+	}
+	if path == "" {
+		return gerror.New("目录路径不能为空")
+	}
+	return nil
 }
 
 func (s *sDir) fillParentNames(ctx context.Context, list []*model.DirListOutput) {
