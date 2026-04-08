@@ -38,14 +38,20 @@ cd admin-go/codegen
 # 生成单表
 go run . --table system_dept
 
+# 生成单表后端/前端代码，不触发 gf gen dao
+go run . --table system_dept --only backend
+
 # 生成多表
 go run . --table system_dept,system_role
 
-# 只生成后端
-go run . --table system_dept --only backend
-
 # 只生成前端
 go run . --table system_dept --only frontend
+
+# 如需执行 gf gen dao，显式开启
+go run . --table system_dept --only backend --with-dao
+
+# 如需新建应用骨架，显式开启 gf init
+go run . --table demo_demo --with-init
 
 # 强制覆盖已有文件
 go run . --table system_dept --force
@@ -78,13 +84,22 @@ go test ./...
 
 ```bash
 cd admin-go/codegen
-go run ./cmd/verifye2e
+
+# 低资源服务器建议分阶段执行
+go run ./cmd/verifye2e --stage render --keep-temp
+go run ./cmd/verifye2e --stage dao --temp-root /tmp/baseadmin-codegen-e2e-xxxx
+go run ./cmd/verifye2e --stage build --temp-root /tmp/baseadmin-codegen-e2e-xxxx
+
+# 资源充足时也可以一次跑完
+go run ./cmd/verifye2e --stage all
 ```
 
 说明：
 
 - `verify_codegen.go` 直接渲染模板并检查搜索、外键、字典、树形等关键片段是否生成
-- `cmd/verifye2e` 会临时建表、执行 `gf gen dao`、生成完整应用并尝试 `go build`
+- `cmd/verifye2e --stage render` 只做建表、模板渲染和工作区准备
+- `cmd/verifye2e --stage dao` 单独执行 `gf gen dao`
+- `cmd/verifye2e --stage build` 单独执行 `go build`
 - `sql/e2e_verify.sql` 是 `verifye2e` 使用的专用验证表结构
 
 ### CLI 参数一览
@@ -97,12 +112,14 @@ go run ./cmd/verifye2e
 | `--config` | string | `./codegen.yaml` | 配置文件路径 |
 | `--dry-run` | bool | false | 预览模式，不写入文件 |
 | `--menu` | bool | false | 生成代码同时写入菜单数据到数据库 |
+| `--with-dao` | bool | false | 生成后显式执行 `gf gen dao` |
+| `--with-init` | bool | false | 应用目录不存在时显式执行 `gf init` |
 
 ## 自动创建应用
 
-当表名前缀对应的应用目录不存在时，代码生成器会自动执行 `gf init app/{appName} -a` 创建应用骨架。
+当表名前缀对应的应用目录不存在时，代码生成器默认只创建目录并写入生成文件；如需额外执行 `gf init app/{appName} -a` 创建应用骨架，请显式传 `--with-init`。
 
-例如：`--table demo_demo` 会自动创建 `app/demo/` 应用目录。
+例如：`--table demo_demo --with-init` 会创建 `app/demo/` 应用骨架。
 
 ## 生成文件列表
 

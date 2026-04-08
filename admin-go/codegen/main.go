@@ -30,6 +30,8 @@ func main() {
 		config   string // 配置文件路径
 		dryRun   bool   // 只打印不写入
 		withMenu bool   // 同时生成菜单
+		withDAO  bool   // 是否执行 gf gen dao
+		withInit bool   // 是否执行 gf init
 	)
 
 	flag.StringVar(&table, "table", "", "要生成的表名，多个用逗号分隔 (required)")
@@ -38,6 +40,8 @@ func main() {
 	flag.StringVar(&config, "config", "./codegen.yaml", "配置文件路径")
 	flag.BoolVar(&dryRun, "dry-run", false, "只打印将生成的文件列表")
 	flag.BoolVar(&withMenu, "menu", false, "同时生成菜单数据到数据库")
+	flag.BoolVar(&withDAO, "with-dao", false, "生成后是否执行 gf gen dao（默认关闭，避免高资源占用）")
+	flag.BoolVar(&withInit, "with-init", false, "应用目录不存在时是否执行 gf init（默认关闭，仅创建目录）")
 	flag.Parse()
 
 	if table == "" {
@@ -117,20 +121,25 @@ func main() {
 		appDir := filepath.Join(cfg.Backend.Output, meta.AppName)
 		if _, err := os.Stat(appDir); os.IsNotExist(err) {
 			fmt.Printf("[codegen] 应用目录 %s 不存在，正在创建...\n", appDir)
-			projectRoot := filepath.Dir(cfg.Backend.Output)
-			if projectRoot == "" {
-				projectRoot = "."
-			}
-			initCmd := exec.Command("gf", "init", "app/"+meta.AppName, "-a")
-			initCmd.Dir = projectRoot
-			initCmd.Stdout = os.Stdout
-			initCmd.Stderr = os.Stderr
-			if err := initCmd.Run(); err != nil {
-				fmt.Printf("[codegen] gf init 执行失败: %v，尝试手动创建目录\n", err)
-				if mkErr := os.MkdirAll(appDir, 0755); mkErr != nil {
-					fmt.Printf("[codegen] ✗ 创建目录失败: %v\n", mkErr)
-					continue
+			if withInit {
+				projectRoot := filepath.Dir(cfg.Backend.Output)
+				if projectRoot == "" {
+					projectRoot = "."
 				}
+				initCmd := exec.Command("gf", "init", "app/"+meta.AppName, "-a")
+				initCmd.Dir = projectRoot
+				initCmd.Stdout = os.Stdout
+				initCmd.Stderr = os.Stderr
+				if err := initCmd.Run(); err != nil {
+					fmt.Printf("[codegen] gf init 执行失败: %v，尝试手动创建目录\n", err)
+					if mkErr := os.MkdirAll(appDir, 0755); mkErr != nil {
+						fmt.Printf("[codegen] ✗ 创建目录失败: %v\n", mkErr)
+						continue
+					}
+				}
+			} else if mkErr := os.MkdirAll(appDir, 0755); mkErr != nil {
+				fmt.Printf("[codegen] ✗ 创建目录失败: %v\n", mkErr)
+				continue
 			}
 			fmt.Printf("[codegen] 应用 %s 创建完成\n", meta.AppName)
 		}
@@ -278,16 +287,20 @@ func main() {
 				}
 			}
 
-			// 4. 执行 gf gen dao
-			fmt.Printf("[codegen] 执行 gf gen dao (应用: %s)...\n", appName)
-			daoCmd := exec.Command("gf", "gen", "dao")
-			daoCmd.Dir = appDir
-			daoCmd.Stdout = os.Stdout
-			daoCmd.Stderr = os.Stderr
-			if err := daoCmd.Run(); err != nil {
-				fmt.Printf("[codegen] gf gen dao 执行失败: %v\n", err)
+			// 4. 可选执行 gf gen dao
+			if withDAO {
+				fmt.Printf("[codegen] 执行 gf gen dao (应用: %s)...\n", appName)
+				daoCmd := exec.Command("gf", "gen", "dao")
+				daoCmd.Dir = appDir
+				daoCmd.Stdout = os.Stdout
+				daoCmd.Stderr = os.Stderr
+				if err := daoCmd.Run(); err != nil {
+					fmt.Printf("[codegen] gf gen dao 执行失败: %v\n", err)
+				} else {
+					fmt.Printf("[codegen] gf gen dao 完成\n")
+				}
 			} else {
-				fmt.Printf("[codegen] gf gen dao 完成\n")
+				fmt.Printf("[codegen] 跳过 gf gen dao（未指定 --with-dao）\n")
 			}
 
 			// 5. 生成 main.go

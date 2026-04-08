@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -30,59 +31,134 @@ type verifyConfig struct {
 	DBName   string
 }
 
+type verifyOptions struct {
+	Stage    string
+	TempRoot string
+	KeepTemp bool
+}
+
+const (
+	verifyStageAll    = "all"
+	verifyStageRender = "render"
+	verifyStageDAO    = "dao"
+	verifyStageBuild  = "build"
+)
+
 func main() {
+	opts, err := parseVerifyOptions(os.Args[1:])
+	if err != nil {
+		fatal(err)
+	}
+
 	codegenRoot := mustCodegenRoot()
 	if err := runtimeutil.LoadEnvFileIfExists(filepath.Join(codegenRoot, "..", ".env")); err != nil {
 		fatal(fmt.Errorf("加载环境变量失败: %w", err))
 	}
 
-	cfg, err := loadVerifyConfig()
+	tempRoot, tempRootCreated, err := resolveTempRoot(opts)
 	if err != nil {
 		fatal(err)
 	}
+	keepTemp := opts.KeepTemp || opts.Stage != verifyStageAll || !tempRootCreated
+	if tempRootCreated {
+		defer func() {
+			if keepTemp {
+				fmt.Printf("[verifye2e] 保留临时目录: %s\n", tempRoot)
+				return
+			}
+			_ = os.RemoveAll(tempRoot)
+		}()
+	}
 
-	db, err := sql.Open("mysql", cfg.dsn())
-	if err != nil {
-		fatal(fmt.Errorf("连接数据库失败: %w", err))
-	}
-	defer db.Close()
-	if err := db.Ping(); err != nil {
-		fatal(fmt.Errorf("数据库 ping 失败: %w", err))
-	}
+	if opts.Stage == verifyStageRender || opts.Stage == verifyStageAll {
+		cfg, err := loadVerifyConfig()
+		if err != nil {
+			fatal(err)
+		}
+		if err := prepareWorkspace(codegenRoot, tempRoot); err != nil {
+			keepTemp = true
+			fatal(err)
+		}
 
-	cleanupDB, err := prepareVerifySchema(db, cfg, filepath.Join(codegenRoot, "sql", "e2e_verify.sql"))
-	if err != nil {
-		fatal(err)
-	}
-	defer cleanupDB()
+		db, err := sql.Open("mysql", cfg.dsn())
+		if err != nil {
+			keepTemp = true
+			fatal(fmt.Errorf("连接数据库失败: %w", err))
+		}
+		defer db.Close()
+		if err := db.Ping(); err != nil {
+			keepTemp = true
+			fatal(fmt.Errorf("数据库 ping 失败: %w", err))
+		}
 
-	tempRoot, err := os.MkdirTemp("", "baseadmin-codegen-e2e-*")
-	if err != nil {
-		fatal(fmt.Errorf("创建临时目录失败: %w", err))
-	}
-	keepTemp := false
-	defer func() {
-		if keepTemp {
-			fmt.Printf("[verifye2e] 保留临时目录: %s\n", tempRoot)
+		cleanupDB, err := prepareVerifySchema(db, cfg, filepath.Join(codegenRoot, "sql", "e2e_verify.sql"))
+		if err != nil {
+			keepTemp = true
+			fatal(err)
+		}
+		defer cleanupDB()
+
+		if err := renderE2E(codegenRoot, tempRoot, cfg); err != nil {
+			keepTemp = true
+			fatal(err)
+		}
+		if opts.Stage == verifyStageRender {
+			fmt.Printf("[verifye2e] 渲染完成: %s\n", tempRoot)
+			fmt.Printf("[verifye2e] 下一步: go run ./cmd/verifye2e --stage dao --temp-root %s\n", tempRoot)
 			return
 		}
-		_ = os.RemoveAll(tempRoot)
-	}()
-
-	if err := prepareWorkspace(codegenRoot, tempRoot); err != nil {
-		keepTemp = true
-		fatal(err)
 	}
 
-	if err := runE2E(codegenRoot, tempRoot, cfg); err != nil {
-		keepTemp = true
-		fatal(err)
+	if opts.Stage == verifyStageDAO || opts.Stage == verifyStageAll {
+		if opts.Stage == verifyStageDAO {
+			cfg, err := loadVerifyConfig()
+			if err != nil {
+				fatal(err)
+			}
+			db, err := sql.Open("mysql", cfg.dsn())
+			if err != nil {
+				keepTemp = true
+				fatal(fmt.Errorf("连接数据库失败: %w", err))
+			}
+			defer db.Close()
+			if err := db.Ping(); err != nil {
+				keepTemp = true
+				fatal(fmt.Errorf("数据库 ping 失败: %w", err))
+			}
+
+			cleanupDB, err := prepareVerifySchema(db, cfg, filepath.Join(codegenRoot, "sql", "e2e_verify.sql"))
+			if err != nil {
+				keepTemp = true
+				fatal(err)
+			}
+			defer cleanupDB()
+		}
+		if err := runDAOStage(tempRoot); err != nil {
+			keepTemp = true
+			fatal(err)
+		}
+		if opts.Stage == verifyStageDAO {
+			fmt.Printf("[verifye2e] DAO 生成完成: %s\n", tempRoot)
+			fmt.Printf("[verifye2e] 下一步: go run ./cmd/verifye2e --stage build --temp-root %s\n", tempRoot)
+			return
+		}
+	}
+
+	if opts.Stage == verifyStageBuild || opts.Stage == verifyStageAll {
+		if err := runBuildStage(tempRoot); err != nil {
+			keepTemp = true
+			fatal(err)
+		}
+		if opts.Stage == verifyStageBuild {
+			fmt.Printf("[verifye2e] 编译验证通过: %s\n", tempRoot)
+			return
+		}
 	}
 
 	fmt.Println("[verifye2e] 验证通过")
 }
 
-func runE2E(codegenRoot, tempRoot string, cfg verifyConfig) error {
+func renderE2E(codegenRoot, tempRoot string, cfg verifyConfig) error {
 	tableNames := []string{"verifydemo_category", "verifydemo_article", "verifydemo_tag"}
 	p, err := parser.New(cfg.dsn(), []string{"created_at", "updated_at", "deleted_at", "created_by", "dept_id"})
 	if err != nil {
@@ -147,10 +223,6 @@ func runE2E(codegenRoot, tempRoot string, cfg verifyConfig) error {
 			return fmt.Errorf("生成 hack/config.yaml 失败: %w", err)
 		}
 
-		if err := runCommand(appDir, "gf", "gen", "dao"); err != nil {
-			return fmt.Errorf("gf gen dao 失败: %w", err)
-		}
-
 		if err := renderTemplate(
 			filepath.Join(templateDir, "backend", "main.tpl"),
 			filepath.Join(appDir, "main.go"),
@@ -191,13 +263,118 @@ func runE2E(codegenRoot, tempRoot string, cfg verifyConfig) error {
 		if err := os.WriteFile(filepath.Join(appDir, "internal", "packed", "packed.go"), []byte("package packed\n"), 0o644); err != nil {
 			return fmt.Errorf("写 packed.go 失败: %w", err)
 		}
+	}
 
+	return nil
+}
+
+func parseVerifyOptions(args []string) (verifyOptions, error) {
+	fs := flag.NewFlagSet("verifye2e", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+
+	opts := verifyOptions{}
+	fs.StringVar(&opts.Stage, "stage", verifyStageAll, "执行阶段: render | dao | build | all")
+	fs.StringVar(&opts.TempRoot, "temp-root", "", "复用的 verifye2e 工作区目录")
+	fs.BoolVar(&opts.KeepTemp, "keep-temp", false, "保留自动创建的临时目录")
+	if err := fs.Parse(args); err != nil {
+		return opts, err
+	}
+	if err := validateVerifyOptions(opts); err != nil {
+		return opts, err
+	}
+	return opts, nil
+}
+
+func validateVerifyOptions(opts verifyOptions) error {
+	switch opts.Stage {
+	case verifyStageAll, verifyStageRender, verifyStageDAO, verifyStageBuild:
+	default:
+		return fmt.Errorf("不支持的 --stage=%q，只支持 render、dao、build、all", opts.Stage)
+	}
+	if (opts.Stage == verifyStageDAO || opts.Stage == verifyStageBuild) && strings.TrimSpace(opts.TempRoot) == "" {
+		return errors.New("dao/build 阶段必须提供 --temp-root")
+	}
+	return nil
+}
+
+func resolveTempRoot(opts verifyOptions) (string, bool, error) {
+	tempRoot := strings.TrimSpace(opts.TempRoot)
+	switch opts.Stage {
+	case verifyStageRender, verifyStageAll:
+		if tempRoot != "" {
+			if err := os.MkdirAll(tempRoot, 0o755); err != nil {
+				return "", false, fmt.Errorf("创建临时目录失败: %w", err)
+			}
+			return filepath.Clean(tempRoot), false, nil
+		}
+		created, err := os.MkdirTemp("", "baseadmin-codegen-e2e-*")
+		if err != nil {
+			return "", false, fmt.Errorf("创建临时目录失败: %w", err)
+		}
+		return created, true, nil
+	case verifyStageDAO, verifyStageBuild:
+		info, err := os.Stat(tempRoot)
+		if err != nil {
+			return "", false, fmt.Errorf("verifye2e 临时目录不可用: %w", err)
+		}
+		if !info.IsDir() {
+			return "", false, fmt.Errorf("verifye2e 临时目录不是目录: %s", tempRoot)
+		}
+		return filepath.Clean(tempRoot), false, nil
+	default:
+		return "", false, fmt.Errorf("不支持的 --stage=%q", opts.Stage)
+	}
+}
+
+func runDAOStage(tempRoot string) error {
+	appNames, err := generatedAppNames(tempRoot)
+	if err != nil {
+		return err
+	}
+	for _, appName := range appNames {
+		appDir := filepath.Join(tempRoot, "app", appName)
+		if _, err := os.Stat(filepath.Join(appDir, "hack", "config.yaml")); err != nil {
+			return fmt.Errorf("缺少 hack/config.yaml(%s): %w", appName, err)
+		}
+		if err := runCommand(appDir, "gf", "gen", "dao"); err != nil {
+			return fmt.Errorf("gf gen dao 失败(%s): %w", appName, err)
+		}
+	}
+	return nil
+}
+
+func runBuildStage(tempRoot string) error {
+	appNames, err := generatedAppNames(tempRoot)
+	if err != nil {
+		return err
+	}
+	for _, appName := range appNames {
 		if err := runCommand(tempRoot, "go", "build", "./app/"+appName+"/..."); err != nil {
 			return fmt.Errorf("编译生成应用失败(%s): %w", appName, err)
 		}
 	}
-
 	return nil
+}
+
+func generatedAppNames(tempRoot string) ([]string, error) {
+	if _, err := os.Stat(filepath.Join(tempRoot, "go.mod")); err != nil {
+		return nil, fmt.Errorf("verifye2e 工作区不完整，缺少 go.mod: %w", err)
+	}
+	entries, err := os.ReadDir(filepath.Join(tempRoot, "app"))
+	if err != nil {
+		return nil, fmt.Errorf("读取应用目录失败: %w", err)
+	}
+	appNames := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			appNames = append(appNames, entry.Name())
+		}
+	}
+	sort.Strings(appNames)
+	if len(appNames) == 0 {
+		return nil, errors.New("未找到已生成应用，请先执行 render 阶段")
+	}
+	return appNames, nil
 }
 
 func prepareWorkspace(codegenRoot, tempRoot string) error {
