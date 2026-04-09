@@ -11,6 +11,7 @@ import (
 	"gbaseadmin/app/upload/internal/controller/dir"
 	"gbaseadmin/app/upload/internal/controller/dir_rule"
 	"gbaseadmin/app/upload/internal/controller/file"
+	"gbaseadmin/app/upload/internal/controller/health"
 	"gbaseadmin/app/upload/internal/controller/uploader"
 
 	"gbaseadmin/app/upload/internal/middleware"
@@ -25,6 +26,9 @@ var (
 			s := g.Server()
 			s.Group("/", func(group *ghttp.RouterGroup) {
 				group.Middleware(ghttp.MiddlewareHandlerResponse)
+				group.Bind(
+					health.NewV1(),
+				)
 				group.Group("/api/upload", func(group *ghttp.RouterGroup) {
 					group.Middleware(middleware.Auth)
 					group.Bind(

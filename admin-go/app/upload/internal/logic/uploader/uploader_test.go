@@ -1,7 +1,10 @@
 package uploader
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -94,5 +97,42 @@ func TestRandomSuffixRange(t *testing.T) {
 	}
 	if got := randomSuffix(1); got != 0 {
 		t.Fatalf("randomSuffix(1) mismatch: %d", got)
+	}
+}
+
+func TestNewStorageProvider(t *testing.T) {
+	if _, ok := newStorageProvider(uploadStorageConfig{StorageType: 1}).(localStorageProvider); !ok {
+		t.Fatal("storage type 1 should use localStorageProvider")
+	}
+	if _, ok := newStorageProvider(uploadStorageConfig{StorageType: 2}).(ossStorageProvider); !ok {
+		t.Fatal("storage type 2 should use ossStorageProvider")
+	}
+	if _, ok := newStorageProvider(uploadStorageConfig{StorageType: 3}).(cosStorageProvider); !ok {
+		t.Fatal("storage type 3 should use cosStorageProvider")
+	}
+}
+
+func TestLocalStorageProviderRollbackRemovesFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "demo.txt")
+	if err := os.WriteFile(path, []byte("demo"), 0o644); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+
+	result, err := localStorageProvider{}.Store(context.Background(), storeRequest{
+		DateDir:       "2026-04-10",
+		LocalFilePath: path,
+		UniqueName:    "demo.txt",
+	})
+	if err != nil {
+		t.Fatalf("local store failed: %v", err)
+	}
+	if result.FileURL != "/upload/2026-04-10/demo.txt" {
+		t.Fatalf("local store url mismatch: %q", result.FileURL)
+	}
+
+	runCleanupHook(context.Background(), "rollback", result.OnRollback)
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("rollback should remove local file, got err=%v", err)
 	}
 }

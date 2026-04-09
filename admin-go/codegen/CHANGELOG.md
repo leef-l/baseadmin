@@ -1,5 +1,66 @@
 # Codegen 更新日志
 
+## v1.6.7 — 2026-04-09
+
+### 生成链路清理
+
+- **移除未使用的内存渲染接口** — 删除 backend/frontend generator 和 `util` 里已经退出主流程的 `GenerateToMemory` 辅助函数，减少维护面
+- **模板验证结果结构精简** — `internal/verifytemplates.RenderedTemplate` 删除未使用的 `CaseName` 字段，避免测试与 CLI 共用结构继续堆积死字段
+
+### 落盘安全性
+
+- **临时文件改为随机命名** — `CommitPlannedFiles()` 不再固定写入 `*.codegen-tmp`，改用同目录随机临时文件再原子替换，降低并发执行和中断重试时的互相覆盖风险
+
+## v1.6.6 — 2026-04-09
+
+### 规则收敛
+
+- **新增字段规则注册表** — `parser/rule_registry.go` 统一维护隐藏字段、图片字段、可搜索文本、精确搜索、金额字段和关联显示字段优先级
+- **替换 parser/mapper 分散硬编码** — `parser.go`、`field_mapper.go` 和搜索启发式共享同一套规则，减少后续规则漂移
+
+### 菜单生成防呆
+
+- **批量写库前新增预校验** — 菜单批次会先检查空元数据、缺应用名/模块名、同批次 path 冲突和 permission 冲突，再进入数据库事务
+- **补充菜单冲突测试** — `generator/menu/generator_test.go` 新增 path 冲突、空元数据、缺身份测试
+
+## v1.6.5 — 2026-04-09
+
+### 验证链路
+
+- **离线模板校验抽成共享包** — `verify_codegen.go` 和 `go test` 现在共用 `internal/verifytemplates`，不再维护两套模板渲染和断言逻辑
+- **新增 golden snapshot 测试** — 根包新增 `testdata/golden/` 快照校验，模板输出的意外漂移会在 `go test ./...` 阶段直接失败
+
+### 生成流程
+
+- **backend/frontend 改为 plan 后统一提交** — 先渲染全部目标文件，再批量写入磁盘，避免模板中途失败时留下半套输出
+- **新增 `--manifest-out`** — 支持把文件计划和菜单计划写入 JSON manifest，便于 dry-run 审查和 CI 集成
+- **dry-run 状态更准确** — 预览阶段现在能区分新文件、更新、无变化、已存在跳过和 enhance 保护
+
+## v1.6.4 — 2026-04-09
+
+### 主流程与事务
+
+- **补齐失败收敛遗漏** — 应用目录创建失败、`internal/cmd` 目录创建失败也会进入失败摘要并最终触发非零退出
+- **菜单生成支持批量事务** — `--menu` / `--only menu` 现在按批次复用一个数据库连接，目录、页面、按钮在同一事务内提交，避免留下半套菜单
+
+### Parser 结构优化
+
+- **拆分表解析主干流程** — 新增 `parser/table_pipeline.go`，将表身份解析、字段附加、关联字段收口从 `ParseTable()` 主体中拆出
+- **补充关联解析单测** — 新增 `parser/table_pipeline_test.go`，覆盖应用前缀优先、显式 `ref:` 提示和缺失显示字段报错
+
+## v1.6.3 — 2026-04-09
+
+### 校验与失败语义
+
+- **统一组件契约真源** — 新增 `parser/component_registry.go`，`field_mapper`、离线模板校验和测试共享同一份支持组件清单，不再多处硬编码
+- **补充模板契约测试** — `go test ./...` 现在会静态检查 `templates/frontend/form.tpl` 是否覆盖全部已登记的生成组件分支
+- **修正 CLI 失败退出语义** — `main.go` 会收敛每张表和每个应用后置阶段的失败项，最终统一输出失败摘要并返回非零退出码，不再出现“局部失败但整体成功退出”的假阳性
+
+### 文档
+
+- **README 补充失败退出规则** — 明确 `dry-run`、前后端生成、菜单写库和后置生成的失败都会最终导致非零退出
+- **README 明确组件注册表位置** — 说明支持组件清单以 `parser/component_registry.go` 为单一真源
+
 ## v1.6.2 — 2026-04-07
 
 ### 验证链路增强

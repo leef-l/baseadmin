@@ -216,6 +216,9 @@ func (s *sAuth) ChangePassword(ctx context.Context, in *model.AuthChangePassword
 	if in.NewPassword == in.OldPassword {
 		return gerror.New("新密码不能与旧密码相同")
 	}
+	if err := password.ValidatePolicy(in.NewPassword); err != nil {
+		return gerror.New(err.Error())
+	}
 	// 查询当前密码
 	currentPassword, err := dao.Users.Ctx(ctx).
 		Where(dao.Users.Columns().Id, in.UserID).
@@ -568,7 +571,7 @@ func loadActiveMenuPermissions(ctx context.Context, menuIDs []int64) []string {
 
 func loadActiveMenus(ctx context.Context, menuIDs []int64) ([]*model.AuthMenuOutput, error) {
 	var list []*model.AuthMenuOutput
-	model := activeMenuModel(ctx)
+	model := activeMenuModel(ctx).WhereNot("type", 3)
 	if len(menuIDs) > 0 {
 		model = model.Where("id", menuIDs)
 	}

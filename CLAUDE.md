@@ -25,6 +25,8 @@ admin-go/
 vue-vben-admin/apps/web-antd/src/
 ```
 
+历史 `.claude/agents/*.md` 分工文档已经移除；协作约束只保留当前这份 `CLAUDE.md`，避免再引用旧路径和旧架构说明。
+
 谨慎处理区：
 
 ```text
@@ -71,7 +73,7 @@ admin-go/app/*/internal/model/entity/
    - sort 排序字段
    - 自定义时间字段（*_at）
    - 验证规则（email/phone/url/max-length）
-8. 整体功能完成后必须立即提交到 GitHub：禁止把“已完成但未提交”当作稳定状态。默认使用仓库脚本 `./scripts/feature-publish.sh "type(scope): summary"` 一次性执行 `git add -A`、`git commit`、`git push origin 当前分支`
+8. 整体功能完成后必须立即提交到 GitHub：禁止把“已完成但未提交”当作稳定状态。默认使用仓库脚本 `./scripts/feature-publish.sh "type(scope): summary"` 基于已暂存内容提交并推送；只有明确确认全部改动都属于同一批交付时，才使用 `--all`
 9. 数据库铁律与提交流程同时生效：只要整体功能包含数据库变更，必须先补齐 `golang-migrate` 迁移文件，再执行功能提交流程；禁止跳过迁移直接提交业务代码
 10. Docker 三文件联动：任何 Docker 改动都不能只改一份 compose，必须同步更新开发版、国内镜像开发版、生产版；如果某一份故意不同，必须在变更处写清原因
 11. 管理端前端必须服从本仓库 `vue-vben-admin` 组件规则：`admin-go/codegen/` 生成的表单、列表、详情页面，只能使用 `vue-vben-admin/apps/web-antd/src/adapter/component/index.ts` 已注册、已适配的组件名与交互模式。禁止为了“先跑起来”直接在模板里拼裸 DOM 组件方案、第三方临时组件方案或绕过 adapter 的写法

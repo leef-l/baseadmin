@@ -1,0 +1,61 @@
+import { requestClient } from '#/api/request';
+
+import type {
+  CategoryItem,
+  CategoryListParams,
+  CategoryCreateParams,
+  CategoryUpdateParams,
+  CategoryTreeParams,
+} from './types';
+
+/** API 前缀 */
+const PREFIX = '/demo/category';
+
+/** 获取分类列表 */
+export function getCategoryList(params: CategoryListParams) {
+  return requestClient.get<{ list: CategoryItem[]; total: number }>(
+    `${PREFIX}/list`,
+    { params },
+  );
+}
+
+/** 获取分类详情 */
+export function getCategoryDetail(id: string) {
+  return requestClient.get<CategoryItem>(`${PREFIX}/detail`, {
+    params: { id },
+  });
+}
+
+/** 创建分类 */
+export function createCategory(data: CategoryCreateParams) {
+  return requestClient.post(`${PREFIX}/create`, data);
+}
+
+/** 更新分类 */
+export function updateCategory(data: CategoryUpdateParams) {
+  return requestClient.put(`${PREFIX}/update`, data);
+}
+
+/** 删除分类 */
+export function deleteCategory(id: string) {
+  return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
+}
+
+/** 导出分类 */
+export function exportCategory(params?: Partial<CategoryListParams>) {
+  return requestClient.get(`${PREFIX}/export`, {
+    params,
+    responseType: 'blob',
+  });
+}
+
+/** 获取分类树形结构 */
+export async function getCategoryTree(params?: CategoryTreeParams) {
+  const res = await requestClient.get<{ list: CategoryItem[] }>(`${PREFIX}/tree`, { params });
+  return res?.list ?? [];
+}
+
+/** 批量编辑分类 */
+export function batchUpdateCategory(data: { ids: string[]; status?: number; }) {
+  return requestClient.put(`${PREFIX}/batch-update`, data);
+}

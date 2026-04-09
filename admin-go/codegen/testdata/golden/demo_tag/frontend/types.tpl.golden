@@ -1,0 +1,41 @@
+/** 标签类型定义 */
+
+/** 标签项 */
+export interface TagItem {
+  id: string;
+  name: string;
+  color?: string;
+  sort?: number;
+  status?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** 标签列表查询参数 */
+export interface TagListParams {
+  pageNum: number;
+  pageSize: number;
+  orderBy?: string;
+  orderDir?: string;
+  startTime?: string;
+  endTime?: string;
+  name?: string;
+  status?: number;
+}
+
+/** 标签创建参数 */
+export interface TagCreateParams {
+  name: string;
+  color?: string;
+  sort?: number;
+  status?: number;
+}
+
+/** 标签更新参数 */
+export interface TagUpdateParams {
+  id: string;
+  name: string;
+  color?: string;
+  sort?: number;
+  status?: number;
+}

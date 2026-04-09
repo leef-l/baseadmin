@@ -1,11 +1,13 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 
+	"gbaseadmin/codegen/generator/menu"
 	"gbaseadmin/codegen/generator/util"
 )
 
@@ -22,6 +24,28 @@ func TestValidateOnlyFlag(t *testing.T) {
 	}
 }
 
+func TestFailureCollectorTracksFailures(t *testing.T) {
+	var collector failureCollector
+
+	collector.Add("table system_dept", nil)
+	if collector.HasFailures() {
+		t.Fatal("collector should ignore nil errors")
+	}
+
+	collector.Add("table system_dept", errors.New("render failed"))
+	if !collector.HasFailures() {
+		t.Fatal("collector should report failures")
+	}
+
+	if len(collector.items) != 1 {
+		t.Fatalf("unexpected failure count: %d", len(collector.items))
+	}
+
+	if got, want := collector.items[0], "table system_dept: render failed"; got != want {
+		t.Fatalf("unexpected failure item: got=%q want=%q", got, want)
+	}
+}
+
 func TestParseTableNames(t *testing.T) {
 	got, err := parseTableNames(" system_dept, ,system_role,system_dept , upload_dir ")
 	if err != nil {
@@ -34,6 +58,34 @@ func TestParseTableNames(t *testing.T) {
 
 	if _, err := parseTableNames(" , , "); err == nil {
 		t.Fatal("parseTableNames should reject empty input")
+	}
+}
+
+func TestBuildMenuGeneratorConfigCopiesMaps(t *testing.T) {
+	isShow := 0
+	cfg := &Config{
+		MenuApps: map[string]MenuAppConfig{
+			"system": {Title: "系统管理", Icon: "SettingOutlined", Sort: 10},
+		},
+		MenuModules: map[string]MenuModuleConfig{
+			"system/dept": {Sort: 20, IsShow: &isShow, Icon: "ApartmentOutlined"},
+		},
+	}
+
+	menuCfg := buildMenuGeneratorConfig(cfg, true, true)
+	if !menuCfg.Force || !menuCfg.DryRun {
+		t.Fatalf("unexpected flags: %+v", menuCfg)
+	}
+	if got := menuCfg.MenuApps["system"]; got.Title != "系统管理" || got.Icon != "SettingOutlined" || got.Sort != 10 {
+		t.Fatalf("unexpected menu app config: %+v", got)
+	}
+	if got := menuCfg.MenuModules["system/dept"]; got.Sort != 20 || got.Icon != "ApartmentOutlined" || got.IsShow == nil || *got.IsShow != 0 {
+		t.Fatalf("unexpected menu module config: %+v", got)
+	}
+
+	menuCfg.MenuApps["system"] = menu.MenuAppConfig{Title: "changed"}
+	if cfg.MenuApps["system"].Title != "系统管理" {
+		t.Fatal("buildMenuGeneratorConfig should not mutate source config maps")
 	}
 }
 

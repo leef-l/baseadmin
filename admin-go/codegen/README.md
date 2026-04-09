@@ -2,11 +2,11 @@
 
 ## 铁律
 
-- 本机资源受限，当前机器允许直接执行 `gf`、`go` 和数据库访问
-- 本机禁止直接执行 `npm`、`pnpm`，也禁止使用 Docker
-- 代码生成、DAO 生成、菜单写入、离线验证可以走本机 `gf` / `go` 链路；前端依赖安装与构建需放到其他执行环境
-- 下文 CLI 既描述参数语义，也允许在当前机器按 `gf` / `go` 链路执行
-- `sql/init.sql` 是手工维护的精简初始化脚本，只保留当前仓库 `system` / `upload` 相关表和最小种子数据
+- 数据库结构和初始化真源在 `admin-go/database/migrations/`
+- `codegen/sql/*.sql` 只用于模板验证、示例和本地辅助，不是部署真源
+- 代码生成、DAO 生成、菜单写入、离线验证都基于 `go` / `gf` / 数据库结构完成
+- 生成前端页面时，组件名必须受 `vue-vben-admin/apps/web-antd/src/adapter/component/index.ts` 约束
+- 如果生成需求引入新组件，必须先在 adapter 完成适配，再修改模板和字段映射
 
 ## 表名规范
 
@@ -59,6 +59,9 @@ go run . --table system_dept --force
 # 预览（不写入文件）
 go run . --table system_dept --dry-run
 
+# 预览并输出结构化 manifest
+go run . --table system_dept --dry-run --manifest-out ./tmp/codegen-manifest.json
+
 # 只生成菜单数据（写入数据库）
 go run . --table system_dept --only menu
 
@@ -78,6 +81,9 @@ go run verify_codegen.go
 
 # 2. 语法/单测验证
 go test ./...
+
+# 如模板有预期变更，更新 golden snapshot
+go test ./... -run TestTemplateGoldenSnapshots -args -update-golden
 ```
 
 如果本机有可用 MySQL 且 `admin-go/.env` 已配置完成，还可以继续跑生成级端到端验证：
@@ -97,10 +103,51 @@ go run ./cmd/verifye2e --stage all
 说明：
 
 - `verify_codegen.go` 直接渲染模板并检查搜索、外键、字典、树形等关键片段是否生成
+- `go test ./...` 现在包含 `testdata/golden/` 快照比对，模板输出漂移会直接在测试阶段暴露
 - `cmd/verifye2e --stage render` 只做建表、模板渲染和工作区准备
 - `cmd/verifye2e --stage dao` 单独执行 `gf gen dao`
 - `cmd/verifye2e --stage build` 单独执行 `go build`
 - `sql/e2e_verify.sql` 是 `verifye2e` 使用的专用验证表结构
+
+## 失败退出规则
+
+- `codegen` 主流程现在会收敛每张表、每个应用后置生成阶段的失败项
+- 单个表的解析、前端生成、后端生成、菜单写入、应用目录创建、`internal/cmd` 目录创建、`hack/config.yaml`、`gf gen dao`、`main.go/cmd.go/middleware` 任一环节失败，最终都会非零退出
+- 生成过程不会因为某一张表失败而立刻中断；会尽量继续跑完其余任务，并在最后输出失败摘要
+- `dry-run` 同样适用这套规则；预览阶段只要有模板渲染失败，也会以非零退出结束
+
+## 预览与落盘规则
+
+- backend/frontend 生成现在先把所有目标文件渲染到内存，再统一写入磁盘
+- 文件落盘阶段使用随机临时文件再原子替换目标文件，避免固定 `.codegen-tmp` 名称在并发或中断后互相覆盖
+- `dry-run` 会基于真实 plan 输出更准确的状态：`新文件`、`有变化`、`无变化`、`跳过（已存在）`、`保护（enhance 文件不覆盖）`
+- 传 `--manifest-out` 时，CLI 会把文件计划和菜单计划写入 JSON，便于 CI、审查工具或人工核对
+- 当前 manifest 已覆盖模板来源、输出路径、动作类型、文件大小，以及菜单目录/页面/按钮计划
+
+## 菜单批量写入规则
+
+- `--menu` 和 `--only menu` 现在会先收集本次成功解析的表，再统一批量生成菜单
+- 非 `dry-run` 模式下，整批菜单会复用同一个数据库连接，并在同一个事务里写入目录、页面和按钮
+- 批量写库前会先做本地预校验，提前拦截空元数据、缺应用名/模块名、同批次菜单 path 冲突和权限冲突
+- 只要任意一个模块的目录、菜单页或按钮写入失败，整批菜单事务会回滚，CLI 最终以非零退出
+- `dry-run` 仍然只打印预览，不会写库
+
+## Parser 分层约定
+
+`ParseTable()` 现在按固定阶段执行：
+
+1. 表身份解析：从 `{app}_{module}` 拆出应用和模块
+2. 字段元数据构建：列信息转 `FieldMeta`
+3. 关联字段解析：统一补齐外键和 `parent_id` 的显示字段、关联表信息
+4. 模板派生元数据收口：由 `FinalizeTemplateMeta()` 统一计算 `Has*`、`SearchFields`、`KeywordSearchFields`
+
+后续如果继续扩展规则，优先加到对应阶段函数里，不要把新规则继续堆回 `ParseTable()` 主流程。
+
+### 规则注册表
+
+- 字段隐藏、图片字段、可搜索文本、精确搜索、金额字段、关联显示字段优先级现在统一收敛在 `parser/rule_registry.go`
+- `field_mapper.go`、`parser.go` 和关联字段推断共享同一套规则，不再各自维护近似但不完全一致的硬编码列表
+- 后续若要扩展命名启发式，优先改注册表和对应测试，而不是在多个函数里重复加 `if/else`
 
 ### CLI 参数一览
 
@@ -114,6 +161,7 @@ go run ./cmd/verifye2e --stage all
 | `--menu` | bool | false | 生成代码同时写入菜单数据到数据库 |
 | `--with-dao` | bool | false | 生成后显式执行 `gf gen dao` |
 | `--with-init` | bool | false | 应用目录不存在时显式执行 `gf init` |
+| `--manifest-out` | string | （空） | 将本次文件与菜单计划写入 JSON manifest |
 
 ## 自动创建应用
 
@@ -365,6 +413,8 @@ menu_modules:
 
 ### 全部可用组件
 
+下列组件名是 `codegen` 的单一契约真源，定义在 `parser/component_registry.go`，`field_mapper`、`verify_codegen.go`、模板契约测试共享同一份列表。
+
 | 组件名 | 说明 |
 |--------|------|
 | `Input` | 文本输入框 |
@@ -384,6 +434,8 @@ menu_modules:
 | `InputUrl` | URL 输入框 |
 | `DateTimePicker` | 日期时间选择器 |
 | `IconPicker` | 图标选择器 |
+
+另外，`go test ./...` 会校验 `templates/frontend/form.tpl` 对这份组件清单的分支覆盖，避免“新增组件常量但模板漏接”的漂移。
 
 ## 类型映射
 

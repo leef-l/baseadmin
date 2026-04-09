@@ -2,6 +2,13 @@
 
 文件管理应用，提供文件上传、目录管理、上传配置等功能。
 
+## 代码入口
+
+- 启动入口：`main.go`
+- 路由绑定：`internal/cmd/cmd.go`
+- 当前挂载控制器：`config`、`dir`、`dir_rule`、`file`、`uploader`、`health`
+- 默认开发端口：`44004`
+
 ## 数据库表
 
 | 表名 | 说明 |
@@ -13,19 +20,34 @@
 
 ## API 路由
 
-所有接口前缀：`/api/upload/`，需要 Auth 认证。
+对外接口分两层：
 
-| 模块 | 路径 | 说明 |
-|------|------|------|
-| 文件上传 | `POST /api/upload/uploader/upload` | 上传文件（multipart/form-data） |
-| 文件目录 | `/api/upload/dir/list,create,update,delete,detail,tree` | 目录管理（树形） |
-| 文件记录 | `/api/upload/file/list,create,update,delete,detail` | 文件管理 |
-| 上传配置 | `/api/upload/config/list,create,update,delete,detail` | 配置管理 |
-| 目录规则 | `/api/upload/dir_rule/list,create,update,delete,detail` | 目录规则管理 |
+- 公开路由：`GET /healthz`
+- 业务接口前缀：`/api/upload/`，全部需要 Auth 认证
+
+| 模块 | 路径 | 鉴权 | 说明 |
+|------|------|------|------|
+| 健康检查 | `GET /healthz` | 否 | 返回 `{ status: "ok", service: "upload" }` |
+| 文件上传 | `POST /api/upload/uploader/upload` | 是 | 上传文件（multipart/form-data） |
+| 文件目录 | `/api/upload/dir/list,create,update,delete,detail,tree` | 是 | 目录管理（树形） |
+| 文件记录 | `/api/upload/file/list,create,update,delete,detail` | 是 | 文件管理 |
+| 上传配置 | `/api/upload/config/list,create,update,delete,detail` | 是 | 配置管理 |
+| 目录规则 | `/api/upload/dir_rule/list,create,update,delete,detail` | 是 | 目录规则管理 |
 
 静态文件访问：`/upload/` 映射到 `resource/upload/` 目录。
 
 默认初始化数据中的本地存储目录也是 `resource/upload`。
+
+## 后端模块
+
+| 模块 | 目录 | 说明 |
+|------|------|------|
+| 健康检查 | `internal/controller/health` | 无鉴权探活接口 |
+| 上传配置 | `internal/controller/config` | 本地 / OSS / COS 配置 CRUD |
+| 文件目录 | `internal/controller/dir` | 树形目录 CRUD |
+| 目录规则 | `internal/controller/dir_rule` | 目录命名规则 CRUD |
+| 文件记录 | `internal/controller/file` | 文件记录查询与删除 |
+| 文件上传 | `internal/controller/uploader` | 上传入口和落库 |
 
 ## 上传流程
 
@@ -115,7 +137,15 @@ import FileManagerModal from '#/components/file-manager/modal.vue';
 
 | 页面 | 说明 |
 |------|------|
-| 文件列表 | 左侧目录树 + 列表/区块双视图切换 + 图片预览 + 上传 |
-| 上传配置 | storage RadioGroup 联动显示本地/OSS/COS 配置字段 |
-| 文件目录 | 树形 CRUD |
-| 目录规则 | 标准 CRUD |
+| `views/upload/config/index.vue` | 上传配置 CRUD，按存储类型联动显示本地 / OSS / COS 字段 |
+| `views/upload/dir/index.vue` | 文件目录树形 CRUD |
+| `views/upload/dir_rule/index.vue` | 文件目录规则 CRUD |
+| `views/upload/file/index.vue` | 文件记录 CRUD |
+| `components/file-manager/index.vue` | 复用文件选择器，左侧目录树 + 右侧文件卡片 + 上传 + 多选 |
+
+## 本地直跑
+
+```bash
+cd admin-go
+go run ./app/upload/main.go
+```

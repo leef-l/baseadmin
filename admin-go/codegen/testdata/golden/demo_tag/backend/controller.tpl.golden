@@ -1,0 +1,145 @@
+package tag
+
+import (
+	"context"
+	"encoding/csv"
+	"fmt"
+
+	"github.com/gogf/gf/v2/frame/g"
+
+	v1 "gbaseadmin/app/demo/api/demo/v1"
+	"gbaseadmin/app/demo/internal/model"
+	"gbaseadmin/app/demo/internal/service"
+)
+
+var Tag = cTag{}
+
+type cTag struct{}
+
+// Create 创建标签
+func (c *cTag) Create(ctx context.Context, req *v1.TagCreateReq) (res *v1.TagCreateRes, err error) {
+	err = service.Tag().Create(ctx, &model.TagCreateInput{
+		Name: req.Name,
+		Color: req.Color,
+		Sort: req.Sort,
+		Status: req.Status,
+	})
+	return
+}
+
+// Update 更新标签
+func (c *cTag) Update(ctx context.Context, req *v1.TagUpdateReq) (res *v1.TagUpdateRes, err error) {
+	err = service.Tag().Update(ctx, &model.TagUpdateInput{
+		ID: req.ID,
+		Name: req.Name,
+		Color: req.Color,
+		Sort: req.Sort,
+		Status: req.Status,
+	})
+	return
+}
+
+// Delete 删除标签
+func (c *cTag) Delete(ctx context.Context, req *v1.TagDeleteReq) (res *v1.TagDeleteRes, err error) {
+	err = service.Tag().Delete(ctx, req.ID)
+	return
+}
+
+// BatchDelete 批量删除标签
+func (c *cTag) BatchDelete(ctx context.Context, req *v1.TagBatchDeleteReq) (res *v1.TagBatchDeleteRes, err error) {
+	err = service.Tag().BatchDelete(ctx, req.IDs)
+	return
+}
+
+// BatchUpdate 批量编辑标签
+func (c *cTag) BatchUpdate(ctx context.Context, req *v1.TagBatchUpdateReq) (res *v1.TagBatchUpdateRes, err error) {
+	err = service.Tag().BatchUpdate(ctx, &model.TagBatchUpdateInput{
+		IDs: req.IDs,
+		Status: req.Status,
+	})
+	return
+}
+
+// Detail 获取标签详情
+func (c *cTag) Detail(ctx context.Context, req *v1.TagDetailReq) (res *v1.TagDetailRes, err error) {
+	res = &v1.TagDetailRes{}
+	res.TagDetailOutput, err = service.Tag().Detail(ctx, req.ID)
+	return
+}
+
+// List 获取标签列表
+func (c *cTag) List(ctx context.Context, req *v1.TagListReq) (res *v1.TagListRes, err error) {
+	res = &v1.TagListRes{}
+	res.List, res.Total, err = service.Tag().List(ctx, &model.TagListInput{
+		PageNum:   req.PageNum,
+		PageSize:  req.PageSize,
+		OrderBy:   req.OrderBy,
+		OrderDir:  req.OrderDir,
+		StartTime: req.StartTime,
+		EndTime:   req.EndTime,
+		Name: req.Name,
+		Status: req.Status,
+	})
+	return
+}
+// Export 导出标签
+func (c *cTag) Export(ctx context.Context, req *v1.TagExportReq) (res *v1.TagExportRes, err error) {
+	list, err := service.Tag().Export(ctx, &model.TagListInput{
+		OrderBy:   req.OrderBy,
+		OrderDir:  req.OrderDir,
+		StartTime: req.StartTime,
+		EndTime:   req.EndTime,
+		Name: req.Name,
+		Status: req.Status,
+	})
+	if err != nil {
+		return
+	}
+	// CSV 导出（使用 csv.Writer 防止注入和格式问题）
+	r := g.RequestFromCtx(ctx)
+	r.Response.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	r.Response.Header().Set("Content-Disposition", `attachment; filename="tag.csv"`)
+	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
+	w := csv.NewWriter(r.Response.Writer)
+	// 表头
+	_ = w.Write([]string{"Name", "Color", "Sort", "Status", "创建时间"})
+	// 数据行
+	for _, item := range list {
+		_ = w.Write([]string{
+			item.Name,
+			item.Color,
+			fmt.Sprintf("%v", item.Sort),
+			fmt.Sprintf("%v", item.Status),
+			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
+		})
+	}
+	w.Flush()
+	return
+}
+
+// Import 导入标签
+func (c *cTag) Import(ctx context.Context, req *v1.TagImportReq) (res *v1.TagImportRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	file := r.GetUploadFile("file")
+	if file == nil {
+		return nil, fmt.Errorf("请上传文件")
+	}
+	success, fail, err := service.Tag().Import(ctx, file)
+	if err != nil {
+		return nil, err
+	}
+	res = &v1.TagImportRes{Success: success, Fail: fail}
+	return
+}
+
+// ImportTemplate 下载标签导入模板
+func (c *cTag) ImportTemplate(ctx context.Context, req *v1.TagImportTemplateReq) (res *v1.TagImportTemplateRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	r.Response.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	r.Response.Header().Set("Content-Disposition", `attachment; filename="tag_template.csv"`)
+	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
+	w := csv.NewWriter(r.Response.Writer)
+	_ = w.Write([]string{"Name", "Color", "Sort", "Status"})
+	w.Flush()
+	return
+}

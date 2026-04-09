@@ -279,6 +279,7 @@ for app in "${APPS[@]}"; do
 done
 info ""
 info "前端构建后将 dist 内容复制到 $FRONTEND_DIR:"
-info "  cd $SOURCE_DIR/vue-vben-admin && pnpm build"
+info "  cd $SOURCE_DIR/vue-vben-admin && ../scripts/run-node-task-with-limits.sh pnpm install --frozen-lockfile"
+info "  cd $SOURCE_DIR/vue-vben-admin && ../scripts/run-node-task-with-limits.sh pnpm build:antd"
 info "  cp -rf apps/web-antd/dist/* $FRONTEND_DIR/"
 info "========================================="

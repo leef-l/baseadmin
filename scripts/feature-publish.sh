@@ -4,10 +4,10 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./scripts/feature-publish.sh "feat(scope): summary"
+  ./scripts/feature-publish.sh [--all] "feat(scope): summary"
 
 Behavior:
-  1. Stage all current changes
+  1. By default, publish already-staged changes only
   2. Create one git commit
   3. Push current branch to origin (or GIT_REMOTE)
 
@@ -16,6 +16,32 @@ Optional env:
   GIT_BRANCH_OVERRIDE=main
 EOF
 }
+
+stage_all=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --all)
+      stage_all=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "unknown option: $1" >&2
+      usage
+      exit 1
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
 
 if [ "${1:-}" = "" ]; then
   usage
@@ -59,7 +85,26 @@ if ! git remote get-url "$remote" >/dev/null 2>&1; then
   exit 1
 fi
 
-git add -A
+if [ "$stage_all" = "1" ]; then
+  git add -A
+else
+  if [ -z "$(git diff --cached --name-only)" ]; then
+    echo "no staged changes to publish; stage exact paths first or rerun with --all" >&2
+    exit 1
+  fi
+
+  if [ -n "$(git diff --name-only)" ] || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+    echo "unstaged or untracked changes detected; refusing to publish a mixed worktree" >&2
+    echo "stage exact paths first, or rerun with --all if every change belongs to this delivery" >&2
+    exit 1
+  fi
+fi
+
+if [ -z "$(git diff --cached --name-only)" ]; then
+  echo "no staged changes to publish"
+  exit 0
+fi
+
 git commit -m "$message"
 git push "$remote" "$branch"
 

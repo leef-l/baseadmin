@@ -1,0 +1,606 @@
+<script setup lang="ts">
+import { h, onMounted, ref } from 'vue';
+import type { VbenFormProps } from '#/adapter/form';
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { Page, useVbenModal } from '@vben/common-ui';
+import { downloadFileFromBlob } from '@vben/utils';
+import { Button, message, Modal, Tag, Tooltip } from 'ant-design-vue';
+import { QuestionCircleOutlined } from '@ant-design/icons-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { getArticleList, deleteArticle, batchDeleteArticle, exportArticle, importArticle, downloadImportTemplateArticle, batchUpdateArticle } from '#/api/demo/article';
+import { getDictByType } from '#/api/system/dict';
+import { getCategoryTree } from '#/api/demo/category';
+import { getUsersList } from '#/api/system/users';
+import type { ArticleItem } from '#/api/demo/article/types';
+import FormModal from './modules/form.vue';
+import DetailDrawer from './modules/detail-drawer.vue';
+
+/** 标签颜色池 */
+const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
+
+const sortableFieldMap: Record<string, string> = {
+  createdAt: 'created_at',
+  title: 'title',
+  orderNo: 'order_no',
+  cover: 'cover',
+  attachmentFile: 'attachment_file',
+  bodyContent: 'body_content',
+  extraJSON: 'extra_json',
+  linkURL: 'link_url',
+  status: 'status',
+  type: 'type',
+  isTop: 'is_top',
+  price: 'price',
+  payPassword: 'pay_password',
+  sort: 'sort',
+  icon: 'icon',
+  email: 'email',
+  phone: 'phone',
+  remark: 'remark',
+  level: 'level',
+  extraField: 'extra_field',
+  publishAt: 'publish_at',
+  expireAt: 'expire_at',
+};
+
+function resolveSortField(field?: string) {
+  if (!field) {
+    return '';
+  }
+  return sortableFieldMap[field] ?? '';
+}
+
+/** Status选项 */
+const statusOptions = [
+  { label: '草稿', value: 0 },
+  { label: '已发布', value: 1 },
+  { label: '已下架', value: 2 },
+];
+
+/** Status映射 */
+const statusMap: Record<number | string, string> = {
+  0: '草稿',
+  1: '已发布',
+  2: '已下架',
+};
+
+/** Status颜色 */
+function getStatusColor(val: number | string): string {
+  const keys = [0, 1, 2];
+  const idx = keys.indexOf(val);
+  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
+}
+
+/** Type选项 */
+const typeOptions = [
+  { label: '普通', value: 1 },
+  { label: '置顶', value: 2 },
+  { label: '推荐', value: 3 },
+  { label: '热门', value: 4 },
+];
+
+/** Type映射 */
+const typeMap: Record<number | string, string> = {
+  1: '普通',
+  2: '置顶',
+  3: '推荐',
+  4: '热门',
+};
+
+/** Type颜色 */
+function getTypeColor(val: number | string): string {
+  const keys = [1, 2, 3, 4];
+  const idx = keys.indexOf(val);
+  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
+}
+
+/** IsTop选项 */
+const isTopOptions = [
+  { label: '否', value: 0 },
+  { label: '是', value: 1 },
+];
+
+/** IsTop映射 */
+const isTopMap: Record<number | string, string> = {
+  0: '否',
+  1: '是',
+};
+
+/** IsTop颜色 */
+function getIsTopColor(val: number | string): string {
+  const keys = [0, 1];
+  const idx = keys.indexOf(val);
+  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
+}
+/** 渲染带 Tooltip 的列标题 */
+function tooltipHeader(label: string, tip: string) {
+  return () => h('span', {}, [
+    label + ' ',
+    h(Tooltip, { title: tip }, {
+      default: () => h(QuestionCircleOutlined, { style: { color: '#999', marginLeft: '4px' } }),
+    }),
+  ]);
+}
+
+/** 表单弹窗 */
+const [FormModalComp, formModalApi] = useVbenModal({
+  connectedComponent: FormModal,
+  destroyOnClose: true,
+});
+
+/** 详情抽屉 */
+const [DetailDrawerComp, detailDrawerApi] = useVbenModal({
+  connectedComponent: DetailDrawer,
+  destroyOnClose: true,
+});
+
+/** 搜索表单配置 */
+const formOptions: VbenFormProps = {
+  collapsed: false,
+  showCollapseButton: true,
+  submitOnChange: false,
+  submitOnEnter: true,
+  schema: [
+    {
+      component: 'Input',
+      componentProps: { placeholder: '请输入关键词', allowClear: true },
+      fieldName: 'keyword',
+      label: '关键词',
+    },
+    {
+      component: 'Input',
+      componentProps: { placeholder: '请输入OrderNo', allowClear: true },
+      fieldName: 'orderNo',
+      label: 'OrderNo',
+    },
+    {
+      component: 'Input',
+      componentProps: { placeholder: '请输入Title', allowClear: true },
+      fieldName: 'title',
+      label: 'Title',
+    },
+    {
+      component: 'Input',
+      componentProps: { placeholder: '请输入Email', allowClear: true },
+      fieldName: 'email',
+      label: 'Email',
+    },
+    {
+      component: 'TreeSelect',
+      componentProps: {
+        treeData: [],
+        fieldNames: { label: 'name', value: 'id', children: 'children' },
+        placeholder: '请选择CategoryID',
+        allowClear: true,
+        treeDefaultExpandAll: true,
+        class: 'w-full',
+      },
+      fieldName: 'categoryId',
+      label: 'CategoryID',
+    },
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: [],
+        placeholder: '请选择UserID',
+        class: 'w-full',
+      },
+      fieldName: 'userId',
+      label: 'UserID',
+    },
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: statusOptions,
+        placeholder: '请选择Status',
+        class: 'w-full',
+      },
+      fieldName: 'status',
+      label: 'Status',
+    },
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: typeOptions,
+        placeholder: '请选择Type',
+        class: 'w-full',
+      },
+      fieldName: 'type',
+      label: 'Type',
+    },
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: isTopOptions,
+        placeholder: '请选择IsTop',
+        class: 'w-full',
+      },
+      fieldName: 'isTop',
+      label: 'IsTop',
+    },
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: [],
+        placeholder: '请选择Level',
+        class: 'w-full',
+      },
+      fieldName: 'level',
+      label: 'Level',
+    },
+    {
+      component: 'RangePicker',
+      fieldName: 'publishAtRange',
+      label: 'PublishAt',
+      componentProps: {
+        showTime: true,
+        format: 'YYYY-MM-DD HH:mm:ss',
+        valueFormat: 'YYYY-MM-DD HH:mm:ss',
+        class: 'w-full',
+      },
+    },
+    {
+      component: 'RangePicker',
+      fieldName: 'expireAtRange',
+      label: 'ExpireAt',
+      componentProps: {
+        showTime: true,
+        format: 'YYYY-MM-DD HH:mm:ss',
+        valueFormat: 'YYYY-MM-DD HH:mm:ss',
+        class: 'w-full',
+      },
+    },
+    {
+      component: 'RangePicker',
+      fieldName: 'timeRange',
+      label: '创建时间',
+      componentProps: {
+        showTime: true,
+        format: 'YYYY-MM-DD HH:mm:ss',
+        valueFormat: 'YYYY-MM-DD HH:mm:ss',
+        class: 'w-full',
+      },
+    },
+  ],
+};
+
+/** 表格列配置 */
+const gridOptions: VxeGridProps<ArticleItem> = {
+  columns: [
+    { type: 'checkbox', width: 50 },
+    { title: '序号', type: 'seq', width: 50 },
+    { field: 'categoryName', title: 'CategoryID' },
+    { field: 'usersUsername', title: 'UserID' },
+    { field: 'title', title: 'Title' },
+    { field: 'orderNo', title: 'OrderNo' },
+    { field: 'cover', title: 'Cover', width: 100, slots: { default: 'cover_cell' } },
+    { field: 'attachmentFile', title: 'AttachmentFile', slots: { default: 'attachmentFile_cell' } },
+    { field: 'linkURL', title: 'LinkURL', slots: { default: 'linkURL_cell' } },
+    { field: 'status', title: 'Status', width: 120, slots: { default: 'status_cell' } },
+    { field: 'type', title: 'Type', width: 120, slots: { default: 'type_cell' } },
+    { field: 'isTop', title: 'IsTop', width: 120, slots: { default: 'isTop_cell' } },
+    { field: 'price', title: 'Price', width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-' },
+    { field: 'sort', title: 'Sort', slots: { header: tooltipHeader('Sort', '升序') } },
+    { field: 'icon', title: 'Icon' },
+    { field: 'email', title: 'Email' },
+    { field: 'phone', title: 'Phone' },
+    { field: 'remark', title: 'Remark' },
+    { field: 'level', title: 'Level' },
+    { field: 'extraField', title: 'ExtraField' },
+    { field: 'publishAt', title: 'PublishAt', width: 180, formatter: 'formatDateTime' },
+    { field: 'expireAt', title: 'ExpireAt', width: 180, formatter: 'formatDateTime' },
+    { field: 'createdAt', title: '创建时间', width: 180, formatter: 'formatDateTime', sortable: true },
+    { title: '操作', width: 240, fixed: 'right', slots: { default: 'action' } },
+  ],
+  height: 'auto',
+  pagerConfig: {},
+  proxyConfig: {
+    ajax: {
+      query: async ({ page, sorts }, formValues) => {
+        const params: Record<string, any> = {
+          pageNum: page.currentPage,
+          pageSize: page.pageSize,
+          ...formValues,
+        };
+        if (params.timeRange && params.timeRange.length === 2) {
+          params.startTime = params.timeRange[0];
+          params.endTime = params.timeRange[1];
+        }
+        delete params.timeRange;
+        if (params.publishAtRange && params.publishAtRange.length === 2) {
+          params.publishAtStart = params.publishAtRange[0];
+          params.publishAtEnd = params.publishAtRange[1];
+        }
+        delete params.publishAtRange;
+        if (params.expireAtRange && params.expireAtRange.length === 2) {
+          params.expireAtStart = params.expireAtRange[0];
+          params.expireAtEnd = params.expireAtRange[1];
+        }
+        delete params.expireAtRange;
+        if (sorts && sorts.length > 0) {
+          const sort = sorts[0];
+          if (sort && sort.field && sort.order) {
+            params.orderBy = resolveSortField(String(sort.field));
+            params.orderDir = sort.order;
+          }
+        }
+        const res = await getArticleList(params as any);
+        return { items: res?.list ?? [], total: res?.total ?? 0 };
+      },
+    },
+  },
+  sortConfig: {
+    remote: true,
+    trigger: 'cell',
+    defaultSort: { field: 'sort', order: 'asc' },
+  },
+  toolbarConfig: {
+    custom: true,
+    refresh: true,
+    search: true,
+  },
+};
+
+const [Grid, gridApi] = useVbenVxeGrid({
+  formOptions,
+  gridOptions,
+});
+
+const importInputRef = ref<HTMLInputElement | null>(null);
+
+async function initSearchOptions() {
+  try {
+    const categoryIdTree = await getCategoryTree();
+    gridApi.formApi.updateSchema([
+      {
+        fieldName: 'categoryId',
+        componentProps: { treeData: categoryIdTree ?? [] },
+      },
+    ]);
+  } catch {
+    // ignore
+  }
+  try {
+    const userIdRes = await getUsersList({ pageNum: 1, pageSize: 1000 });
+    gridApi.formApi.updateSchema([
+      {
+        fieldName: 'userId',
+        componentProps: {
+          options: (userIdRes?.list ?? []).map((item: any) => ({
+            label: item.username || item.id,
+            value: item.id,
+          })),
+        },
+      },
+    ]);
+  } catch {
+    // ignore
+  }
+  try {
+    const levelDict = await getDictByType('article_level');
+    gridApi.formApi.updateSchema([
+      {
+        fieldName: 'level',
+        componentProps: {
+          options: (levelDict ?? []).map((item: any) => ({
+            label: item.label,
+            value: item.value,
+          })),
+        },
+      },
+    ]);
+  } catch {
+    // ignore
+  }
+}
+
+onMounted(() => {
+  void initSearchOptions();
+});
+
+/** 新建 */
+function handleCreate() {
+  formModalApi.setData(null).open();
+}
+
+/** 查看 */
+function handleView(row: ArticleItem) {
+  detailDrawerApi.setData({ id: row.id }).open();
+}
+
+/** 编辑 */
+function handleEdit(row: ArticleItem) {
+  formModalApi.setData({ id: row.id }).open();
+}
+
+/** 删除 */
+function handleDelete(row: ArticleItem) {
+  Modal.confirm({
+    title: '确认删除',
+    content: '确定要删除该文章吗？',
+    okType: 'danger',
+    async onOk() {
+      await deleteArticle(row.id);
+      message.success('删除成功');
+      gridApi.reload();
+    },
+  });
+}
+/** 批量删除 */
+function handleBatchDelete() {
+  const rows = gridApi.grid.getCheckboxRecords();
+  if (rows.length === 0) {
+    message.warning('请先选择要删除的数据');
+    return;
+  }
+  Modal.confirm({
+    title: '确认批量删除',
+    content: `确定要删除选中的 ${rows.length} 条文章吗？`,
+    okType: 'danger',
+    async onOk() {
+      await batchDeleteArticle(rows.map((r: ArticleItem) => r.id));
+      message.success('批量删除成功');
+      gridApi.reload();
+    },
+  });
+}
+
+/** 导出 */
+async function handleExport() {
+  try {
+    const formValues = await gridApi.formApi.getValues();
+    const params: Record<string, any> = { ...formValues };
+    const sorts = gridApi.grid?.getSortColumns?.() ?? [];
+    if (params.timeRange && params.timeRange.length === 2) {
+      params.startTime = params.timeRange[0];
+      params.endTime = params.timeRange[1];
+    }
+    delete params.timeRange;
+    if (params.publishAtRange && params.publishAtRange.length === 2) {
+      params.publishAtStart = params.publishAtRange[0];
+      params.publishAtEnd = params.publishAtRange[1];
+    }
+    delete params.publishAtRange;
+    if (params.expireAtRange && params.expireAtRange.length === 2) {
+      params.expireAtStart = params.expireAtRange[0];
+      params.expireAtEnd = params.expireAtRange[1];
+    }
+    delete params.expireAtRange;
+    if (sorts.length > 0) {
+      const sort = sorts[0];
+      if (sort?.field && sort?.order) {
+        params.orderBy = resolveSortField(String(sort.field));
+        params.orderDir = sort.order;
+      }
+    }
+    const blob = await exportArticle(params);
+    downloadFileFromBlob({ fileName: '文章.csv', source: blob as Blob });
+    message.success('导出成功');
+  } catch {
+    message.error('导出失败');
+  }
+}
+
+function handleImportTrigger() {
+  const input = importInputRef.value;
+  if (!input) {
+    return;
+  }
+  input.value = '';
+  input.click();
+}
+
+/** 导入 */
+async function handleImportChange(event: Event) {
+  const input = event.target as HTMLInputElement | null;
+  const file = input?.files?.[0];
+  if (!file) {
+    return;
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await importArticle(formData);
+    message.success(`导入完成：成功 ${res?.success ?? 0} 条，失败 ${res?.fail ?? 0} 条`);
+    gridApi.reload();
+  } catch {
+    message.error('导入失败');
+  } finally {
+    if (input) {
+      input.value = '';
+    }
+  }
+}
+
+/** 下载导入模板 */
+async function handleDownloadTemplate() {
+  try {
+    const blob = await downloadImportTemplateArticle();
+    downloadFileFromBlob({ fileName: '文章导入模板.csv', source: blob as Blob });
+  } catch {
+    message.error('下载模板失败');
+  }
+}
+
+/** 批量修改状态 */
+function handleBatchUpdateStatus() {
+  const rows = gridApi.grid.getCheckboxRecords();
+  if (rows.length === 0) {
+    message.warning('请先选择要修改的数据');
+    return;
+  }
+  Modal.confirm({
+    title: '批量修改状态',
+    content: `确定要将选中的 ${rows.length} 条数据的状态切换吗？`,
+    async onOk() {
+      const newStatus = rows[0]?.status === 1 ? 0 : 1;
+      await batchUpdateArticle({ ids: rows.map((r: ArticleItem) => r.id), status: newStatus });
+      message.success('批量修改成功');
+      gridApi.reload();
+    },
+  });
+}
+</script>
+
+<template>
+  <Page auto-content-height>
+    <FormModalComp @success="() => gridApi.reload()" />
+    <DetailDrawerComp />
+    <input
+      ref="importInputRef"
+      type="file"
+      accept=".csv"
+      class="hidden"
+      @change="handleImportChange"
+    />
+    <Grid>
+      <template #toolbar-actions>
+        <Button v-auth="['demo:article:create']" type="primary" @click="handleCreate">新建</Button>
+        <Button v-auth="['demo:article:batch-delete']" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
+        <Button v-auth="['demo:article:export']" class="ml-2" @click="handleExport">导出</Button>
+        <Button v-auth="['demo:article:import']" class="ml-2" @click="handleImportTrigger">导入</Button>
+        <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-auth="['demo:article:batch-update']" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
+      </template>
+      <template #cover_cell="{ row }">
+        <img v-if="row.cover" :src="row.cover" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
+        <span v-else>-</span>
+      </template>
+      <template #attachmentFile_cell="{ row }">
+        <a v-if="row.attachmentFile" :href="row.attachmentFile" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">下载</a>
+        <span v-else>-</span>
+      </template>
+      <template #linkURL_cell="{ row }">
+        <a v-if="row.linkURL" :href="row.linkURL" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">{{ row.linkURL }}</a>
+        <span v-else>-</span>
+      </template>
+      <template #status_cell="{ row }">
+        <Tag :color="getStatusColor(row.status)">
+          {{ statusMap[row.status] || row.status }}
+        </Tag>
+      </template>
+      <template #type_cell="{ row }">
+        <Tag :color="getTypeColor(row.type)">
+          {{ typeMap[row.type] || row.type }}
+        </Tag>
+      </template>
+      <template #isTop_cell="{ row }">
+        <Tag :color="getIsTopColor(row.isTop)">
+          {{ isTopMap[row.isTop] || row.isTop }}
+        </Tag>
+      </template>
+      <template #action="{ row }">
+        <Button v-auth="['demo:article:detail']" type="link" size="small" @click="handleView(row)">查看</Button>
+        <Button v-auth="['demo:article:update']" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+        <Button v-auth="['demo:article:delete']" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+      </template>
+    </Grid>
+  </Page>
+</template>

@@ -1,0 +1,55 @@
+/** 分类类型定义 */
+
+/** 分类项 */
+export interface CategoryItem {
+  id: string;
+  parentId?: string;
+  categoryName?: string;
+  name: string;
+  icon?: string;
+  sort?: number;
+  status?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  children?: CategoryItem[];
+}
+
+/** 分类列表查询参数 */
+export interface CategoryListParams {
+  pageNum: number;
+  pageSize: number;
+  orderBy?: string;
+  orderDir?: string;
+  startTime?: string;
+  endTime?: string;
+  name?: string;
+  parentId?: string;
+  status?: number;
+}
+/** 分类树形查询参数 */
+export interface CategoryTreeParams {
+  startTime?: string;
+  endTime?: string;
+  name?: string;
+  parentId?: string;
+  status?: number;
+}
+
+/** 分类创建参数 */
+export interface CategoryCreateParams {
+  parentId?: string;
+  name: string;
+  icon?: string;
+  sort?: number;
+  status?: number;
+}
+
+/** 分类更新参数 */
+export interface CategoryUpdateParams {
+  id: string;
+  parentId?: string;
+  name: string;
+  icon?: string;
+  sort?: number;
+  status?: number;
+}

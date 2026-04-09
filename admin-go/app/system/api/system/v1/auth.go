@@ -42,7 +42,7 @@ type AuthInfoRes struct {
 type AuthChangePasswordReq struct {
 	g.Meta      `path:"/auth/change-password" method:"post" tags:"认证" summary:"修改密码"`
 	OldPassword string `json:"oldPassword" v:"required#旧密码不能为空"`
-	NewPassword string `json:"newPassword" v:"required|length:6,32#新密码不能为空|密码长度6-32位"`
+	NewPassword string `json:"newPassword" v:"required|length:8,64#新密码不能为空|密码长度8-64位"`
 }
 
 type AuthChangePasswordRes struct{}

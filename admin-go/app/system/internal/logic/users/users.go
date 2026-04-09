@@ -44,6 +44,9 @@ func (s *sUsers) Create(ctx context.Context, in *model.UsersCreateInput) error {
 		return err
 	}
 	id := snowflake.Generate()
+	if err := password.ValidatePolicy(in.Password); err != nil {
+		return gerror.New(err.Error())
+	}
 	hashedPassword, err := password.Hash(in.Password)
 	if err != nil {
 		return err
@@ -113,6 +116,9 @@ func (s *sUsers) Update(ctx context.Context, in *model.UsersUpdateInput) error {
 		dao.Users.Columns().UpdatedAt: gtime.Now(),
 	}
 	if in.Password != "" {
+		if err := password.ValidatePolicy(in.Password); err != nil {
+			return gerror.New(err.Error())
+		}
 		hashedPassword, err := password.Hash(in.Password)
 		if err != nil {
 			return err
@@ -267,6 +273,9 @@ func (s *sUsers) ResetPassword(ctx context.Context, in *model.UsersResetPassword
 	normalizeUsersResetPasswordInput(in)
 	if in.Password == "" {
 		return gerror.New("新密码不能为空")
+	}
+	if err := password.ValidatePolicy(in.Password); err != nil {
+		return gerror.New(err.Error())
 	}
 	hashedPassword, err := password.Hash(in.Password)
 	if err != nil {

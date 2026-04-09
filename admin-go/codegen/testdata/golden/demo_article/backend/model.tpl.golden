@@ -1,0 +1,159 @@
+package model
+
+import (
+	"github.com/gogf/gf/v2/os/gtime"
+
+	"gbaseadmin/utility/snowflake"
+)
+
+// Article DTO 模型
+
+// ArticleCreateInput 创建文章输入
+type ArticleCreateInput struct {
+	CategoryID snowflake.JsonInt64 `json:"categoryId"`
+	UserID snowflake.JsonInt64 `json:"userId"`
+	Title string `json:"title"`
+	OrderNo string `json:"orderNo"`
+	Cover string `json:"cover"`
+	AttachmentFile string `json:"attachmentFile"`
+	BodyContent string `json:"bodyContent"`
+	ExtraJSON string `json:"extraJSON"`
+	LinkURL string `json:"linkURL"`
+	Status int `json:"status"`
+	Type int `json:"type"`
+	IsTop int `json:"isTop"`
+	Price int `json:"price"`
+	PayPassword string `json:"payPassword"`
+	Sort int `json:"sort"`
+	Icon string `json:"icon"`
+	Email string `json:"email"`
+	Phone string `json:"phone"`
+	Remark string `json:"remark"`
+	Level string `json:"level"`
+	ExtraField string `json:"extraField"`
+	PublishAt *gtime.Time `json:"publishAt"`
+	ExpireAt *gtime.Time `json:"expireAt"`
+}
+
+// ArticleUpdateInput 更新文章输入
+type ArticleUpdateInput struct {
+	ID snowflake.JsonInt64 `json:"id"`
+	CategoryID snowflake.JsonInt64 `json:"categoryId"`
+	UserID snowflake.JsonInt64 `json:"userId"`
+	Title string `json:"title"`
+	OrderNo string `json:"orderNo"`
+	Cover string `json:"cover"`
+	AttachmentFile string `json:"attachmentFile"`
+	BodyContent string `json:"bodyContent"`
+	ExtraJSON string `json:"extraJSON"`
+	LinkURL string `json:"linkURL"`
+	Status int `json:"status"`
+	Type int `json:"type"`
+	IsTop int `json:"isTop"`
+	Price int `json:"price"`
+	PayPassword string `json:"payPassword"`
+	Sort int `json:"sort"`
+	Icon string `json:"icon"`
+	Email string `json:"email"`
+	Phone string `json:"phone"`
+	Remark string `json:"remark"`
+	Level string `json:"level"`
+	ExtraField string `json:"extraField"`
+	PublishAt *gtime.Time `json:"publishAt"`
+	ExpireAt *gtime.Time `json:"expireAt"`
+}
+
+// ArticleDetailOutput 文章详情输出
+type ArticleDetailOutput struct {
+	ID snowflake.JsonInt64 `json:"id"`
+	CategoryID snowflake.JsonInt64 `json:"categoryId"`
+	CategoryName string `json:"categoryName"`
+	UserID snowflake.JsonInt64 `json:"userId"`
+	UsersUsername string `json:"usersUsername"`
+	Title string `json:"title"`
+	OrderNo string `json:"orderNo"`
+	Cover string `json:"cover"`
+	AttachmentFile string `json:"attachmentFile"`
+	BodyContent string `json:"bodyContent"`
+	ExtraJSON string `json:"extraJSON"`
+	LinkURL string `json:"linkURL"`
+	Status int `json:"status"`
+	Type int `json:"type"`
+	IsTop int `json:"isTop"`
+	Price int `json:"price"`
+	Sort int `json:"sort"`
+	Icon string `json:"icon"`
+	Email string `json:"email"`
+	Phone string `json:"phone"`
+	Remark string `json:"remark"`
+	Level string `json:"level"`
+	ExtraField string `json:"extraField"`
+	PublishAt *gtime.Time `json:"publishAt"`
+	ExpireAt *gtime.Time `json:"expireAt"`
+	CreatedAt *gtime.Time `json:"createdAt"`
+	UpdatedAt *gtime.Time `json:"updatedAt"`
+}
+
+// ArticleListOutput 文章列表输出
+type ArticleListOutput struct {
+	ID snowflake.JsonInt64 `json:"id"`
+	CategoryID snowflake.JsonInt64 `json:"categoryId"`
+	CategoryName string `json:"categoryName"`
+	UserID snowflake.JsonInt64 `json:"userId"`
+	UsersUsername string `json:"usersUsername"`
+	Title string `json:"title"`
+	OrderNo string `json:"orderNo"`
+	Cover string `json:"cover"`
+	AttachmentFile string `json:"attachmentFile"`
+	BodyContent string `json:"bodyContent"`
+	ExtraJSON string `json:"extraJSON"`
+	LinkURL string `json:"linkURL"`
+	Status int `json:"status"`
+	Type int `json:"type"`
+	IsTop int `json:"isTop"`
+	Price int `json:"price"`
+	Sort int `json:"sort"`
+	Icon string `json:"icon"`
+	Email string `json:"email"`
+	Phone string `json:"phone"`
+	Remark string `json:"remark"`
+	Level string `json:"level"`
+	ExtraField string `json:"extraField"`
+	PublishAt *gtime.Time `json:"publishAt"`
+	ExpireAt *gtime.Time `json:"expireAt"`
+	CreatedAt *gtime.Time `json:"createdAt"`
+	UpdatedAt *gtime.Time `json:"updatedAt"`
+}
+
+// ArticleListInput 文章列表查询输入
+type ArticleListInput struct {
+	PageNum   int    `json:"pageNum"`
+	PageSize  int    `json:"pageSize"`
+	OrderBy   string `json:"orderBy"`
+	OrderDir  string `json:"orderDir"`
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"endTime"`
+	Keyword string `json:"keyword"`
+	OrderNo string `json:"orderNo"`
+	Title string `json:"title"`
+	Email string `json:"email"`
+	CategoryID *snowflake.JsonInt64 `json:"categoryId"`
+	UserID *snowflake.JsonInt64 `json:"userId"`
+	Status *int `json:"status"`
+	Type *int `json:"type"`
+	IsTop *int `json:"isTop"`
+	Level *string `json:"level"`
+	PublishAtStart string `json:"publishAtStart"`
+	PublishAtEnd string `json:"publishAtEnd"`
+	ExpireAtStart string `json:"expireAtStart"`
+	ExpireAtEnd string `json:"expireAtEnd"`
+}
+
+// ArticleBatchUpdateInput 批量编辑文章输入
+type ArticleBatchUpdateInput struct {
+	IDs    []snowflake.JsonInt64 `json:"ids"`
+	Status *int `json:"status"`
+	Type *int `json:"type"`
+	IsTop *int `json:"isTop"`
+}
+

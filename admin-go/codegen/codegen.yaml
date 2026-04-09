@@ -14,6 +14,10 @@ backend:
 frontend:
   output: ../../vue-vben-admin/apps/web-antd/src/  # 输出根目录
 
+allowed_apps:
+  - system
+  - upload
+
 # 跳过生成的公共字段（这些字段在表单中隐藏，不生成前端组件）
 skip_fields:
   - created_at

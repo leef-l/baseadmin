@@ -4,7 +4,9 @@
 
 ## 项目总览
 
+- [代码库导读](代码库导读.md)
 - [基础框架说明](基础框架说明.md)
+- [System 应用说明](../admin-go/app/system/README.MD)
 - [Upload 应用说明](../admin-go/app/upload/README.MD)
 - [代码生成器说明](../admin-go/codegen/README.md)
 

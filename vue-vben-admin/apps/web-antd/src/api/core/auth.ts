@@ -1,4 +1,5 @@
 import { baseRequestClient, requestClient } from '#/api/request';
+import { extractAccessCodes, getAuthInfoApi } from './auth-info';
 
 export namespace AuthApi {
   /** 登录接口参数 */
@@ -52,16 +53,6 @@ export async function logoutApi() {
  * 获取用户权限码
  */
 export async function getAccessCodesApi() {
-  const res = await requestClient.get<{
-    userId: string;
-    username: string;
-    nickname: string;
-    email: string;
-    avatar: string;
-    deptId: string;
-    status: number;
-    roles: string[];
-    perms: string[];
-  }>('/system/auth/info');
-  return res?.perms ?? [];
+  const res = await getAuthInfoApi();
+  return extractAccessCodes(res);
 }

@@ -9,34 +9,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var (
-	searchableTextFieldNames = map[string]struct{}{
-		"title": {}, "name": {}, "username": {}, "nickname": {},
-		"phone": {}, "mobile": {}, "email": {}, "real_name": {},
-		"order_no": {}, "remark": {}, "description": {}, "summary": {},
-		"intro": {}, "address": {}, "contact": {}, "contact_name": {},
-		"link_url": {}, "url": {}, "keyword": {},
-	}
-	searchableTextFieldSuffixes = []string{
-		"_name", "_title", "_remark", "_desc", "_description", "_summary",
-		"_intro", "_phone", "_mobile", "_email", "_address", "_keyword", "_no",
-	}
-	exactSearchFieldNames = map[string]struct{}{
-		"no":   {},
-		"code": {},
-		"sn":   {},
-	}
-	exactSearchFieldSuffixes = []string{"_no", "_code", "_sn"}
-	moneyFieldNames          = map[string]struct{}{
-		"price":          {},
-		"amount":         {},
-		"balance":        {},
-		"income_total":   {},
-		"income_balance": {},
-	}
-	moneyFieldSuffixes = []string{"_price", "_amount", "_balance", "_income", "_fee", "_cost"}
-)
-
 // columnInfo 从 information_schema.COLUMNS 查询到的字段信息
 type columnInfo struct {
 	ColumnName    string
@@ -118,126 +90,11 @@ func (p *Parser) ParseTable(tableName string) (*TableMeta, error) {
 		return nil, fmt.Errorf("表 %s 不存在或没有字段", tableName)
 	}
 
-	// 从表名提取应用名和模块名：{app}_{module}
-	appName := ""
-	moduleName := tableName
-	if idx := strings.Index(tableName, "_"); idx > 0 {
-		appName = tableName[:idx]
-		moduleName = tableName[idx+1:]
-	}
-
-	// 构建 TableMeta
-	meta := &TableMeta{
-		TableName:    tableName,
-		AppName:      appName,
-		AppNameCamel: snakeToCamel(appName),
-		ModelName:    snakeToCamel(moduleName),
-		DaoName:      snakeToCamel(tableName),
-		ModuleName:   strings.ToLower(moduleName),
-		PackageName:  strings.ToLower(moduleName),
-		Comment:      tableComment,
-	}
-
-	// 构建额外隐藏字段集合
-	extraHidden := make(map[string]bool, len(p.SkipFields))
-	for _, f := range p.SkipFields {
-		extraHidden[f] = true
-	}
-
-	for _, col := range columns {
-		field := buildFieldMeta(col)
-		// 应用 skip_fields 配置中的额外隐藏字段
-		if extraHidden[field.Name] {
-			field.IsHidden = true
-		}
-		meta.Fields = append(meta.Fields, field)
-	}
-
-	// 解析关联字段：对 *_id 外键和 parent_id 查找关联表的显示字段
-	for i := range meta.Fields {
-		f := &meta.Fields[i]
-		if !f.IsForeignKey && !f.IsParentID {
-			continue
-		}
-		// 推断关联表名：parent_id → 自身模块名，xxx_id → xxx
-		var refTable string
-		refTableDB := ""
-		displayField := ""
-		if f.IsParentID {
-			refTable = moduleName
-		} else {
-			refTable = strings.TrimSuffix(f.Name, "_id")
-		}
-
-		if f.RefTableHint != "" {
-			refTableDB = f.RefTableHint
-			if idx := strings.Index(refTableDB, "_"); idx > 0 {
-				refTable = refTableDB[idx+1:]
-			} else {
-				refTable = refTableDB
-			}
-			displayField = f.RefDisplayHint
-			if displayField == "" {
-				displayField = p.findDisplayField(refTableDB)
-			}
-		} else {
-			// 查找关联表的显示字段（先尝试带前缀的表名，再尝试不带前缀的）
-			refTableDB = refTable
-			if appName != "" {
-				prefixed := appName + "_" + refTable
-				displayField = p.findDisplayField(prefixed)
-				if displayField != "" {
-					refTableDB = prefixed
-				}
-			}
-			if displayField == "" {
-				displayField = p.findDisplayField(refTable)
-			}
-		}
-		// 关联表不存在或没有可用的显示字段 → 报错终止
-		if displayField == "" {
-			candidateTables := refTable
-			if f.RefTableHint != "" {
-				candidateTables = f.RefTableHint
-			} else if appName != "" {
-				candidateTables = appName + "_" + refTable + " 或 " + refTable
-			}
-			return nil, fmt.Errorf(
-				"字段 %s 是外键，但找不到关联表（尝试了 %s）。\n  请先创建关联表，或将字段名改为非 _id 后缀",
-				f.Name, candidateTables,
-			)
-		}
-		refFieldName := snakeToCamel(refTable) + snakeToCamel(displayField)
-		// 检查 RefFieldName 是否与已有字段的 CamelCase 名冲突
-		collision := false
-		for _, other := range meta.Fields {
-			if other.NameCamel == refFieldName || other.RefFieldName == refFieldName {
-				collision = true
-				break
-			}
-		}
-		if collision {
-			// 表本身已有同名字段，跳过关联字段生成
-			continue
-		}
-		f.RefTable = refTable
-		f.RefTableDB = refTableDB
-		// 从 refTableDB 提取应用名（格式: {app}_{module}）
-		if idx := strings.Index(refTableDB, "_"); idx > 0 {
-			f.RefTableApp = refTableDB[:idx]
-		} else {
-			f.RefTableApp = appName // 回退为当前应用名
-		}
-		f.RefTableCamel = snakeToCamel(refTable)
-		f.RefTableLower = snakeToCamelLower(refTable)
-		f.RefDisplayField = displayField
-		f.RefDisplayCamel = snakeToCamel(displayField)
-		f.RefDisplayLower = snakeToCamelLower(displayField)
-		f.RefFieldName = refFieldName
-		f.RefFieldJSON = snakeToCamelLower(refTable) + snakeToCamel(displayField)
-		// 检查关联表是否有 parent_id（树形结构）
-		f.RefIsTree = p.tableHasColumn(refTableDB, "parent_id")
-		f.RefHasDeletedAt = p.tableHasColumn(refTableDB, "deleted_at")
+	identity := splitTableIdentity(tableName)
+	meta := buildTableMetaSkeleton(identity, tableComment)
+	appendColumnFields(meta, columns, buildExtraHiddenFieldSet(p.SkipFields))
+	if err := p.resolveReferenceFields(meta, identity); err != nil {
+		return nil, err
 	}
 
 	FinalizeTemplateMeta(meta)
@@ -344,16 +201,11 @@ func FinalizeTemplateMeta(meta *TableMeta) {
 // findDisplayField 在关联表中按优先级查找显示字段。
 // 关联表的列集合会按表缓存，避免对同一张表反复查询 information_schema。
 func (p *Parser) findDisplayField(tableName string) string {
-	priorities := []string{
-		"title", "name", "username", "nickname",
-		"real_name", "label", "phone", "mobile",
-		"order_no", "code", "no", "email",
-	}
 	columns, err := p.getTableColumns(tableName)
 	if err != nil {
 		return ""
 	}
-	for _, col := range priorities {
+	for _, col := range displayFieldPriorityOrder() {
 		if _, ok := columns[col]; ok {
 			return col
 		}
@@ -497,15 +349,6 @@ func queryTableColumnSet(db *sql.DB, dbName, tableName string) (map[string]struc
 	return columns, nil
 }
 
-func hasAnySuffix(name string, suffixes []string) bool {
-	for _, suffix := range suffixes {
-		if strings.HasSuffix(name, suffix) {
-			return true
-		}
-	}
-	return false
-}
-
 // buildFieldMeta 根据列信息构建 FieldMeta
 func buildFieldMeta(col columnInfo) FieldMeta {
 	name := col.ColumnName
@@ -562,25 +405,19 @@ func buildFieldMeta(col columnInfo) FieldMeta {
 
 	// 判断是否可搜索的文本字段（用于关键词模糊查询）
 	goType := field.GoType
-	if _, ok := searchableTextFieldNames[name]; ok || hasAnySuffix(name, searchableTextFieldSuffixes) {
+	if isSearchableTextFieldName(name) {
 		if goType == "string" && !isID && !isForeignKey && !isPassword {
 			field.IsSearchable = true
 		}
 	}
 
 	// 判断是否精确搜索字段（编号类，用 = 而非 LIKE）
-	if _, ok := exactSearchFieldNames[name]; ok {
+	if isExactSearchFieldName(name) {
 		field.IsExactSearch = true
-	}
-	for _, suffix := range exactSearchFieldSuffixes {
-		if strings.HasSuffix(name, suffix) {
-			field.IsExactSearch = true
-			break
-		}
 	}
 
 	// 判断是否金额字段（单位：分，列表需要分→元格式化）
-	if _, ok := moneyFieldNames[name]; ok || hasAnySuffix(name, moneyFieldSuffixes) {
+	if isMoneyFieldName(name) {
 		field.IsMoney = true
 	}
 
@@ -729,44 +566,7 @@ func shouldAutoSearchTextField(field FieldMeta) bool {
 	if field.IsSearchable {
 		return true
 	}
-
-	exactNames := map[string]bool{
-		"no": true, "code": true, "sn": true,
-	}
-	fuzzyNames := map[string]bool{
-		"title": true, "name": true, "username": true, "nickname": true,
-		"real_name": true, "phone": true, "mobile": true, "email": true,
-		"remark": true, "description": true, "summary": true, "intro": true,
-		"address": true, "contact": true, "contact_name": true, "keyword": true,
-		"url": true, "link_url": true,
-	}
-	for name := range exactNames {
-		if field.Name == name {
-			return true
-		}
-	}
-	if fuzzyNames[field.Name] {
-		return true
-	}
-
-	exactSuffixes := []string{"_no", "_code", "_sn"}
-	for _, suffix := range exactSuffixes {
-		if strings.HasSuffix(field.Name, suffix) {
-			return true
-		}
-	}
-
-	fuzzySuffixes := []string{
-		"_name", "_title", "_remark", "_desc", "_description", "_summary",
-		"_intro", "_phone", "_mobile", "_email", "_address", "_keyword",
-		"_url", "_link",
-	}
-	for _, suffix := range fuzzySuffixes {
-		if strings.HasSuffix(field.Name, suffix) {
-			return true
-		}
-	}
-	return false
+	return isSearchableTextFieldName(field.Name) || isExactSearchFieldName(field.Name)
 }
 
 func applyHeuristicSearchMeta(field *FieldMeta) {

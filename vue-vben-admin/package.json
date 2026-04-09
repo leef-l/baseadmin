@@ -26,8 +26,8 @@
   "type": "module",
   "scripts": {
     "bootstrap": "pnpm install",
-    "build": "cross-env NODE_OPTIONS=--max-old-space-size=8192 turbo build",
-    "build:analyze": "turbo build:analyze",
+    "build": "turbo run build --concurrency=1",
+    "build:analyze": "turbo run build:analyze --concurrency=1",
     "build:antd": "pnpm run build --filter=@vben/web-antd",
     "build:docker": "./scripts/deploy/build-local-docker-image.sh",
     "build:docs": "pnpm run build --filter=@vben/docs",
@@ -60,6 +60,7 @@
     "publint": "vsh publint",
     "reinstall": "pnpm clean --del-lock && pnpm install",
     "test:unit": "vitest run --dom",
+    "test:web-antd": "vitest run apps/web-antd/src",
     "test:e2e": "turbo run test:e2e",
     "update:deps": "npx taze -r -w",
     "version": "pnpm exec changeset version && pnpm install --no-frozen-lockfile",

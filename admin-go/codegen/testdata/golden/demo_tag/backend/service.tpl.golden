@@ -1,0 +1,30 @@
+package service
+
+import (
+	"context"
+	"gbaseadmin/app/demo/internal/model"
+	"gbaseadmin/utility/snowflake"
+	"github.com/gogf/gf/v2/net/ghttp"
+)
+
+type ITag interface {
+	Create(ctx context.Context, in *model.TagCreateInput) error
+	Update(ctx context.Context, in *model.TagUpdateInput) error
+	Delete(ctx context.Context, id snowflake.JsonInt64) error
+	BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error
+	Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.TagDetailOutput, err error)
+	List(ctx context.Context, in *model.TagListInput) (list []*model.TagListOutput, total int, err error)
+	Export(ctx context.Context, in *model.TagListInput) (list []*model.TagListOutput, err error)
+	BatchUpdate(ctx context.Context, in *model.TagBatchUpdateInput) error
+	Import(ctx context.Context, file *ghttp.UploadFile) (success int, fail int, err error)
+}
+
+var localTag ITag
+
+func Tag() ITag {
+	return localTag
+}
+
+func RegisterTag(i ITag) {
+	localTag = i
+}

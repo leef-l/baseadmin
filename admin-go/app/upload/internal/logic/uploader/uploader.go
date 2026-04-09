@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"mime"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/upload/internal/dao"
@@ -44,45 +46,18 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 	if file == nil {
 		return nil, fmt.Errorf("请选择要上传的文件")
 	}
-
-	// 读取默认上传配置
-	maxSize := int64(10 * 1024 * 1024) // 默认10MB
-	storageType := 1                   // 默认本地
-	localPath := defaultLocalStoragePath
-
-	var configRecord map[string]interface{}
-	err := dao.UploadConfig.Ctx(ctx).
-		Where("is_default", 1).
-		Where("status", 1).
-		Where(dao.UploadConfig.Columns().DeletedAt, nil).
-		Scan(&configRecord)
-	if err == nil && configRecord != nil {
-		if v := getInt64(configRecord, "max_size"); v > 0 {
-			maxSize = v * 1024 * 1024
-		}
-		if v := getInt64(configRecord, "storage"); v > 0 {
-			storageType = int(v)
-		}
-		if v := getString(configRecord, "local_path"); v != "" {
-			localPath = v
-		}
+	cfg, err := loadUploadStorageConfig(ctx)
+	if err != nil {
+		return nil, err
 	}
-	localPath = shared.NormalizeLocalStoragePath(localPath)
 
 	// 验证文件大小
-	if file.Size > maxSize {
-		return nil, fmt.Errorf("文件大小超过限制（最大 %dMB）", maxSize/1024/1024)
+	if file.Size > cfg.MaxSize {
+		return nil, fmt.Errorf("文件大小超过限制（最大 %dMB）", cfg.MaxSize/1024/1024)
 	}
 
 	// 解析文件信息
-	ext := strings.ToLower(filepath.Ext(file.Filename))
-	if ext != "" {
-		ext = ext[1:] // 去掉点号
-	}
-	isImage := 0
-	if imageExts[ext] {
-		isImage = 1
-	}
+	fileMeta := buildUploadFileMeta(file)
 
 	// 获取目录ID
 	dirId := r.Get("dirId").Int64()
@@ -102,10 +77,10 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 	// 生成唯一文件名和对象路径
 	now := time.Now()
 	dateDir := now.Format("2006-01-02")
-	uniqueName := buildUniqueName(now, randomSuffix(10000), ext)
+	uniqueName := buildUniqueName(now, randomSuffix(10000), fileMeta.Ext)
 
 	// 始终先保存到本地临时目录，云存储场景下上传后再清理
-	savePath := filepath.Join(localPath, dateDir)
+	savePath := filepath.Join(cfg.LocalPath, dateDir)
 	if err := os.MkdirAll(savePath, 0755); err != nil {
 		return nil, fmt.Errorf("创建目录失败: %v", err)
 	}
@@ -117,43 +92,15 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 		return nil, fmt.Errorf("保存文件失败: %v", err)
 	}
 
-	// objectKey：云存储对象路径，本地存储时复用为相对路径
 	objectKey := dateDir + "/" + uniqueName
-	var fileURL string
-
-	switch storageType {
-	case 2: // 阿里云OSS
-		cfg := ossConfig{
-			Endpoint:  getString(configRecord, "oss_endpoint"),
-			Bucket:    getString(configRecord, "oss_bucket"),
-			AccessKey: getString(configRecord, "oss_access_key"),
-			SecretKey: getString(configRecord, "oss_secret_key"),
-		}
-		fileURL, err = uploadToOSS(cfg, fullPath, objectKey)
-		if err != nil {
-			_ = os.Remove(fullPath)
-			return nil, fmt.Errorf("上传至OSS失败: %v", err)
-		}
-		// 上传成功后删除本地临时文件
-		_ = os.Remove(fullPath)
-
-	case 3: // 腾讯云COS
-		cfg := cosConfig{
-			Region:    getString(configRecord, "cos_region"),
-			Bucket:    getString(configRecord, "cos_bucket"),
-			SecretId:  getString(configRecord, "cos_secret_id"),
-			SecretKey: getString(configRecord, "cos_secret_key"),
-		}
-		fileURL, err = uploadToCOS(cfg, fullPath, objectKey)
-		if err != nil {
-			_ = os.Remove(fullPath)
-			return nil, fmt.Errorf("上传至COS失败: %v", err)
-		}
-		// 上传成功后删除本地临时文件
-		_ = os.Remove(fullPath)
-
-	default: // case 1: 本地存储
-		fileURL = buildLocalFileURL(dateDir, uniqueName)
+	storeResult, err := newStorageProvider(cfg).Store(ctx, storeRequest{
+		DateDir:       dateDir,
+		LocalFilePath: fullPath,
+		ObjectKey:     objectKey,
+		UniqueName:    uniqueName,
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// 生成ID并写入数据库
@@ -162,54 +109,53 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 		"id":         id,
 		"dir_id":     dirId,
 		"name":       file.Filename,
-		"url":        fileURL,
-		"ext":        ext,
+		"url":        storeResult.FileURL,
+		"ext":        fileMeta.Ext,
 		"size":       file.Size,
-		"mime":       file.FileHeader.Header.Get("Content-Type"),
-		"storage":    storageType,
-		"is_image":   isImage,
+		"mime":       fileMeta.Mime,
+		"storage":    cfg.StorageType,
+		"is_image":   fileMeta.IsImage,
 		"created_at": gtime.Now(),
 		"updated_at": gtime.Now(),
 	}).Insert()
 	if err != nil {
-		// 本地存储时回滚物理文件
-		if storageType == 1 {
-			_ = os.Remove(fullPath)
-		}
-		if storageType == 2 {
-			cfg := ossConfig{
-				Endpoint:  getString(configRecord, "oss_endpoint"),
-				Bucket:    getString(configRecord, "oss_bucket"),
-				AccessKey: getString(configRecord, "oss_access_key"),
-				SecretKey: getString(configRecord, "oss_secret_key"),
-			}
-			if delErr := deleteFromOSS(cfg, objectKey); delErr != nil {
-				g.Log().Warningf(ctx, "回滚OSS文件失败: objectKey=%s, err=%v", objectKey, delErr)
-			}
-		}
-		if storageType == 3 {
-			cfg := cosConfig{
-				Region:    getString(configRecord, "cos_region"),
-				Bucket:    getString(configRecord, "cos_bucket"),
-				SecretId:  getString(configRecord, "cos_secret_id"),
-				SecretKey: getString(configRecord, "cos_secret_key"),
-			}
-			if delErr := deleteFromCOS(cfg, objectKey); delErr != nil {
-				g.Log().Warningf(ctx, "回滚COS文件失败: objectKey=%s, err=%v", objectKey, delErr)
-			}
-		}
+		runCleanupHook(ctx, "rollback", storeResult.OnRollback)
 		return nil, fmt.Errorf("保存文件记录失败: %v", err)
 	}
+	runCleanupHook(ctx, "commit", storeResult.OnCommit)
 
 	return &model.UploadOutput{
 		ID:      snowflake.JsonInt64(id),
-		URL:     fileURL,
+		URL:     storeResult.FileURL,
 		Name:    file.Filename,
 		Size:    file.Size,
-		Ext:     ext,
-		Mime:    file.FileHeader.Header.Get("Content-Type"),
-		IsImage: isImage,
+		Ext:     fileMeta.Ext,
+		Mime:    fileMeta.Mime,
+		IsImage: fileMeta.IsImage,
 	}, nil
+}
+
+type uploadFileMeta struct {
+	Ext     string
+	IsImage int
+	Mime    string
+}
+
+func buildUploadFileMeta(file *ghttp.UploadFile) uploadFileMeta {
+	ext := normalizeExt(filepath.Ext(file.Filename))
+	mimeType := strings.TrimSpace(file.FileHeader.Header.Get("Content-Type"))
+	if mimeType == "" {
+		mimeType = mime.TypeByExtension("." + ext)
+	}
+	isImage := 0
+	if imageExts[ext] || strings.HasPrefix(mimeType, "image/") {
+		isImage = 1
+	}
+	return uploadFileMeta{
+		Ext:     ext,
+		IsImage: isImage,
+		Mime:    mimeType,
+	}
 }
 
 // getString 安全地从 map[string]interface{} 中取字符串值

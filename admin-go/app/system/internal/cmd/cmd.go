@@ -9,6 +9,7 @@ import (
 
 	"gbaseadmin/app/system/internal/controller/auth"
 	"gbaseadmin/app/system/internal/controller/dept"
+	"gbaseadmin/app/system/internal/controller/health"
 	"gbaseadmin/app/system/internal/controller/hello"
 	"gbaseadmin/app/system/internal/controller/menu"
 	"gbaseadmin/app/system/internal/controller/role"
@@ -26,6 +27,7 @@ var (
 			s.Group("/", func(group *ghttp.RouterGroup) {
 				group.Middleware(ghttp.MiddlewareHandlerResponse)
 				group.Bind(
+					health.NewV1(),
 					hello.NewV1(),
 				)
 				// 系统管理模块

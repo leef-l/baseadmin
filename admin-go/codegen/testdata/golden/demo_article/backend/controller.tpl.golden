@@ -1,0 +1,227 @@
+package article
+
+import (
+	"context"
+	"encoding/csv"
+	"fmt"
+
+	"github.com/gogf/gf/v2/frame/g"
+
+	v1 "gbaseadmin/app/demo/api/demo/v1"
+	"gbaseadmin/app/demo/internal/model"
+	"gbaseadmin/app/demo/internal/service"
+)
+
+var Article = cArticle{}
+
+type cArticle struct{}
+
+// Create 创建文章
+func (c *cArticle) Create(ctx context.Context, req *v1.ArticleCreateReq) (res *v1.ArticleCreateRes, err error) {
+	err = service.Article().Create(ctx, &model.ArticleCreateInput{
+		CategoryID: req.CategoryID,
+		UserID: req.UserID,
+		Title: req.Title,
+		OrderNo: req.OrderNo,
+		Cover: req.Cover,
+		AttachmentFile: req.AttachmentFile,
+		BodyContent: req.BodyContent,
+		ExtraJSON: req.ExtraJSON,
+		LinkURL: req.LinkURL,
+		Status: req.Status,
+		Type: req.Type,
+		IsTop: req.IsTop,
+		Price: req.Price,
+		PayPassword: req.PayPassword,
+		Sort: req.Sort,
+		Icon: req.Icon,
+		Email: req.Email,
+		Phone: req.Phone,
+		Remark: req.Remark,
+		Level: req.Level,
+		ExtraField: req.ExtraField,
+		PublishAt: req.PublishAt,
+		ExpireAt: req.ExpireAt,
+	})
+	return
+}
+
+// Update 更新文章
+func (c *cArticle) Update(ctx context.Context, req *v1.ArticleUpdateReq) (res *v1.ArticleUpdateRes, err error) {
+	err = service.Article().Update(ctx, &model.ArticleUpdateInput{
+		ID: req.ID,
+		CategoryID: req.CategoryID,
+		UserID: req.UserID,
+		Title: req.Title,
+		OrderNo: req.OrderNo,
+		Cover: req.Cover,
+		AttachmentFile: req.AttachmentFile,
+		BodyContent: req.BodyContent,
+		ExtraJSON: req.ExtraJSON,
+		LinkURL: req.LinkURL,
+		Status: req.Status,
+		Type: req.Type,
+		IsTop: req.IsTop,
+		Price: req.Price,
+		PayPassword: req.PayPassword,
+		Sort: req.Sort,
+		Icon: req.Icon,
+		Email: req.Email,
+		Phone: req.Phone,
+		Remark: req.Remark,
+		Level: req.Level,
+		ExtraField: req.ExtraField,
+		PublishAt: req.PublishAt,
+		ExpireAt: req.ExpireAt,
+	})
+	return
+}
+
+// Delete 删除文章
+func (c *cArticle) Delete(ctx context.Context, req *v1.ArticleDeleteReq) (res *v1.ArticleDeleteRes, err error) {
+	err = service.Article().Delete(ctx, req.ID)
+	return
+}
+
+// BatchDelete 批量删除文章
+func (c *cArticle) BatchDelete(ctx context.Context, req *v1.ArticleBatchDeleteReq) (res *v1.ArticleBatchDeleteRes, err error) {
+	err = service.Article().BatchDelete(ctx, req.IDs)
+	return
+}
+
+// BatchUpdate 批量编辑文章
+func (c *cArticle) BatchUpdate(ctx context.Context, req *v1.ArticleBatchUpdateReq) (res *v1.ArticleBatchUpdateRes, err error) {
+	err = service.Article().BatchUpdate(ctx, &model.ArticleBatchUpdateInput{
+		IDs: req.IDs,
+		Status: req.Status,
+		Type: req.Type,
+		IsTop: req.IsTop,
+	})
+	return
+}
+
+// Detail 获取文章详情
+func (c *cArticle) Detail(ctx context.Context, req *v1.ArticleDetailReq) (res *v1.ArticleDetailRes, err error) {
+	res = &v1.ArticleDetailRes{}
+	res.ArticleDetailOutput, err = service.Article().Detail(ctx, req.ID)
+	return
+}
+
+// List 获取文章列表
+func (c *cArticle) List(ctx context.Context, req *v1.ArticleListReq) (res *v1.ArticleListRes, err error) {
+	res = &v1.ArticleListRes{}
+	res.List, res.Total, err = service.Article().List(ctx, &model.ArticleListInput{
+		PageNum:   req.PageNum,
+		PageSize:  req.PageSize,
+		OrderBy:   req.OrderBy,
+		OrderDir:  req.OrderDir,
+		StartTime: req.StartTime,
+		EndTime:   req.EndTime,
+		Keyword: req.Keyword,
+		OrderNo: req.OrderNo,
+		Title: req.Title,
+		Email: req.Email,
+		CategoryID: req.CategoryID,
+		UserID: req.UserID,
+		Status: req.Status,
+		Type: req.Type,
+		IsTop: req.IsTop,
+		Level: req.Level,
+		PublishAtStart: req.PublishAtStart,
+		PublishAtEnd: req.PublishAtEnd,
+		ExpireAtStart: req.ExpireAtStart,
+		ExpireAtEnd: req.ExpireAtEnd,
+	})
+	return
+}
+// Export 导出文章
+func (c *cArticle) Export(ctx context.Context, req *v1.ArticleExportReq) (res *v1.ArticleExportRes, err error) {
+	list, err := service.Article().Export(ctx, &model.ArticleListInput{
+		OrderBy:   req.OrderBy,
+		OrderDir:  req.OrderDir,
+		StartTime: req.StartTime,
+		EndTime:   req.EndTime,
+		Keyword: req.Keyword,
+		OrderNo: req.OrderNo,
+		Title: req.Title,
+		Email: req.Email,
+		CategoryID: req.CategoryID,
+		UserID: req.UserID,
+		Status: req.Status,
+		Type: req.Type,
+		IsTop: req.IsTop,
+		Level: req.Level,
+		PublishAtStart: req.PublishAtStart,
+		PublishAtEnd: req.PublishAtEnd,
+		ExpireAtStart: req.ExpireAtStart,
+		ExpireAtEnd: req.ExpireAtEnd,
+	})
+	if err != nil {
+		return
+	}
+	// CSV 导出（使用 csv.Writer 防止注入和格式问题）
+	r := g.RequestFromCtx(ctx)
+	r.Response.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	r.Response.Header().Set("Content-Disposition", `attachment; filename="article.csv"`)
+	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
+	w := csv.NewWriter(r.Response.Writer)
+	// 表头
+	_ = w.Write([]string{"CategoryID", "UserID", "Title", "OrderNo", "Cover", "AttachmentFile", "BodyContent", "ExtraJSON", "LinkURL", "Status", "Type", "IsTop", "Price", "Sort", "Icon", "Email", "Phone", "Remark", "Level", "ExtraField", "PublishAt", "ExpireAt", "创建时间"})
+	// 数据行
+	for _, item := range list {
+		_ = w.Write([]string{
+			item.CategoryName,
+			item.UsersUsername,
+			item.Title,
+			item.OrderNo,
+			item.Cover,
+			item.AttachmentFile,
+			item.BodyContent,
+			item.ExtraJSON,
+			item.LinkURL,
+			fmt.Sprintf("%v", item.Status),
+			fmt.Sprintf("%v", item.Type),
+			fmt.Sprintf("%v", item.IsTop),
+			fmt.Sprintf("%v", item.Price),
+			fmt.Sprintf("%v", item.Sort),
+			item.Icon,
+			item.Email,
+			item.Phone,
+			item.Remark,
+			item.Level,
+			item.ExtraField,
+			func() string { if item.PublishAt != nil { return item.PublishAt.String() }; return "" }(),
+			func() string { if item.ExpireAt != nil { return item.ExpireAt.String() }; return "" }(),
+			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
+		})
+	}
+	w.Flush()
+	return
+}
+
+// Import 导入文章
+func (c *cArticle) Import(ctx context.Context, req *v1.ArticleImportReq) (res *v1.ArticleImportRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	file := r.GetUploadFile("file")
+	if file == nil {
+		return nil, fmt.Errorf("请上传文件")
+	}
+	success, fail, err := service.Article().Import(ctx, file)
+	if err != nil {
+		return nil, err
+	}
+	res = &v1.ArticleImportRes{Success: success, Fail: fail}
+	return
+}
+
+// ImportTemplate 下载文章导入模板
+func (c *cArticle) ImportTemplate(ctx context.Context, req *v1.ArticleImportTemplateReq) (res *v1.ArticleImportTemplateRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	r.Response.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	r.Response.Header().Set("Content-Disposition", `attachment; filename="article_template.csv"`)
+	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
+	w := csv.NewWriter(r.Response.Writer)
+	_ = w.Write([]string{"CategoryID", "UserID", "Title", "OrderNo", "Cover", "AttachmentFile", "BodyContent", "ExtraJSON", "LinkURL", "Status", "Type", "IsTop", "Price", "Sort", "Icon", "Email", "Phone", "Remark", "Level", "ExtraField"})
+	w.Flush()
+	return
+}

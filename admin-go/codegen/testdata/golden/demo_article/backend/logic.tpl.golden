@@ -1,0 +1,499 @@
+package article
+
+import (
+	"context"
+	"encoding/csv"
+	"io"
+	"fmt"
+
+	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/net/ghttp"
+	"github.com/gogf/gf/v2/os/gtime"
+	"golang.org/x/crypto/bcrypt"
+
+	"gbaseadmin/app/demo/internal/dao"
+	"gbaseadmin/app/demo/internal/middleware"
+	"gbaseadmin/app/demo/internal/model"
+	"gbaseadmin/app/demo/internal/service"
+	"gbaseadmin/utility/snowflake"
+)
+
+func init() {
+	service.RegisterArticle(New())
+}
+
+func New() *sArticle {
+	return &sArticle{}
+}
+
+type sArticle struct{}
+
+// Create 创建文章
+func (s *sArticle) Create(ctx context.Context, in *model.ArticleCreateInput) error {
+	id := snowflake.Generate()
+	hashedPayPassword, err := bcrypt.GenerateFromPassword([]byte(in.PayPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	_, err = dao.DemoArticle.Ctx(ctx).Data(g.Map{
+		dao.DemoArticle.Columns().Id:        id,
+		dao.DemoArticle.Columns().CategoryId: in.CategoryID,
+		dao.DemoArticle.Columns().UserId: in.UserID,
+		dao.DemoArticle.Columns().Title: in.Title,
+		dao.DemoArticle.Columns().OrderNo: in.OrderNo,
+		dao.DemoArticle.Columns().Cover: in.Cover,
+		dao.DemoArticle.Columns().AttachmentFile: in.AttachmentFile,
+		dao.DemoArticle.Columns().BodyContent: in.BodyContent,
+		dao.DemoArticle.Columns().ExtraJson: in.ExtraJSON,
+		dao.DemoArticle.Columns().LinkUrl: in.LinkURL,
+		dao.DemoArticle.Columns().Status: in.Status,
+		dao.DemoArticle.Columns().Type: in.Type,
+		dao.DemoArticle.Columns().IsTop: in.IsTop,
+		dao.DemoArticle.Columns().Price: in.Price,
+		dao.DemoArticle.Columns().PayPassword: string(hashedPayPassword),
+		dao.DemoArticle.Columns().Sort: in.Sort,
+		dao.DemoArticle.Columns().Icon: in.Icon,
+		dao.DemoArticle.Columns().Email: in.Email,
+		dao.DemoArticle.Columns().Phone: in.Phone,
+		dao.DemoArticle.Columns().Remark: in.Remark,
+		dao.DemoArticle.Columns().Level: in.Level,
+		dao.DemoArticle.Columns().ExtraField: in.ExtraField,
+		dao.DemoArticle.Columns().PublishAt: in.PublishAt,
+		dao.DemoArticle.Columns().ExpireAt: in.ExpireAt,
+		dao.DemoArticle.Columns().CreatedBy: middleware.GetUserID(ctx),
+		dao.DemoArticle.Columns().DeptId: middleware.GetDeptID(ctx),
+		dao.DemoArticle.Columns().CreatedAt: gtime.Now(),
+		dao.DemoArticle.Columns().UpdatedAt: gtime.Now(),
+	}).Insert()
+	return err
+}
+
+// Update 更新文章
+func (s *sArticle) Update(ctx context.Context, in *model.ArticleUpdateInput) error {
+	data := g.Map{
+		dao.DemoArticle.Columns().CategoryId: in.CategoryID,
+		dao.DemoArticle.Columns().UserId: in.UserID,
+		dao.DemoArticle.Columns().Title: in.Title,
+		dao.DemoArticle.Columns().OrderNo: in.OrderNo,
+		dao.DemoArticle.Columns().Cover: in.Cover,
+		dao.DemoArticle.Columns().AttachmentFile: in.AttachmentFile,
+		dao.DemoArticle.Columns().BodyContent: in.BodyContent,
+		dao.DemoArticle.Columns().ExtraJson: in.ExtraJSON,
+		dao.DemoArticle.Columns().LinkUrl: in.LinkURL,
+		dao.DemoArticle.Columns().Status: in.Status,
+		dao.DemoArticle.Columns().Type: in.Type,
+		dao.DemoArticle.Columns().IsTop: in.IsTop,
+		dao.DemoArticle.Columns().Price: in.Price,
+		dao.DemoArticle.Columns().Sort: in.Sort,
+		dao.DemoArticle.Columns().Icon: in.Icon,
+		dao.DemoArticle.Columns().Email: in.Email,
+		dao.DemoArticle.Columns().Phone: in.Phone,
+		dao.DemoArticle.Columns().Remark: in.Remark,
+		dao.DemoArticle.Columns().Level: in.Level,
+		dao.DemoArticle.Columns().ExtraField: in.ExtraField,
+		dao.DemoArticle.Columns().PublishAt: in.PublishAt,
+		dao.DemoArticle.Columns().ExpireAt: in.ExpireAt,
+		dao.DemoArticle.Columns().UpdatedAt: gtime.Now(),
+	}
+	if in.PayPassword != "" {
+		hashed, err := bcrypt.GenerateFromPassword([]byte(in.PayPassword), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		data[dao.DemoArticle.Columns().PayPassword] = string(hashed)
+	}
+	// 含金额字段，使用事务 + 行锁保证并发安全
+	err := dao.DemoArticle.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		// FOR UPDATE 行锁
+		_, err := tx.Model(dao.DemoArticle.Table()).Ctx(ctx).
+			Where(dao.DemoArticle.Columns().Id, in.ID).
+			LockUpdate().
+			Value(dao.DemoArticle.Columns().Id)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Model(dao.DemoArticle.Table()).Ctx(ctx).
+			Where(dao.DemoArticle.Columns().Id, in.ID).
+			Data(data).Update()
+		return err
+	})
+	return err
+}
+
+// Delete 软删除文章
+func (s *sArticle) Delete(ctx context.Context, id snowflake.JsonInt64) error {
+	_, err := dao.DemoArticle.Ctx(ctx).Where(dao.DemoArticle.Columns().Id, id).Data(g.Map{
+		dao.DemoArticle.Columns().DeletedAt: gtime.Now(),
+	}).Update()
+	return err
+}
+
+// BatchDelete 批量软删除文章
+func (s *sArticle) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error {
+	_, err := dao.DemoArticle.Ctx(ctx).WhereIn(dao.DemoArticle.Columns().Id, ids).Data(g.Map{
+		dao.DemoArticle.Columns().DeletedAt: gtime.Now(),
+	}).Update()
+	return err
+}
+
+// Detail 获取文章详情
+func (s *sArticle) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.ArticleDetailOutput, err error) {
+	out = &model.ArticleDetailOutput{}
+	err = dao.DemoArticle.Ctx(ctx).Where(dao.DemoArticle.Columns().Id, id).Where(dao.DemoArticle.Columns().DeletedAt, nil).Scan(out)
+	if err != nil {
+		return nil, err
+	}
+	if out.ID == 0 {
+		return nil, nil
+	}
+	// 查询CategoryID关联显示
+	if out.CategoryID != 0 {
+		refQuery := g.DB().Ctx(ctx).Model("demo_category").Where("id", out.CategoryID)
+		refQuery = refQuery.Where("deleted_at", nil)
+		val, err := refQuery.Value("name")
+		if err == nil {
+			out.CategoryName = val.String()
+		}
+	}
+	// 查询UserID关联显示
+	if out.UserID != 0 {
+		refQuery := g.DB().Ctx(ctx).Model("system_users").Where("id", out.UserID)
+		refQuery = refQuery.Where("deleted_at", nil)
+		val, err := refQuery.Value("username")
+		if err == nil {
+			out.UsersUsername = val.String()
+		}
+	}
+	return
+}
+
+// applyListFilter 应用列表通用过滤条件
+func (s *sArticle) applyListFilter(ctx context.Context, in *model.ArticleListInput) *gdb.Model {
+	m := dao.DemoArticle.Ctx(ctx).Where(dao.DemoArticle.Columns().DeletedAt, nil)
+	if in.Keyword != "" {
+		keywordBuilder := m.Builder()
+		keywordBuilder = keywordBuilder.WhereLike(dao.DemoArticle.Columns().Title, "%"+in.Keyword+"%")
+		keywordBuilder = keywordBuilder.WhereOrLike(dao.DemoArticle.Columns().Email, "%"+in.Keyword+"%")
+		keywordBuilder = keywordBuilder.WhereOrLike(dao.DemoArticle.Columns().Phone, "%"+in.Keyword+"%")
+		keywordBuilder = keywordBuilder.WhereOrLike(dao.DemoArticle.Columns().LinkUrl, "%"+in.Keyword+"%")
+		keywordBuilder = keywordBuilder.WhereOrLike(dao.DemoArticle.Columns().Remark, "%"+in.Keyword+"%")
+		m = m.Where(keywordBuilder)
+	}
+	if in.OrderNo != "" {
+		m = m.Where(dao.DemoArticle.Columns().OrderNo, in.OrderNo)
+	}
+	if in.Title != "" {
+		m = m.WhereLike(dao.DemoArticle.Columns().Title, "%"+in.Title+"%")
+	}
+	if in.Email != "" {
+		m = m.WhereLike(dao.DemoArticle.Columns().Email, "%"+in.Email+"%")
+	}
+	if in.CategoryID != nil {
+		m = m.Where(dao.DemoArticle.Columns().CategoryId, *in.CategoryID)
+	}
+	if in.UserID != nil {
+		m = m.Where(dao.DemoArticle.Columns().UserId, *in.UserID)
+	}
+	if in.Status != nil {
+		m = m.Where(dao.DemoArticle.Columns().Status, *in.Status)
+	}
+	if in.Type != nil {
+		m = m.Where(dao.DemoArticle.Columns().Type, *in.Type)
+	}
+	if in.IsTop != nil {
+		m = m.Where(dao.DemoArticle.Columns().IsTop, *in.IsTop)
+	}
+	if in.Level != nil {
+		m = m.Where(dao.DemoArticle.Columns().Level, *in.Level)
+	}
+	if in.PublishAtStart != "" {
+		m = m.WhereGTE(dao.DemoArticle.Columns().PublishAt, in.PublishAtStart)
+	}
+	if in.PublishAtEnd != "" {
+		m = m.WhereLTE(dao.DemoArticle.Columns().PublishAt, in.PublishAtEnd)
+	}
+	if in.ExpireAtStart != "" {
+		m = m.WhereGTE(dao.DemoArticle.Columns().ExpireAt, in.ExpireAtStart)
+	}
+	if in.ExpireAtEnd != "" {
+		m = m.WhereLTE(dao.DemoArticle.Columns().ExpireAt, in.ExpireAtEnd)
+	}
+	if in.StartTime != "" {
+		m = m.WhereGTE(dao.DemoArticle.Columns().CreatedAt, in.StartTime)
+	}
+	if in.EndTime != "" {
+		m = m.WhereLTE(dao.DemoArticle.Columns().CreatedAt, in.EndTime)
+	}
+	// 数据权限过滤
+	m = middleware.ApplyDataScope(ctx, m, dao.DemoArticle.Columns().CreatedBy, dao.DemoArticle.Columns().DeptId)
+	return m
+}
+
+// fillRefFields 批量填充关联显示字段（避免 N+1 查询）
+func (s *sArticle) fillRefFields(ctx context.Context, list []*model.ArticleListOutput) {
+	{
+		idSet := make(map[int64]struct{})
+		for _, item := range list {
+			if item.CategoryID != 0 {
+				idSet[int64(item.CategoryID)] = struct{}{}
+			}
+		}
+		if len(idSet) > 0 {
+			ids := make([]int64, 0, len(idSet))
+			for id := range idSet {
+				ids = append(ids, id)
+			}
+			refQuery := g.DB().Ctx(ctx).Model("demo_category").
+				Fields("id", "name")
+			refQuery = refQuery.Where("deleted_at", nil)
+			rows, err := refQuery.WhereIn("id", ids).All()
+			if err == nil {
+				refMap := make(map[int64]string, len(rows))
+				for _, row := range rows {
+					refMap[row["id"].Int64()] = row["name"].String()
+				}
+				for _, item := range list {
+					if val, ok := refMap[int64(item.CategoryID)]; ok {
+						item.CategoryName = val
+					}
+				}
+			}
+		}
+	}
+	{
+		idSet := make(map[int64]struct{})
+		for _, item := range list {
+			if item.UserID != 0 {
+				idSet[int64(item.UserID)] = struct{}{}
+			}
+		}
+		if len(idSet) > 0 {
+			ids := make([]int64, 0, len(idSet))
+			for id := range idSet {
+				ids = append(ids, id)
+			}
+			refQuery := g.DB().Ctx(ctx).Model("system_users").
+				Fields("id", "username")
+			refQuery = refQuery.Where("deleted_at", nil)
+			rows, err := refQuery.WhereIn("id", ids).All()
+			if err == nil {
+				refMap := make(map[int64]string, len(rows))
+				for _, row := range rows {
+					refMap[row["id"].Int64()] = row["username"].String()
+				}
+				for _, item := range list {
+					if val, ok := refMap[int64(item.UserID)]; ok {
+						item.UsersUsername = val
+					}
+				}
+			}
+		}
+	}
+}
+
+// List 获取文章列表
+func (s *sArticle) List(ctx context.Context, in *model.ArticleListInput) (list []*model.ArticleListOutput, total int, err error) {
+	// PageSize 上限保护
+	if in.PageSize <= 0 {
+		in.PageSize = 10
+	} else if in.PageSize > 500 {
+		in.PageSize = 500
+	}
+	if in.PageNum <= 0 {
+		in.PageNum = 1
+	}
+	m := s.applyListFilter(ctx, in)
+	total, err = m.Count()
+	if err != nil {
+		return
+	}
+	// 动态排序（白名单校验防止 SQL 注入）
+	m = s.applyListOrder(m, in.OrderBy, in.OrderDir)
+	err = m.Page(in.PageNum, in.PageSize).Scan(&list)
+	if err != nil {
+		return
+	}
+	s.fillRefFields(ctx, list)
+	return
+}
+
+// isAllowedOrderField 校验排序字段是否在允许列表中
+func (s *sArticle) isAllowedOrderField(field string) bool {
+	allowed := map[string]bool{
+		dao.DemoArticle.Columns().Id:        true,
+		dao.DemoArticle.Columns().CreatedAt: true,
+		dao.DemoArticle.Columns().Sort:      true,
+		dao.DemoArticle.Columns().Status:    true,
+		dao.DemoArticle.Columns().Title: true,
+		dao.DemoArticle.Columns().OrderNo: true,
+		dao.DemoArticle.Columns().Price: true,
+		dao.DemoArticle.Columns().Phone: true,
+		dao.DemoArticle.Columns().Remark: true,
+	}
+	return allowed[field]
+}
+
+func (s *sArticle) applyListOrder(m *gdb.Model, orderBy, orderDir string) *gdb.Model {
+	if orderBy != "" && s.isAllowedOrderField(orderBy) {
+		if orderDir == "desc" {
+			return m.OrderDesc(orderBy)
+		}
+		return m.OrderAsc(orderBy)
+	}
+	return m.OrderAsc(dao.DemoArticle.Columns().Sort).OrderDesc(dao.DemoArticle.Columns().Id)
+}
+
+// Export 导出文章（不分页）
+func (s *sArticle) Export(ctx context.Context, in *model.ArticleListInput) (list []*model.ArticleListOutput, err error) {
+	m := s.applyListFilter(ctx, in)
+	err = s.applyListOrder(m, in.OrderBy, in.OrderDir).Limit(10000).Scan(&list)
+	if err != nil {
+		return
+	}
+	s.fillRefFields(ctx, list)
+	return
+}
+
+// BatchUpdate 批量编辑文章
+func (s *sArticle) BatchUpdate(ctx context.Context, in *model.ArticleBatchUpdateInput) error {
+	data := g.Map{
+		dao.DemoArticle.Columns().UpdatedAt: gtime.Now(),
+	}
+	if in.Status != nil {
+		data[dao.DemoArticle.Columns().Status] = *in.Status
+	}
+	if in.Type != nil {
+		data[dao.DemoArticle.Columns().Type] = *in.Type
+	}
+	if in.IsTop != nil {
+		data[dao.DemoArticle.Columns().IsTop] = *in.IsTop
+	}
+	_, err := dao.DemoArticle.Ctx(ctx).WhereIn(dao.DemoArticle.Columns().Id, in.IDs).Data(data).Update()
+	return err
+}
+
+// Import 导入文章
+func (s *sArticle) Import(ctx context.Context, file *ghttp.UploadFile) (success int, fail int, err error) {
+	f, err := file.Open()
+	if err != nil {
+		return 0, 0, err
+	}
+	defer f.Close()
+
+	reader := csv.NewReader(f)
+	// 跳过表头
+	if _, err = reader.Read(); err != nil {
+		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)
+	}
+
+	for {
+		record, readErr := reader.Read()
+		if readErr != nil {
+			if readErr == io.EOF {
+				break
+			}
+			return success, fail, fmt.Errorf("读取CSV数据失败: %w", readErr)
+		}
+		if len(record) == 0 {
+			continue
+		}
+		// 逐行插入
+		id := snowflake.Generate()
+		data := g.Map{
+			dao.DemoArticle.Columns().Id:        id,
+			dao.DemoArticle.Columns().CreatedAt: gtime.Now(),
+			dao.DemoArticle.Columns().UpdatedAt: gtime.Now(),
+			dao.DemoArticle.Columns().CreatedBy: middleware.GetUserID(ctx),
+			dao.DemoArticle.Columns().DeptId:    middleware.GetDeptID(ctx),
+		}
+		idx := 0
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().CategoryId] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().UserId] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().Title] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().OrderNo] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().Cover] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().AttachmentFile] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().BodyContent] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().ExtraJson] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().LinkUrl] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().Status] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().Type] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().IsTop] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().Price] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().Sort] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().Icon] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().Email] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().Phone] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().Remark] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().Level] = record[idx]
+		}
+		idx++
+		if idx < len(record) {
+			data[dao.DemoArticle.Columns().ExtraField] = record[idx]
+		}
+		idx++
+		if _, insertErr := dao.DemoArticle.Ctx(ctx).Data(data).Insert(); insertErr != nil {
+			fail++
+		} else {
+			success++
+		}
+	}
+	return
+}
+

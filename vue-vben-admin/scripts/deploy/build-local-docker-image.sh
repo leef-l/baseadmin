@@ -1,9 +1,15 @@
 #!/bin/bash
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+REPO_ROOT=$( cd -- "${SCRIPT_DIR}/../../.." &> /dev/null && pwd )
+LIMIT_RUNNER="${REPO_ROOT}/scripts/run-node-task-with-limits.sh"
 LOG_FILE=${SCRIPT_DIR}/build-local-docker-image.log
 ERROR=""
 IMAGE_NAME="vben-admin-local"
+
+: "${PNPM_NETWORK_CONCURRENCY:=3}"
+: "${PNPM_CHILD_CONCURRENCY:=1}"
+: "${FRONTEND_NODE_MAX_OLD_SPACE_SIZE:=1024}"
 
 function stop_and_remove_container() {
     # Stop and remove the existing container
@@ -19,7 +25,14 @@ function remove_image() {
 function install_dependencies() {
     # Install all dependencies
     cd ${SCRIPT_DIR}
-    pnpm install || ERROR="install_dependencies failed"
+    if [[ -x "${LIMIT_RUNNER}" ]]; then
+        "${LIMIT_RUNNER}" pnpm install --frozen-lockfile || ERROR="install_dependencies failed"
+    else
+        pnpm install \
+            --frozen-lockfile \
+            --network-concurrency="${PNPM_NETWORK_CONCURRENCY}" \
+            --child-concurrency="${PNPM_CHILD_CONCURRENCY}" || ERROR="install_dependencies failed"
+    fi
 }
 
 function build_image() {

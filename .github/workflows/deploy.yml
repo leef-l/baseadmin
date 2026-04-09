@@ -24,8 +24,8 @@ env:
   SERVER_HOST: pw.easytestdev.online
   SERVER_USER: root
   DEPLOY_DIR: /www/wwwroot/pw.easytestdev.online
-  GO_VERSION: '1.23'
-  NODE_VERSION: '20'
+  GO_VERSION: '1.25.0'
+  NODE_VERSION: '22.18.0'
 
 jobs:
   # ============================================
@@ -62,11 +62,89 @@ jobs:
             echo "value=auto" >> $GITHUB_OUTPUT
           fi
 
+  verify-backend:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.target == 'all' ||
+      needs.detect-changes.outputs.target == 'backend' ||
+      (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.backend == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            admin-go/go.sum
+            admin-go/codegen/go.sum
+
+      - name: Verify core scope
+        run: |
+          bash ./scripts/verify-baseadmin-scope.sh
+
+      - name: Test backend
+        run: |
+          cd admin-go
+          go test ./...
+
+      - name: Test codegen
+        run: |
+          cd admin-go/codegen
+          go test ./...
+
+  verify-frontend:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.target == 'all' ||
+      needs.detect-changes.outputs.target == 'frontend' ||
+      (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.frontend == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Verify core scope
+        run: |
+          bash ./scripts/verify-baseadmin-scope.sh
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-frontend-${{ hashFiles('vue-vben-admin/pnpm-lock.yaml') }}
+          restore-keys: pnpm-frontend-
+
+      - name: Install frontend dependencies
+        run: |
+          cd vue-vben-admin
+          pnpm install --frozen-lockfile
+
+      - name: Verify frontend page conventions
+        run: |
+          bash ./scripts/verify-vben-pages.sh
+
+      - name: Typecheck frontend
+        run: |
+          cd vue-vben-admin
+          pnpm -F @vben/web-antd typecheck
+
+      - name: Run frontend app tests
+        run: |
+          cd vue-vben-admin
+          pnpm test:web-antd
+
   # ============================================
   # Build & Deploy backend (sequential, one by one)
   # ============================================
   deploy-system:
-    needs: detect-changes
+    needs: [detect-changes, verify-backend]
     if: |
       needs.detect-changes.outputs.target == 'all' ||
       needs.detect-changes.outputs.target == 'backend' ||
@@ -133,89 +211,24 @@ jobs:
           echo "[$APP] Status: $status"
           if [ "$status" != "active" ]; then exit 1; fi
 
-          rm -rf /tmp/gba_stage/$APP
-          EOF
-
-  deploy-play:
-    needs: [detect-changes, deploy-system]
-    if: |
-      always() &&
-      (needs.deploy-system.result == 'success' || needs.deploy-system.result == 'skipped') &&
-      (
-        needs.detect-changes.outputs.target == 'all' ||
-        needs.detect-changes.outputs.target == 'backend' ||
-        (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.backend == 'true')
-      )
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: admin-go/go.sum
-
-      - name: Build play
-        run: |
-          cd admin-go
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-            go build -ldflags "-s -w" -o play ./app/play/main.go
-
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Deploy play
-        env:
-          REMOTE: ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}
-        run: |
-          ssh $REMOTE "mkdir -p /tmp/gba_stage/play"
-          scp admin-go/play $REMOTE:/tmp/gba_stage/play/play
-          scp -r admin-go/app/play/manifest $REMOTE:/tmp/gba_stage/play/
-          ssh $REMOTE bash <<'EOF'
-          set -e
-          APP=play
-          DEPLOY_DIR=/www/wwwroot/pw.easytestdev.online
-
-          echo "[$APP] Stopping service..."
-          systemctl stop gba-$APP 2>/dev/null || true
-          for i in $(seq 1 10); do
-              if ! pgrep -x "$APP" >/dev/null 2>&1; then break; fi
-              sleep 1
+          HEALTH_URL=http://127.0.0.1:8000/healthz
+          echo "[$APP] Health check: $HEALTH_URL"
+          for i in $(seq 1 15); do
+              if curl --silent --show-error --fail "$HEALTH_URL" >/dev/null; then
+                  break
+              fi
+              sleep 2
           done
-
-          echo "[$APP] Replacing binary..."
-          mkdir -p $DEPLOY_DIR/$APP
-          cp /tmp/gba_stage/$APP/$APP $DEPLOY_DIR/$APP/$APP
-          chmod +x $DEPLOY_DIR/$APP/$APP
-
-          if [ ! -f $DEPLOY_DIR/$APP/manifest/config/config.yaml ]; then
-              cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
-          fi
-
-          echo "[$APP] Starting service..."
-          systemctl start gba-$APP
-
-          for i in $(seq 1 8); do
-              status=$(systemctl is-active gba-$APP 2>/dev/null || echo 'unknown')
-              if [ "$status" = "active" ]; then break; fi
-              sleep 1
-          done
-
-          status=$(systemctl is-active gba-$APP 2>/dev/null || echo 'unknown')
-          echo "[$APP] Status: $status"
-          if [ "$status" != "active" ]; then exit 1; fi
+          curl --silent --show-error --fail "$HEALTH_URL" >/dev/null
 
           rm -rf /tmp/gba_stage/$APP
           EOF
 
   deploy-upload:
-    needs: [detect-changes, deploy-play]
+    needs: [detect-changes, deploy-system]
     if: |
       always() &&
-      (needs.deploy-play.result == 'success' || needs.deploy-play.result == 'skipped') &&
+      (needs.deploy-system.result == 'success' || needs.deploy-system.result == 'skipped') &&
       (
         needs.detect-changes.outputs.target == 'all' ||
         needs.detect-changes.outputs.target == 'backend' ||
@@ -283,6 +296,16 @@ jobs:
           echo "[$APP] Status: $status"
           if [ "$status" != "active" ]; then exit 1; fi
 
+          HEALTH_URL=http://127.0.0.1:8002/healthz
+          echo "[$APP] Health check: $HEALTH_URL"
+          for i in $(seq 1 15); do
+              if curl --silent --show-error --fail "$HEALTH_URL" >/dev/null; then
+                  break
+              fi
+              sleep 2
+          done
+          curl --silent --show-error --fail "$HEALTH_URL" >/dev/null
+
           rm -rf /tmp/gba_stage/$APP
           EOF
 
@@ -290,9 +313,10 @@ jobs:
   # Build & Deploy frontend
   # ============================================
   deploy-frontend:
-    needs: [detect-changes, deploy-upload]
+    needs: [detect-changes, deploy-upload, verify-frontend]
     if: |
       always() &&
+      (needs.verify-frontend.result == 'success' || needs.verify-frontend.result == 'skipped') &&
       (needs.deploy-upload.result == 'success' || needs.deploy-upload.result == 'skipped') &&
       (
         needs.detect-changes.outputs.target == 'all' ||
@@ -309,7 +333,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 10.32.1
 
       - name: Cache pnpm store
         uses: actions/cache@v4
@@ -342,11 +366,30 @@ jobs:
           ssh $REMOTE bash <<'EOF'
           set -e
           DEPLOY_DIR=/www/wwwroot/pw.easytestdev.online
-          mkdir -p $DEPLOY_DIR/admin
-          rm -rf $DEPLOY_DIR/admin/*
-          tar -xzf /tmp/gba_frontend.tar.gz -C $DEPLOY_DIR/admin/
+          RELEASES_DIR=$DEPLOY_DIR/.releases/admin
+          RELEASE_ID=$(date +%Y%m%d%H%M%S)
+          RELEASE_DIR=$RELEASES_DIR/$RELEASE_ID
+          NEXT_LINK=$DEPLOY_DIR/admin.__new
+
+          mkdir -p $RELEASES_DIR
+          rm -rf $RELEASE_DIR
+          mkdir -p $RELEASE_DIR
+          tar -xzf /tmp/gba_frontend.tar.gz -C $RELEASE_DIR
+          test -f $RELEASE_DIR/index.html
+
+          rm -f $NEXT_LINK
+          ln -s $RELEASE_DIR $NEXT_LINK
+
+          if [ -d $DEPLOY_DIR/admin ] && [ ! -L $DEPLOY_DIR/admin ]; then
+              LEGACY_BACKUP=$DEPLOY_DIR/.legacy-admin-$(date +%Y%m%d%H%M%S)
+              mv $DEPLOY_DIR/admin $LEGACY_BACKUP
+          fi
+
+          mv -Tf $NEXT_LINK $DEPLOY_DIR/admin
+
+          ls -1dt $RELEASES_DIR/* 2>/dev/null | tail -n +6 | xargs -r rm -rf
           rm -f /tmp/gba_frontend.tar.gz
-          echo "Frontend deployed"
+          echo "Frontend deployed to $RELEASE_DIR"
           EOF
 
   # ============================================
@@ -372,7 +415,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 10.32.1
 
       - name: Cache pnpm store
         uses: actions/cache@v4
@@ -416,7 +459,7 @@ jobs:
   # Final status report
   # ============================================
   status-check:
-    needs: [deploy-system, deploy-play, deploy-upload, deploy-frontend, deploy-wap]
+    needs: [deploy-system, deploy-upload, deploy-frontend, deploy-wap]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -430,11 +473,15 @@ jobs:
       - name: Check service status
         run: |
           ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} bash <<'EOF'
+          set -e
           echo "===== Service Status ====="
-          for app in system play upload; do
+          for app in system upload; do
               status=$(systemctl is-active gba-$app 2>/dev/null || echo "unknown")
               echo "gba-$app: $status"
           done
+          echo "===== Health Checks ====="
+          curl --silent --show-error --fail http://127.0.0.1:8000/healthz >/dev/null && echo "system health: ok"
+          curl --silent --show-error --fail http://127.0.0.1:8002/healthz >/dev/null && echo "upload health: ok"
           EOF
 
       - name: Summary
@@ -443,7 +490,6 @@ jobs:
           echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| system | ${{ needs.deploy-system.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| play | ${{ needs.deploy-play.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| upload | ${{ needs.deploy-upload.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend | ${{ needs.deploy-frontend.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| WAP | ${{ needs.deploy-wap.result }} |" >> $GITHUB_STEP_SUMMARY

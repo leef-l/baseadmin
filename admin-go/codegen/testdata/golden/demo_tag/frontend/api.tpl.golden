@@ -1,0 +1,74 @@
+import { requestClient } from '#/api/request';
+
+import type {
+  TagItem,
+  TagListParams,
+  TagCreateParams,
+  TagUpdateParams,
+} from './types';
+
+/** API 前缀 */
+const PREFIX = '/demo/tag';
+
+/** 获取标签列表 */
+export function getTagList(params: TagListParams) {
+  return requestClient.get<{ list: TagItem[]; total: number }>(
+    `${PREFIX}/list`,
+    { params },
+  );
+}
+
+/** 获取标签详情 */
+export function getTagDetail(id: string) {
+  return requestClient.get<TagItem>(`${PREFIX}/detail`, {
+    params: { id },
+  });
+}
+
+/** 创建标签 */
+export function createTag(data: TagCreateParams) {
+  return requestClient.post(`${PREFIX}/create`, data);
+}
+
+/** 更新标签 */
+export function updateTag(data: TagUpdateParams) {
+  return requestClient.put(`${PREFIX}/update`, data);
+}
+
+/** 删除标签 */
+export function deleteTag(id: string) {
+  return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
+}
+
+/** 批量删除标签 */
+export function batchDeleteTag(ids: string[]) {
+  return requestClient.delete(`${PREFIX}/batch-delete`, { data: { ids } });
+}
+
+/** 导出标签 */
+export function exportTag(params?: Partial<TagListParams>) {
+  return requestClient.get(`${PREFIX}/export`, {
+    params,
+    responseType: 'blob',
+  });
+}
+
+/** 导入标签 */
+export function importTag(data: FormData) {
+  return requestClient.post<{ success: number; fail: number }>(
+    `${PREFIX}/import`,
+    data,
+  );
+}
+
+/** 下载标签导入模板 */
+export function downloadImportTemplateTag() {
+  return requestClient.get(`${PREFIX}/import-template`, {
+    responseType: 'blob',
+  });
+}
+
+/** 批量编辑标签 */
+export function batchUpdateTag(data: { ids: string[]; status?: number; }) {
+  return requestClient.put(`${PREFIX}/batch-update`, data);
+}

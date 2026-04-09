@@ -44,6 +44,7 @@ type Config struct {
 	Database     DatabaseConfig              `yaml:"database"`
 	Backend      BackendConfig               `yaml:"backend"`
 	Frontend     FrontendConfig              `yaml:"frontend"`
+	AllowedApps  []string                    `yaml:"allowed_apps"`
 	SkipFields   []string                    `yaml:"skip_fields"`
 	MenuApps     map[string]MenuAppConfig    `yaml:"menu_apps"`
 	MenuModules  map[string]MenuModuleConfig `yaml:"menu_modules"`  // key: "appName/moduleName"
@@ -70,6 +71,10 @@ func LoadConfig(path string) (*Config, error) {
 	if err := yaml.Unmarshal([]byte(expanded), &cfg); err != nil {
 		return nil, fmt.Errorf("解析配置文件失败: %w", err)
 	}
+	cfg.AllowedApps = normalizeAllowedApps(cfg.AllowedApps)
+	if err := cfg.validateScope(); err != nil {
+		return nil, err
+	}
 	cfg.Backend.Output = resolveConfigPath(configDir, cfg.Backend.Output)
 	cfg.Frontend.Output = resolveConfigPath(configDir, cfg.Frontend.Output)
 	return &cfg, nil
@@ -95,6 +100,42 @@ func resolveConfigPath(configDir, value string) string {
 		return value
 	}
 	return filepath.Clean(filepath.Join(configDir, value))
+}
+
+func normalizeAllowedApps(values []string) []string {
+	if len(values) == 0 {
+		values = defaultAllowedApps()
+	}
+	seen := make(map[string]struct{}, len(values))
+	normalized := make([]string, 0, len(values))
+	for _, item := range values {
+		item = regexp.MustCompile(`\s+`).ReplaceAllString(item, "")
+		if item == "" {
+			continue
+		}
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		normalized = append(normalized, item)
+	}
+	return normalized
+}
+
+func (c *Config) validateScope() error {
+	if c == nil {
+		return fmt.Errorf("配置不能为空")
+	}
+	allowed := make(map[string]struct{}, len(c.AllowedApps))
+	for _, item := range c.AllowedApps {
+		allowed[item] = struct{}{}
+	}
+	for appName := range c.MenuApps {
+		if _, ok := allowed[appName]; !ok {
+			return fmt.Errorf("menu_apps 包含未授权应用: %s", appName)
+		}
+	}
+	return nil
 }
 
 // DSN 生成数据库连接字符串

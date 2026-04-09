@@ -1,42 +1,21 @@
-# EXAMPLE USAGE:
-#
-#   Refer for explanation to following link:
-#   https://lefthook.dev/configuration/
-#
-# pre-push:
-#   jobs:
-#     - name: packages audit
-#       tags:
-#         - frontend
-#         - security
-#       run: yarn audit
-#
-#     - name: gems audit
-#       tags:
-#         - backend
-#         - security
-#       run: bundle audit
-#
-# pre-commit:
-#   parallel: true
-#   jobs:
-#     - run: yarn eslint {staged_files}
-#       glob: "*.{js,ts,jsx,tsx}"
-#
-#     - name: rubocop
-#       glob: "*.rb"
-#       exclude:
-#         - config/application.rb
-#         - config/routes.rb
-#       run: bundle exec rubocop --force-exclusion -- {all_files}
-#
-#     - name: govet
-#       files: git ls-files -m
-#       glob: "*.go"
-#       run: go vet -- {files}
-#
-#     - script: "hello.js"
-#       runner: node
-#
-#     - script: "hello.go"
-#       runner: go run
+pre-commit:
+  jobs:
+    - name: verify-baseadmin-scope
+      run: bash ./scripts/verify-baseadmin-scope.sh
+    - name: verify-vben-pages
+      run: bash ./scripts/verify-vben-pages.sh
+
+pre-push:
+  jobs:
+    - name: verify-baseadmin-scope
+      run: bash ./scripts/verify-baseadmin-scope.sh
+    - name: backend-tests
+      run: cd admin-go && go test ./...
+    - name: codegen-tests
+      run: cd admin-go/codegen && go test ./...
+    - name: frontend-verify
+      run: bash ./scripts/verify-vben-pages.sh
+    - name: frontend-typecheck
+      run: cd vue-vben-admin && pnpm -F @vben/web-antd typecheck
+    - name: frontend-tests
+      run: cd vue-vben-admin && pnpm test:web-antd

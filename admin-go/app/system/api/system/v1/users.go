@@ -13,7 +13,7 @@ import (
 type UsersCreateReq struct {
 	g.Meta   `path:"/users/create" method:"post" tags:"用户表" summary:"创建用户表"`
 	Username string                `json:"username" v:"required#登录用户名不能为空" dc:"登录用户名"`
-	Password string                `json:"password" v:"required#密码不能为空" dc:"密码"`
+	Password string                `json:"password" v:"required|length:8,64#密码不能为空|密码长度8-64位" dc:"密码"`
 	Nickname string                `json:"nickname"  dc:"昵称/显示名"`
 	Email    string                `json:"email"  dc:"邮箱地址"`
 	Avatar   string                `json:"avatar"  dc:"头像图片 URL"`
@@ -93,7 +93,7 @@ type UsersListRes struct {
 type UsersResetPasswordReq struct {
 	g.Meta   `path:"/users/reset-password" method:"put" tags:"用户表" summary:"重置用户密码"`
 	ID       snowflake.JsonInt64 `json:"id" v:"required#ID不能为空" dc:"用户ID"`
-	Password string              `json:"password" v:"required#新密码不能为空" dc:"新密码"`
+	Password string              `json:"password" v:"required|length:8,64#新密码不能为空|密码长度8-64位" dc:"新密码"`
 }
 
 // UsersResetPasswordRes 重置用户密码响应

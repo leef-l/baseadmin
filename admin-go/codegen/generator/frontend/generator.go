@@ -31,12 +31,16 @@ func New(cfg Config) *Generator {
 	return &Generator{config: cfg}
 }
 
-// Generate 为一张表生成所有前端代码
-func (g *Generator) Generate(meta *parser.TableMeta) ([]string, error) {
-	return util.GenerateFiles(mappings, g.config.TemplateDir, g.config.OutputDir, meta.AppName, meta.ModuleName, g.config.Force, meta, g.config.Cache)
+// Plan 为一张表规划所有前端输出文件，不直接落盘。
+func (g *Generator) Plan(meta *parser.TableMeta) ([]util.PlannedFile, error) {
+	return util.PlanFiles(mappings, g.config.TemplateDir, g.config.OutputDir, meta.AppName, meta.ModuleName, g.config.Force, meta, g.config.Cache)
 }
 
-// GenerateToMemory 生成到内存（用于 dry-run diff 预览）
-func (g *Generator) GenerateToMemory(meta *parser.TableMeta) (map[string][]byte, error) {
-	return util.GenerateToMemory(mappings, g.config.TemplateDir, g.config.OutputDir, meta.AppName, meta.ModuleName, meta, g.config.Cache)
+// Generate 为一张表生成所有前端代码
+func (g *Generator) Generate(meta *parser.TableMeta) ([]string, error) {
+	plans, err := g.Plan(meta)
+	if err != nil {
+		return nil, err
+	}
+	return util.CommitPlannedFiles(plans)
 }

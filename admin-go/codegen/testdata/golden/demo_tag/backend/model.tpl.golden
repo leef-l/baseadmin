@@ -1,0 +1,67 @@
+package model
+
+import (
+	"github.com/gogf/gf/v2/os/gtime"
+
+	"gbaseadmin/utility/snowflake"
+)
+
+// Tag DTO 模型
+
+// TagCreateInput 创建标签输入
+type TagCreateInput struct {
+	Name string `json:"name"`
+	Color string `json:"color"`
+	Sort int `json:"sort"`
+	Status int `json:"status"`
+}
+
+// TagUpdateInput 更新标签输入
+type TagUpdateInput struct {
+	ID snowflake.JsonInt64 `json:"id"`
+	Name string `json:"name"`
+	Color string `json:"color"`
+	Sort int `json:"sort"`
+	Status int `json:"status"`
+}
+
+// TagDetailOutput 标签详情输出
+type TagDetailOutput struct {
+	ID snowflake.JsonInt64 `json:"id"`
+	Name string `json:"name"`
+	Color string `json:"color"`
+	Sort int `json:"sort"`
+	Status int `json:"status"`
+	CreatedAt *gtime.Time `json:"createdAt"`
+	UpdatedAt *gtime.Time `json:"updatedAt"`
+}
+
+// TagListOutput 标签列表输出
+type TagListOutput struct {
+	ID snowflake.JsonInt64 `json:"id"`
+	Name string `json:"name"`
+	Color string `json:"color"`
+	Sort int `json:"sort"`
+	Status int `json:"status"`
+	CreatedAt *gtime.Time `json:"createdAt"`
+	UpdatedAt *gtime.Time `json:"updatedAt"`
+}
+
+// TagListInput 标签列表查询输入
+type TagListInput struct {
+	PageNum   int    `json:"pageNum"`
+	PageSize  int    `json:"pageSize"`
+	OrderBy   string `json:"orderBy"`
+	OrderDir  string `json:"orderDir"`
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"endTime"`
+	Name string `json:"name"`
+	Status *int `json:"status"`
+}
+
+// TagBatchUpdateInput 批量编辑标签输入
+type TagBatchUpdateInput struct {
+	IDs    []snowflake.JsonInt64 `json:"ids"`
+	Status *int `json:"status"`
+}
+

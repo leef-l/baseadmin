@@ -1,15 +1,30 @@
 import { defineConfig } from '@vben/vite-config';
+import { loadEnv } from 'vite';
 
-export default defineConfig(async () => {
+export default defineConfig(async (configEnv) => {
+  const env = loadEnv(configEnv?.mode ?? 'development', process.cwd(), '');
+  const systemProxyTarget =
+    process.env.VITE_PROXY_SYSTEM_TARGET ||
+    env.VITE_PROXY_SYSTEM_TARGET ||
+    'http://127.0.0.1:44003';
+  const uploadProxyTarget =
+    process.env.VITE_PROXY_UPLOAD_TARGET ||
+    env.VITE_PROXY_UPLOAD_TARGET ||
+    'http://127.0.0.1:44004';
+
   return {
     application: {},
     vite: {
       server: {
         proxy: {
-          '/api': {
+          '/api/system': {
             changeOrigin: true,
-            // 后端 GoFrame 服务地址，不 rewrite，直接转发
-            target: 'https://pw.easytestdev.online',
+            target: systemProxyTarget,
+            ws: true,
+          },
+          '/api/upload': {
+            changeOrigin: true,
+            target: uploadProxyTarget,
             ws: true,
           },
         },

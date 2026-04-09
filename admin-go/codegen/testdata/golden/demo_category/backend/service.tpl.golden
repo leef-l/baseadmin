@@ -1,0 +1,28 @@
+package service
+
+import (
+	"context"
+	"gbaseadmin/app/demo/internal/model"
+	"gbaseadmin/utility/snowflake"
+)
+
+type ICategory interface {
+	Create(ctx context.Context, in *model.CategoryCreateInput) error
+	Update(ctx context.Context, in *model.CategoryUpdateInput) error
+	Delete(ctx context.Context, id snowflake.JsonInt64) error
+	Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.CategoryDetailOutput, err error)
+	List(ctx context.Context, in *model.CategoryListInput) (list []*model.CategoryListOutput, total int, err error)
+	Export(ctx context.Context, in *model.CategoryListInput) (list []*model.CategoryListOutput, err error)
+	Tree(ctx context.Context, in *model.CategoryTreeInput) (tree []*model.CategoryTreeOutput, err error)
+	BatchUpdate(ctx context.Context, in *model.CategoryBatchUpdateInput) error
+}
+
+var localCategory ICategory
+
+func Category() ICategory {
+	return localCategory
+}
+
+func RegisterCategory(i ICategory) {
+	localCategory = i
+}

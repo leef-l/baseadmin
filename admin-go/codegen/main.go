@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -32,6 +33,7 @@ func main() {
 		withMenu bool   // 同时生成菜单
 		withDAO  bool   // 是否执行 gf gen dao
 		withInit bool   // 是否执行 gf init
+		manifest string // 结构化 manifest 输出文件
 	)
 
 	flag.StringVar(&table, "table", "", "要生成的表名，多个用逗号分隔 (required)")
@@ -42,6 +44,7 @@ func main() {
 	flag.BoolVar(&withMenu, "menu", false, "同时生成菜单数据到数据库")
 	flag.BoolVar(&withDAO, "with-dao", false, "生成后是否执行 gf gen dao（默认关闭，避免高资源占用）")
 	flag.BoolVar(&withInit, "with-init", false, "应用目录不存在时是否执行 gf init（默认关闭，仅创建目录）")
+	flag.StringVar(&manifest, "manifest-out", "", "将本次生成计划写入 JSON manifest 文件")
 	flag.Parse()
 
 	if table == "" {
@@ -77,6 +80,11 @@ func main() {
 
 	start := time.Now()
 	totalFiles := 0
+	failures := &failureCollector{}
+	resultManifest := codegenManifest{
+		GeneratedAt: time.Now().Format(time.RFC3339),
+		DryRun:      dryRun,
+	}
 
 	// 获取当前工作目录（用于计算模板路径）
 	cwd, err := os.Getwd()
@@ -92,6 +100,7 @@ func main() {
 	// 按应用分组：记录每个应用的模块名和表名
 	appModules := make(map[string][]string) // appName -> []moduleName
 	appTables := make(map[string][]string)  // appName -> []tableName
+	menuMetas := make([]*parser.TableMeta, 0, len(tableNames))
 
 	for _, tableName := range tableNames {
 		fmt.Printf("\n[codegen] 开始生成表: %s\n", tableName)
@@ -100,11 +109,19 @@ func main() {
 		meta, err := p.ParseTable(tableName)
 		if err != nil {
 			fmt.Printf("[codegen] ✗ 解析表 %s 失败: %v\n", tableName, err)
+			failures.Add("表 "+tableName+" 解析", err)
 			continue
 		}
 
 		if meta.AppName == "" {
-			fmt.Printf("[codegen] ✗ 表名 %s 缺少应用前缀（格式: {app}_{module}，如 system_dept）\n", tableName)
+			err := fmt.Errorf("缺少应用前缀（格式: {app}_{module}，如 system_dept）")
+			fmt.Printf("[codegen] ✗ 表名 %s %v\n", tableName, err)
+			failures.Add("表 "+tableName+" 校验", err)
+			continue
+		}
+		if err := validateMetaScope(cfg, meta); err != nil {
+			fmt.Printf("[codegen] ✗ 表 %s 超出当前仓库范围: %v\n", tableName, err)
+			failures.Add("表 "+tableName+" 作用域校验", err)
 			continue
 		}
 
@@ -134,11 +151,13 @@ func main() {
 					fmt.Printf("[codegen] gf init 执行失败: %v，尝试手动创建目录\n", err)
 					if mkErr := os.MkdirAll(appDir, 0755); mkErr != nil {
 						fmt.Printf("[codegen] ✗ 创建目录失败: %v\n", mkErr)
+						failures.Add("应用 "+meta.AppName+" 创建目录", mkErr)
 						continue
 					}
 				}
 			} else if mkErr := os.MkdirAll(appDir, 0755); mkErr != nil {
 				fmt.Printf("[codegen] ✗ 创建目录失败: %v\n", mkErr)
+				failures.Add("应用 "+meta.AppName+" 创建目录", mkErr)
 				continue
 			}
 			fmt.Printf("[codegen] 应用 %s 创建完成\n", meta.AppName)
@@ -152,26 +171,32 @@ func main() {
 				backendGen := backend.New(backend.Config{
 					TemplateDir: filepath.Join(templateDir, "backend"),
 					OutputDir:   filepath.Join(cfg.Backend.Output, meta.AppName),
+					Force:       force,
 					Cache:       tplCache,
 				})
-				memFiles, err := backendGen.GenerateToMemory(meta)
+				plans, err := backendGen.Plan(meta)
 				if err != nil {
 					fmt.Printf("[codegen] ✗ 后端预览失败: %v\n", err)
+					failures.Add("表 "+tableName+" 后端预览", err)
 				} else {
-					printDiff(memFiles)
+					appendManifestPlans(&resultManifest, tableName, "backend", meta, plans)
+					printPlanDiff(plans)
 				}
 			}
 			if only != "backend" && only != "menu" {
 				frontendGen := frontend.New(frontend.Config{
 					TemplateDir: filepath.Join(templateDir, "frontend"),
 					OutputDir:   cfg.Frontend.Output,
+					Force:       force,
 					Cache:       tplCache,
 				})
-				memFiles, err := frontendGen.GenerateToMemory(meta)
+				plans, err := frontendGen.Plan(meta)
 				if err != nil {
 					fmt.Printf("[codegen] ✗ 前端预览失败: %v\n", err)
+					failures.Add("表 "+tableName+" 前端预览", err)
 				} else {
-					printDiff(memFiles)
+					appendManifestPlans(&resultManifest, tableName, "frontend", meta, plans)
+					printPlanDiff(plans)
 				}
 			}
 		} else {
@@ -185,14 +210,22 @@ func main() {
 					Force:       force,
 					Cache:       tplCache,
 				})
-				generated, err := backendGen.Generate(meta)
+				plans, err := backendGen.Plan(meta)
 				if err != nil {
 					fmt.Printf("[codegen] ✗ 后端生成失败: %v\n", err)
+					failures.Add("表 "+tableName+" 后端生成", err)
 				} else {
-					for _, f := range generated {
-						fmt.Printf("[codegen] 后端: %s\n", f)
+					appendManifestPlans(&resultManifest, tableName, "backend", meta, plans)
+					generated, err := util.CommitPlannedFiles(plans)
+					if err != nil {
+						fmt.Printf("[codegen] ✗ 后端生成失败: %v\n", err)
+						failures.Add("表 "+tableName+" 后端生成", err)
+					} else {
+						for _, f := range generated {
+							fmt.Printf("[codegen] 后端: %s\n", f)
+						}
+						files = append(files, generated...)
 					}
-					files = append(files, generated...)
 				}
 			}
 
@@ -204,14 +237,22 @@ func main() {
 					Force:       force,
 					Cache:       tplCache,
 				})
-				generated, err := frontendGen.Generate(meta)
+				plans, err := frontendGen.Plan(meta)
 				if err != nil {
 					fmt.Printf("[codegen] ✗ 前端生成失败: %v\n", err)
+					failures.Add("表 "+tableName+" 前端生成", err)
 				} else {
-					for _, f := range generated {
-						fmt.Printf("[codegen] 前端: %s\n", f)
+					appendManifestPlans(&resultManifest, tableName, "frontend", meta, plans)
+					generated, err := util.CommitPlannedFiles(plans)
+					if err != nil {
+						fmt.Printf("[codegen] ✗ 前端生成失败: %v\n", err)
+						failures.Add("表 "+tableName+" 前端生成", err)
+					} else {
+						for _, f := range generated {
+							fmt.Printf("[codegen] 前端: %s\n", f)
+						}
+						files = append(files, generated...)
 					}
-					files = append(files, generated...)
 				}
 			}
 		}
@@ -219,37 +260,22 @@ func main() {
 		fmt.Printf("[codegen] 表 %s 生成完成，共 %d 个文件\n", tableName, len(files))
 		totalFiles += len(files)
 
-		// 生成菜单数据
 		if only == "menu" || withMenu {
-			menuApps := make(map[string]menu.MenuAppConfig, len(cfg.MenuApps))
-			for k, v := range cfg.MenuApps {
-				menuApps[k] = menu.MenuAppConfig{Title: v.Title, Icon: v.Icon, Sort: v.Sort}
-			}
-			menuModules := make(map[string]menu.MenuModuleConfig, len(cfg.MenuModules))
-			for k, v := range cfg.MenuModules {
-				modCfg := menu.MenuModuleConfig{
-					Sort: v.Sort,
-					Icon: v.Icon,
-				}
-				if v.IsShow != nil {
-					modCfg.IsShow = v.IsShow
-				}
-				menuModules[k] = modCfg
-			}
-			menuGen := menu.New(menu.Config{
-				DSN:         cfg.Database.DSN(),
-				Force:       force,
-				DryRun:      dryRun,
-				MenuApps:    menuApps,
-				MenuModules: menuModules,
-			})
-			menuCount, err := menuGen.Generate(meta)
-			if err != nil {
-				fmt.Printf("[codegen] ✗ 菜单生成失败: %v\n", err)
-			} else {
-				fmt.Printf("[codegen] 表 %s 菜单生成完成，新增 %d 条\n", tableName, menuCount)
-				totalFiles += menuCount
-			}
+			menuMetas = append(menuMetas, meta)
+		}
+	}
+
+	if len(menuMetas) > 0 {
+		fmt.Printf("\n[codegen] ===== 批量生成菜单 =====\n")
+		menuGen := menu.New(buildMenuGeneratorConfig(cfg, force, dryRun))
+		menuCount, err := menuGen.GenerateBatch(menuMetas)
+		resultManifest.Menus = append(resultManifest.Menus, menuGen.PreviewOperations()...)
+		if err != nil {
+			fmt.Printf("[codegen] ✗ 菜单批量生成失败: %v\n", err)
+			failures.Add("菜单批量生成", err)
+		} else {
+			fmt.Printf("[codegen] 菜单批量生成完成，新增 %d 条\n", menuCount)
+			totalFiles += menuCount
 		}
 	}
 
@@ -270,6 +296,7 @@ func main() {
 			hackFile := filepath.Join(hackDir, "config.yaml")
 			if err := os.MkdirAll(hackDir, 0755); err != nil {
 				fmt.Printf("[codegen] ✗ 创建 hack 目录失败: %v\n", err)
+				failures.Add("应用 "+appName+" 创建 hack 目录", err)
 			} else {
 				hackData := map[string]string{
 					"DBLink": cfg.Database.DSNForHack(),
@@ -284,6 +311,7 @@ func main() {
 				)
 				if err != nil {
 					fmt.Printf("[codegen] ✗ 生成 hack/config.yaml 失败: %v\n", err)
+					failures.Add("应用 "+appName+" 生成 hack/config.yaml", err)
 				} else if written {
 					fmt.Printf("[codegen] hack/config.yaml\n")
 					totalFiles++
@@ -299,6 +327,7 @@ func main() {
 				daoCmd.Stderr = os.Stderr
 				if err := daoCmd.Run(); err != nil {
 					fmt.Printf("[codegen] gf gen dao 执行失败: %v\n", err)
+					failures.Add("应用 "+appName+" 执行 gf gen dao", err)
 				} else {
 					fmt.Printf("[codegen] gf gen dao 完成\n")
 				}
@@ -321,6 +350,7 @@ func main() {
 			)
 			if err != nil {
 				fmt.Printf("[codegen] ✗ 生成 main.go 失败: %v\n", err)
+				failures.Add("应用 "+appName+" 生成 main.go", err)
 			} else if written {
 				fmt.Printf("[codegen] main.go\n")
 				totalFiles++
@@ -330,6 +360,7 @@ func main() {
 			cmdDir := filepath.Join(appDir, "internal", "cmd")
 			if err := os.MkdirAll(cmdDir, 0755); err != nil {
 				fmt.Printf("[codegen] ✗ 创建 cmd 目录失败: %v\n", err)
+				failures.Add("应用 "+appName+" 创建 internal/cmd 目录", err)
 			} else {
 				cmdFile := filepath.Join(cmdDir, "cmd.go")
 				cmdData := map[string]interface{}{
@@ -345,6 +376,7 @@ func main() {
 				)
 				if err != nil {
 					fmt.Printf("[codegen] ✗ 生成 cmd.go 失败: %v\n", err)
+					failures.Add("应用 "+appName+" 生成 internal/cmd/cmd.go", err)
 				} else if written {
 					fmt.Printf("[codegen] internal/cmd/cmd.go\n")
 					totalFiles++
@@ -357,6 +389,7 @@ func main() {
 			written, err = copyFileIfAbsent(filepath.Join(templateDir, "backend", "middleware_auth.tpl"), mwFile)
 			if err != nil {
 				fmt.Printf("[codegen] ✗ 写入 middleware/auth.go 失败: %v\n", err)
+				failures.Add("应用 "+appName+" 写入 middleware/auth.go", err)
 			} else if written {
 				fmt.Printf("[codegen] internal/middleware/auth.go\n")
 				totalFiles++
@@ -369,6 +402,7 @@ func main() {
 			written, err = copyFileIfAbsent(filepath.Join(templateDir, "backend", "middleware_context.tpl"), mwCtxFile)
 			if err != nil {
 				fmt.Printf("[codegen] ✗ 写入 middleware/context.go 失败: %v\n", err)
+				failures.Add("应用 "+appName+" 写入 middleware/context.go", err)
 			} else if written {
 				fmt.Printf("[codegen] internal/middleware/context.go\n")
 				totalFiles++
@@ -382,6 +416,7 @@ func main() {
 			written, err = writeFileIfAbsent(packedFile, []byte("package packed\n"))
 			if err != nil {
 				fmt.Printf("[codegen] ✗ 写入 packed.go 失败: %v\n", err)
+				failures.Add("应用 "+appName+" 写入 internal/packed/packed.go", err)
 			} else if written {
 				fmt.Printf("[codegen] internal/packed/packed.go\n")
 				totalFiles++
@@ -392,7 +427,42 @@ func main() {
 	}
 
 	elapsed := time.Since(start)
+	if manifest != "" {
+		if err := writeManifest(manifest, resultManifest); err != nil {
+			fmt.Printf("[codegen] ✗ 写入 manifest 失败: %v\n", err)
+			failures.Add("写入 manifest", err)
+		} else {
+			fmt.Printf("[codegen] manifest: %s\n", manifest)
+		}
+	}
+	if failures.HasFailures() {
+		fmt.Printf("\n[codegen] 结束：已生成/更新 %d 项，耗时 %.1fs，但存在 %d 个失败项\n", totalFiles, elapsed.Seconds(), len(failures.items))
+		failures.PrintSummary()
+		os.Exit(1)
+	}
 	fmt.Printf("\n[codegen] 全部完成！共生成 %d 个文件，耗时 %.1fs\n", totalFiles, elapsed.Seconds())
+}
+
+type failureCollector struct {
+	items []string
+}
+
+func (c *failureCollector) Add(scope string, err error) {
+	if err == nil {
+		return
+	}
+	c.items = append(c.items, fmt.Sprintf("%s: %v", scope, err))
+}
+
+func (c *failureCollector) HasFailures() bool {
+	return len(c.items) > 0
+}
+
+func (c *failureCollector) PrintSummary() {
+	fmt.Printf("[codegen] 失败摘要：\n")
+	for _, item := range c.items {
+		fmt.Printf("[codegen] - %s\n", item)
+	}
 }
 
 func validateOnlyFlag(only string) error {
@@ -425,31 +495,105 @@ func parseTableNames(input string) ([]string, error) {
 	return tableNames, nil
 }
 
-// printDiff 打印文件 diff 预览
-func printDiff(files map[string][]byte) {
-	paths := make([]string, 0, len(files))
-	for path := range files {
-		paths = append(paths, path)
-	}
-	sort.Strings(paths)
+type codegenManifest struct {
+	GeneratedAt string                  `json:"generatedAt"`
+	DryRun      bool                    `json:"dryRun"`
+	Files       []manifestFileEntry     `json:"files,omitempty"`
+	Menus       []menu.PreviewOperation `json:"menus,omitempty"`
+}
 
-	for _, path := range paths {
-		newContent := files[path]
-		existing, err := os.ReadFile(path)
-		if err != nil {
-			// 新文件
-			fmt.Printf("\n\033[32m+ 新文件: %s (%d bytes)\033[0m\n", path, len(newContent))
-			continue
+type manifestFileEntry struct {
+	Table        string              `json:"table"`
+	AppName      string              `json:"appName"`
+	ModuleName   string              `json:"moduleName"`
+	Side         string              `json:"side"`
+	TemplateFile string              `json:"templateFile"`
+	OutputPath   string              `json:"outputPath"`
+	Action       util.FilePlanAction `json:"action"`
+	Bytes        int                 `json:"bytes"`
+}
+
+func appendManifestPlans(manifest *codegenManifest, tableName, side string, meta *parser.TableMeta, plans []util.PlannedFile) {
+	if manifest == nil || meta == nil {
+		return
+	}
+	for _, plan := range plans {
+		manifest.Files = append(manifest.Files, manifestFileEntry{
+			Table:        tableName,
+			AppName:      meta.AppName,
+			ModuleName:   meta.ModuleName,
+			Side:         side,
+			TemplateFile: plan.TemplateFile,
+			OutputPath:   plan.OutputPath,
+			Action:       plan.Action,
+			Bytes:        plan.Bytes,
+		})
+	}
+}
+
+func writeManifest(path string, manifest codegenManifest) error {
+	data, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+func buildMenuGeneratorConfig(cfg *Config, force, dryRun bool) menu.Config {
+	menuApps := make(map[string]menu.MenuAppConfig, len(cfg.MenuApps))
+	for k, v := range cfg.MenuApps {
+		menuApps[k] = menu.MenuAppConfig{Title: v.Title, Icon: v.Icon, Sort: v.Sort}
+	}
+	menuModules := make(map[string]menu.MenuModuleConfig, len(cfg.MenuModules))
+	for k, v := range cfg.MenuModules {
+		modCfg := menu.MenuModuleConfig{
+			Sort: v.Sort,
+			Icon: v.Icon,
 		}
-		if bytes.Equal(existing, newContent) {
-			fmt.Printf("  无变化: %s\n", path)
-			continue
+		if v.IsShow != nil {
+			modCfg.IsShow = v.IsShow
 		}
-		// 有差异
-		fmt.Printf("\n\033[33m~ 有变化: %s\033[0m\n", path)
-		oldLines := bytes.Split(existing, []byte("\n"))
-		newLines := bytes.Split(newContent, []byte("\n"))
-		fmt.Printf("  原文件: %d 行 -> 新文件: %d 行\n", len(oldLines), len(newLines))
+		menuModules[k] = modCfg
+	}
+	return menu.Config{
+		DSN:         cfg.Database.DSN(),
+		Force:       force,
+		DryRun:      dryRun,
+		MenuApps:    menuApps,
+		MenuModules: menuModules,
+	}
+}
+
+// printPlanDiff 打印 dry-run 文件计划预览。
+func printPlanDiff(plans []util.PlannedFile) {
+	sort.Slice(plans, func(i, j int) bool {
+		return plans[i].OutputPath < plans[j].OutputPath
+	})
+
+	for _, plan := range plans {
+		switch plan.Action {
+		case util.FilePlanActionCreate:
+			fmt.Printf("\n\033[32m+ 新文件: %s (%d bytes)\033[0m\n", plan.OutputPath, plan.Bytes)
+		case util.FilePlanActionUpdate:
+			existing, err := os.ReadFile(plan.OutputPath)
+			if err != nil {
+				fmt.Printf("\n\033[33m~ 有变化: %s (%d bytes)\033[0m\n", plan.OutputPath, plan.Bytes)
+				continue
+			}
+			oldLines := bytes.Split(existing, []byte("\n"))
+			newLines := bytes.Split(plan.Content, []byte("\n"))
+			fmt.Printf("\n\033[33m~ 有变化: %s\033[0m\n", plan.OutputPath)
+			fmt.Printf("  原文件: %d 行 -> 新文件: %d 行\n", len(oldLines), len(newLines))
+		case util.FilePlanActionSkipExisting:
+			fmt.Printf("  跳过（已存在，未使用 --force）: %s\n", plan.OutputPath)
+		case util.FilePlanActionProtectEnhance:
+			fmt.Printf("  保护（enhance 文件不覆盖）: %s\n", plan.OutputPath)
+		case util.FilePlanActionNoChange:
+			fmt.Printf("  无变化: %s\n", plan.OutputPath)
+		}
 	}
 }
 

@@ -8,7 +8,7 @@ export interface FileItem {
   name: string;
   url: string;
   ext?: string;
-  size?: string;
+  size?: number;
   mime?: string;
   storage?: number;
   isImage?: number;
@@ -33,7 +33,7 @@ export interface FileCreateParams {
   name: string;
   url: string;
   ext?: string;
-  size?: string;
+  size?: number;
   mime?: string;
   storage?: number;
   isImage?: number;
@@ -46,7 +46,7 @@ export interface FileUpdateParams {
   name: string;
   url: string;
   ext?: string;
-  size?: string;
+  size?: number;
   mime?: string;
   storage?: number;
   isImage?: number;

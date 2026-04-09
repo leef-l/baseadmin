@@ -1,0 +1,331 @@
+<script setup lang="ts">
+import { h, ref } from 'vue';
+import { useVbenModal } from '@vben/common-ui';
+import { useVbenForm } from '#/adapter/form';
+import { message, Tooltip } from 'ant-design-vue';
+import { QuestionCircleOutlined } from '@ant-design/icons-vue';
+import {
+  getArticleDetail,
+  createArticle,
+  updateArticle,
+} from '#/api/demo/article';
+import { getDictByType } from '#/api/system/dict';
+import { getCategoryTree } from '#/api/demo/category';
+import { getUsersList } from '#/api/system/users';
+
+/** Status选项 */
+const statusOptions = [
+  { label: '草稿', value: 0 },
+  { label: '已发布', value: 1 },
+  { label: '已下架', value: 2 },
+];
+
+/** Type选项 */
+const typeOptions = [
+  { label: '普通', value: 1 },
+  { label: '置顶', value: 2 },
+  { label: '推荐', value: 3 },
+  { label: '热门', value: 4 },
+];
+const categoryIdOptions = ref<{ label: string; value: string }[]>([]);
+const userIdOptions = ref<{ label: string; value: string }[]>([]);
+const levelDictOptions = ref<{ label: string; value: string | number }[]>([]);
+/** 渲染带 Tooltip 的表单 label */
+function tooltipLabel(label: string, tip: string) {
+  return () => h('span', {}, [
+    label + ' ',
+    h(Tooltip, { title: tip }, {
+      default: () => h(QuestionCircleOutlined, { style: { color: '#999', marginLeft: '4px' } }),
+    }),
+  ]);
+}
+
+const emit = defineEmits<{ success: [] }>();
+const isEdit = ref(false);
+const editId = ref('');
+const openToken = ref(0);
+
+/** 表单配置 */
+const [Form, formApi] = useVbenForm({
+  showDefaultActions: false,
+  schema: [
+    {
+      component: 'TreeSelect',
+      fieldName: 'categoryId',
+      label: 'CategoryID',
+      rules: 'selectRequired',
+      componentProps: {
+        treeData: [],
+        fieldNames: { label: 'name', value: 'id', children: 'children' },
+        placeholder: '请选择CategoryID',
+        allowClear: true,
+        treeDefaultExpandAll: true,
+        class: 'w-full',
+      },
+    },
+    {
+      component: 'Select',
+      fieldName: 'userId',
+      label: 'UserID',
+      rules: 'selectRequired',
+      componentProps: { options: [], placeholder: '请选择UserID', allowClear: true, class: 'w-full' },
+    },
+    {
+      component: 'Input',
+      fieldName: 'title',
+      label: 'Title',
+      rules: 'required',
+      componentProps: { placeholder: '请输入Title', maxlength: 200 },
+    },
+    {
+      component: 'Input',
+      fieldName: 'orderNo',
+      label: 'OrderNo',
+      rules: 'required',
+      componentProps: { placeholder: '请输入OrderNo', maxlength: 50 },
+    },
+    {
+      component: 'ImageUpload',
+      fieldName: 'cover',
+      label: 'Cover',
+      componentProps: { maxCount: 1 },
+    },
+    {
+      component: 'FileUpload',
+      fieldName: 'attachmentFile',
+      label: 'AttachmentFile',
+      componentProps: { maxCount: 1 },
+    },
+    {
+      component: 'RichText',
+      fieldName: 'bodyContent',
+      label: 'BodyContent',
+      formItemClass: 'col-span-full',
+    },
+    {
+      component: 'JsonEditor',
+      fieldName: 'extraJSON',
+      label: 'ExtraJSON',
+      formItemClass: 'col-span-full',
+    },
+    {
+      component: 'Input',
+      fieldName: 'linkURL',
+      label: 'LinkURL',
+      componentProps: { placeholder: '请输入URL地址', maxlength: 500, addonBefore: 'https://' },
+    },
+    {
+      component: 'RadioGroup',
+      fieldName: 'status',
+      label: 'Status',
+      componentProps: { options: statusOptions },
+    },
+    {
+      component: 'Select',
+      fieldName: 'type',
+      label: 'Type',
+      componentProps: { options: typeOptions, placeholder: '请选择Type', allowClear: true, class: 'w-full' },
+    },
+    {
+      component: 'Switch',
+      fieldName: 'isTop',
+      label: 'IsTop',
+      componentProps: { checkedValue: 1, unCheckedValue: 0 },
+      defaultValue: 0,
+    },
+    {
+      component: 'InputNumber',
+      fieldName: 'price',
+      label: 'Price',
+      componentProps: { placeholder: '请输入Price', class: 'w-full' },
+    },
+    {
+      component: 'InputPassword',
+      fieldName: 'payPassword',
+      label: 'PayPassword',
+      dependencies: {
+        triggerFields: ['payPassword'],
+        rules: () => (isEdit.value ? undefined : 'required'),
+        componentProps: () => ({
+          placeholder: isEdit.value ? '不填则不修改' : '请输入PayPassword',
+        }),
+      },
+    },
+    {
+      component: 'InputNumber',
+      fieldName: 'sort',
+      label: tooltipLabel('Sort', '升序'),
+      componentProps: { placeholder: '请输入Sort', class: 'w-full' },
+    },
+    {
+      component: 'IconPicker',
+      fieldName: 'icon',
+      label: 'Icon',
+      componentProps: { placeholder: '请选择图标' },
+    },
+    {
+      component: 'Input',
+      fieldName: 'email',
+      label: 'Email',
+      componentProps: { placeholder: '请输入Email', maxlength: 100 },
+    },
+    {
+      component: 'Input',
+      fieldName: 'phone',
+      label: 'Phone',
+      componentProps: { placeholder: '请输入Phone', maxlength: 20 },
+    },
+    {
+      component: 'Textarea',
+      fieldName: 'remark',
+      label: 'Remark',
+      componentProps: { placeholder: '请输入Remark', rows: 4 },
+    },
+    {
+      component: 'Select',
+      fieldName: 'level',
+      label: 'Level',
+      componentProps: { options: [], placeholder: '请选择Level', allowClear: true, class: 'w-full' },
+    },
+    {
+      component: 'Input',
+      fieldName: 'extraField',
+      label: 'ExtraField',
+      componentProps: { placeholder: '请输入ExtraField' },
+    },
+    {
+      component: 'DatePicker',
+      fieldName: 'publishAt',
+      label: 'PublishAt',
+      componentProps: { showTime: true, placeholder: '请选择PublishAt', class: 'w-full', valueFormat: 'YYYY-MM-DD HH:mm:ss' },
+    },
+    {
+      component: 'DatePicker',
+      fieldName: 'expireAt',
+      label: 'ExpireAt',
+      componentProps: { showTime: true, placeholder: '请选择ExpireAt', class: 'w-full', valueFormat: 'YYYY-MM-DD HH:mm:ss' },
+    },
+  ],
+});
+
+/** Modal 配置 */
+const [Modal, modalApi] = useVbenModal({
+  fullscreenButton: false,
+  onCancel() {
+    modalApi.close();
+  },
+  onConfirm: async () => {
+    const values = await formApi.validateAndSubmitForm();
+    if (!values) return;
+    modalApi.lock();
+    try {
+      if (isEdit.value) {
+        await updateArticle({ id: editId.value, ...values });
+        message.success('更新成功');
+      } else {
+        await createArticle(values);
+        message.success('创建成功');
+      }
+      emit('success');
+      modalApi.close();
+    } finally {
+      modalApi.lock(false);
+    }
+  },
+  async onOpenChange(isOpen: boolean) {
+    if (!isOpen) {
+      openToken.value += 1;
+      return;
+    }
+
+    const currentOpenToken = ++openToken.value;
+    formApi.resetForm();
+    const data = modalApi.getData<{ id?: string } | null>();
+    // 加载CategoryID树形数据
+    try {
+      const categoryRes = await getCategoryTree();
+      if (currentOpenToken !== openToken.value) {
+        return;
+      }
+      categoryIdOptions.value = categoryRes ?? [];
+      formApi.updateSchema([
+        {
+          fieldName: 'categoryId',
+          componentProps: { treeData: categoryIdOptions.value },
+        },
+      ]);
+    } catch {
+      // ignore
+    }
+    // 加载UserID选项
+    try {
+      const usersRes = await getUsersList({ pageNum: 1, pageSize: 1000 });
+      if (currentOpenToken !== openToken.value) {
+        return;
+      }
+      userIdOptions.value = (usersRes?.list ?? []).map((item: any) => ({
+        label: item.username || item.id,
+        value: item.id,
+      }));
+      formApi.updateSchema([
+        {
+          fieldName: 'userId',
+          componentProps: { options: userIdOptions.value },
+        },
+      ]);
+    } catch {
+      // ignore
+    }
+    // 加载Level字典
+    try {
+      const dictRes = await getDictByType('article_level');
+      if (currentOpenToken !== openToken.value) {
+        return;
+      }
+      levelDictOptions.value = (dictRes ?? []).map((item: any) => ({
+        label: item.label,
+        value: item.value,
+      }));
+      formApi.updateSchema([
+        {
+          fieldName: 'level',
+          componentProps: { options: levelDictOptions.value },
+        },
+      ]);
+    } catch {
+      // ignore
+    }
+    if (currentOpenToken !== openToken.value) {
+      return;
+    }
+    if (data?.id) {
+      isEdit.value = true;
+      editId.value = data.id;
+      modalApi.setState({ title: '编辑文章' });
+      try {
+        const detail = await getArticleDetail(data.id);
+        if (currentOpenToken !== openToken.value) {
+          return;
+        }
+        if (detail) {
+          formApi.setValues(detail);
+        }
+      } catch {
+        if (currentOpenToken === openToken.value) {
+          message.error('获取详情失败');
+        }
+      }
+    } else {
+      isEdit.value = false;
+      editId.value = '';
+      modalApi.setState({ title: '新建文章' });
+    }
+  },
+});
+</script>
+
+<template>
+  <Modal class="w-[800px]">
+    <Form />
+  </Modal>
+</template>

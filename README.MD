@@ -7,9 +7,20 @@
 - `vue-vben-admin/apps/web-antd/src/`
 - `admin-go/codegen/`
 
+当前代码里实际保留的业务模块：
+
+- `system`：`auth`、`dept`、`role`、`menu`、`users`，以及公开探活 `healthz`
+- `upload`：`config`、`dir`、`dir_rule`、`file`、`uploader`，以及公开探活 `healthz`
+- `web-antd` 页面：`views/system/{dept,menu,role,users}`、`views/upload/{config,dir,dir_rule,file}`
+- 上传复用组件：`components/file-manager`、`components/upload`、`components/tinymce`、`components/json-editor`
+
 详细说明统一放在 `docs/` 目录：
 
 - [文档索引](docs/README.md)
+- [代码库导读](docs/代码库导读.md)
+- [System 应用说明](admin-go/app/system/README.MD)
+- [Upload 应用说明](admin-go/app/upload/README.MD)
+- [代码生成器说明](admin-go/codegen/README.md)
 - [Git 提交流程铁律](docs/Git提交流程铁律.md)
 - [基础框架说明](docs/基础框架说明.md)
 - [Docker 开发说明](docs/Docker开发说明.md)
@@ -69,6 +80,8 @@ Docker 铁律：
 ./docker/dev/compose.sh --profile frontend up -d --build frontend
 ```
 
+前端启动脚本会先校验宿主机可用内存，默认要求至少 `2048MB`；不足时会直接拒绝启动。确需强制启动时可临时设置 `ALLOW_LOW_MEMORY_FRONTEND=1`，也可通过 `FRONTEND_MIN_HOST_MEM_MB` 调整阈值。
+
 国内镜像：
 
 ```bash
@@ -94,6 +107,7 @@ Docker 铁律：
 - 自动选择 `docker/dev/docker-compose.yml` 或 `docker/dev/docker-compose.cn.yml`
 - 默认执行 `docker compose up -d --build`，仅启动后端、数据库和 adminer
 - `frontend` 改为显式启用 profile，避免低配机器在启动时触发 `pnpm install`
+- 检测到 `frontend` 启动请求时，会先做宿主机内存门槛校验，避免误把低配机器拖死
 
 ### 默认开发账号和连接
 
@@ -118,6 +132,30 @@ Docker 铁律：
 - frontend：`44005`（容器内 `5666`，需显式启用 `frontend` profile）
 - adminer：`44006`
 
+### 健康检查
+
+- `system`：`GET /healthz`
+- `upload`：`GET /healthz`
+
+### 本地直跑（非 Docker）
+
+- 后端读取 `admin-go/.env`
+- 前端读取 `vue-vben-admin/apps/web-antd/.env.development`
+
+```bash
+cd admin-go
+go run ./app/system/main.go
+go run ./app/upload/main.go
+
+cd ../vue-vben-admin
+pnpm dev:antd
+```
+
+- 后端通常分两个终端分别启动 `system` 和 `upload`
+- `web-antd` 直跑时仍使用 `/api` 作为 baseURL
+- `/api/system` 默认代理到 `127.0.0.1:44003`
+- `/api/upload` 默认代理到 `127.0.0.1:44004`
+
 ### 常用排查命令
 
 ```powershell
@@ -134,7 +172,10 @@ docker compose --env-file .\docker\dev\.env -f .\docker\dev\docker-compose.yml l
 ./scripts/feature-publish.sh "feat(scope): summary"
 ```
 
+- 默认只发布已经 `git add` 过的内容；工作区里如果还有未暂存或未跟踪文件，脚本会拒绝执行
+- 只有确认当前所有改动都属于同一批交付时，才使用 `./scripts/feature-publish.sh --all "feat(scope): summary"`
 - 如果这次功能包含数据库改动，必须先补 `admin-go/database/migrations/`，再执行提交脚本
+- 仓库启用了 `lefthook`：`pre-commit` 会跑页面规范校验，`pre-push` 会跑后端测试、codegen 测试、前端 typecheck 和 `web-antd` 单测
 
 ## Vben 组件铁律
 

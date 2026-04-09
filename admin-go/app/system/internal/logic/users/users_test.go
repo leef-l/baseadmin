@@ -78,4 +78,7 @@ func TestResetPasswordInputValidation(t *testing.T) {
 	if err := usersSvc.ResetPassword(nil, &model.UsersResetPasswordInput{ID: 1, Password: "   "}); err == nil || err.Error() != "新密码不能为空" {
 		t.Fatalf("ResetPassword blank password mismatch: %v", err)
 	}
+	if err := usersSvc.ResetPassword(nil, &model.UsersResetPasswordInput{ID: 1, Password: "short1"}); err == nil || err.Error() != "密码长度需为8-64位" {
+		t.Fatalf("ResetPassword weak password mismatch: %v", err)
+	}
 }

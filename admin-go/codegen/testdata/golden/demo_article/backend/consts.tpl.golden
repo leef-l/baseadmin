@@ -1,0 +1,23 @@
+package consts
+
+// ArticleStatus Status
+const (
+	ArticleStatusDraft = 0 // 草稿
+	ArticleStatusPublished = 1 // 已发布
+	ArticleStatusOffline = 2 // 已下架
+)
+
+// ArticleType Type
+const (
+	ArticleTypeRegular = 1 // 普通
+	ArticleTypePinned = 2 // 置顶
+	ArticleTypeRecommended = 3 // 推荐
+	ArticleTypeHot = 4 // 热门
+)
+
+// ArticleIsTop IsTop
+const (
+	ArticleIsTopNo = 0 // 否
+	ArticleIsTopYes = 1 // 是
+)
+

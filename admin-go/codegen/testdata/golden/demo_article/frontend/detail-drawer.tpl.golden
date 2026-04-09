@@ -1,0 +1,142 @@
+<script setup lang="ts">
+import { ref } from 'vue';
+import { useVbenModal } from '@vben/common-ui';
+import { Descriptions, DescriptionsItem, Tag } from 'ant-design-vue';
+import { getArticleDetail } from '#/api/demo/article';
+import type { ArticleItem } from '#/api/demo/article/types';
+
+/** 标签颜色池 */
+const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
+
+/** Status映射 */
+const statusMap: Record<number | string, string> = {
+  0: '草稿',
+  1: '已发布',
+  2: '已下架',
+};
+
+/** Status颜色 */
+function getStatusColor(val: number | string): string {
+  const keys = [0, 1, 2];
+  const idx = keys.indexOf(val);
+  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
+}
+
+/** Type映射 */
+const typeMap: Record<number | string, string> = {
+  1: '普通',
+  2: '置顶',
+  3: '推荐',
+  4: '热门',
+};
+
+/** Type颜色 */
+function getTypeColor(val: number | string): string {
+  const keys = [1, 2, 3, 4];
+  const idx = keys.indexOf(val);
+  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
+}
+
+/** IsTop映射 */
+const isTopMap: Record<number | string, string> = {
+  0: '否',
+  1: '是',
+};
+
+/** IsTop颜色 */
+function getIsTopColor(val: number | string): string {
+  const keys = [0, 1];
+  const idx = keys.indexOf(val);
+  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
+}
+
+const detail = ref<ArticleItem | null>(null);
+const openToken = ref(0);
+
+function displayValue(value: null | number | string | undefined) {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  return value;
+}
+
+const [Modal, modalApi] = useVbenModal({
+  fullscreenButton: false,
+  footer: false,
+  async onOpenChange(isOpen: boolean) {
+    if (!isOpen) {
+      openToken.value += 1;
+      detail.value = null;
+      return;
+    }
+
+    const currentOpenToken = ++openToken.value;
+    const data = modalApi.getData<{ id: string }>();
+    if (data?.id) {
+      modalApi.setState({ title: '文章详情' });
+      try {
+        const res = await getArticleDetail(data.id);
+        if (currentOpenToken !== openToken.value) {
+          return;
+        }
+        detail.value = res;
+      } catch {
+        if (currentOpenToken === openToken.value) {
+          detail.value = null;
+        }
+      }
+    }
+  },
+});
+</script>
+
+<template>
+  <Modal class="w-[600px]">
+    <Descriptions v-if="detail" bordered :column="1" size="small">
+      <DescriptionsItem label="ID">{{ detail.id }}</DescriptionsItem>
+      <DescriptionsItem label="CategoryID">{{ detail.categoryName || '-' }}</DescriptionsItem>
+      <DescriptionsItem label="UserID">{{ detail.usersUsername || '-' }}</DescriptionsItem>
+      <DescriptionsItem label="Title">{{ displayValue(detail.title) }}</DescriptionsItem>
+      <DescriptionsItem label="OrderNo">{{ displayValue(detail.orderNo) }}</DescriptionsItem>
+      <DescriptionsItem label="Cover">
+        <img v-if="detail.cover" :src="detail.cover" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
+        <span v-else>-</span>
+      </DescriptionsItem>
+      <DescriptionsItem label="AttachmentFile">
+        <a v-if="detail.attachmentFile" :href="detail.attachmentFile" target="_blank" rel="noreferrer noopener">查看文件</a>
+        <span v-else>-</span>
+      </DescriptionsItem>
+      <DescriptionsItem label="BodyContent">
+        <div v-html="detail.bodyContent" style="max-height: 300px; overflow: auto;" />
+      </DescriptionsItem>
+      <DescriptionsItem label="ExtraJSON">
+        <pre style="max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 12px;">{{ (() => { try { return JSON.stringify(JSON.parse(detail.extraJSON), null, 2) } catch { return detail.extraJSON } })() }}</pre>
+      </DescriptionsItem>
+      <DescriptionsItem label="LinkURL">
+        <a v-if="detail.linkURL" :href="detail.linkURL" target="_blank" rel="noreferrer noopener">{{ detail.linkURL }}</a>
+        <span v-else>-</span>
+      </DescriptionsItem>
+      <DescriptionsItem label="Status">
+        <Tag :color="getStatusColor(detail.status)">{{ statusMap[detail.status] || detail.status }}</Tag>
+      </DescriptionsItem>
+      <DescriptionsItem label="Type">
+        <Tag :color="getTypeColor(detail.type)">{{ typeMap[detail.type] || detail.type }}</Tag>
+      </DescriptionsItem>
+      <DescriptionsItem label="IsTop">
+        <Tag :color="getIsTopColor(detail.isTop)">{{ isTopMap[detail.isTop] || detail.isTop }}</Tag>
+      </DescriptionsItem>
+      <DescriptionsItem label="Price">{{ detail.price != null ? (detail.price / 100).toFixed(2) : '-' }}</DescriptionsItem>
+      <DescriptionsItem label="Sort">{{ displayValue(detail.sort) }}</DescriptionsItem>
+      <DescriptionsItem label="Icon">{{ displayValue(detail.icon) }}</DescriptionsItem>
+      <DescriptionsItem label="Email">{{ displayValue(detail.email) }}</DescriptionsItem>
+      <DescriptionsItem label="Phone">{{ displayValue(detail.phone) }}</DescriptionsItem>
+      <DescriptionsItem label="Remark">{{ displayValue(detail.remark) }}</DescriptionsItem>
+      <DescriptionsItem label="Level">{{ displayValue(detail.level) }}</DescriptionsItem>
+      <DescriptionsItem label="ExtraField">{{ displayValue(detail.extraField) }}</DescriptionsItem>
+      <DescriptionsItem label="PublishAt">{{ displayValue(detail.publishAt) }}</DescriptionsItem>
+      <DescriptionsItem label="ExpireAt">{{ displayValue(detail.expireAt) }}</DescriptionsItem>
+      <DescriptionsItem label="创建时间">{{ displayValue(detail.createdAt) }}</DescriptionsItem>
+      <DescriptionsItem label="更新时间">{{ displayValue(detail.updatedAt) }}</DescriptionsItem>
+    </Descriptions>
+  </Modal>
+</template>

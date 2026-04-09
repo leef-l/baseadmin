@@ -1,0 +1,74 @@
+import { requestClient } from '#/api/request';
+
+import type {
+  ArticleItem,
+  ArticleListParams,
+  ArticleCreateParams,
+  ArticleUpdateParams,
+} from './types';
+
+/** API 前缀 */
+const PREFIX = '/demo/article';
+
+/** 获取文章列表 */
+export function getArticleList(params: ArticleListParams) {
+  return requestClient.get<{ list: ArticleItem[]; total: number }>(
+    `${PREFIX}/list`,
+    { params },
+  );
+}
+
+/** 获取文章详情 */
+export function getArticleDetail(id: string) {
+  return requestClient.get<ArticleItem>(`${PREFIX}/detail`, {
+    params: { id },
+  });
+}
+
+/** 创建文章 */
+export function createArticle(data: ArticleCreateParams) {
+  return requestClient.post(`${PREFIX}/create`, data);
+}
+
+/** 更新文章 */
+export function updateArticle(data: ArticleUpdateParams) {
+  return requestClient.put(`${PREFIX}/update`, data);
+}
+
+/** 删除文章 */
+export function deleteArticle(id: string) {
+  return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
+}
+
+/** 批量删除文章 */
+export function batchDeleteArticle(ids: string[]) {
+  return requestClient.delete(`${PREFIX}/batch-delete`, { data: { ids } });
+}
+
+/** 导出文章 */
+export function exportArticle(params?: Partial<ArticleListParams>) {
+  return requestClient.get(`${PREFIX}/export`, {
+    params,
+    responseType: 'blob',
+  });
+}
+
+/** 导入文章 */
+export function importArticle(data: FormData) {
+  return requestClient.post<{ success: number; fail: number }>(
+    `${PREFIX}/import`,
+    data,
+  );
+}
+
+/** 下载文章导入模板 */
+export function downloadImportTemplateArticle() {
+  return requestClient.get(`${PREFIX}/import-template`, {
+    responseType: 'blob',
+  });
+}
+
+/** 批量编辑文章 */
+export function batchUpdateArticle(data: { ids: string[]; status?: number; type?: number; isTop?: number; }) {
+  return requestClient.put(`${PREFIX}/batch-update`, data);
+}

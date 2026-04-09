@@ -1,11 +1,13 @@
 FROM node:22-slim AS builder
 
-# --max-old-space-size
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-ENV NODE_OPTIONS=--max-old-space-size=8192
 ENV TZ=Asia/Shanghai
 ENV CI=true
+ENV PNPM_NETWORK_CONCURRENCY=3
+ENV PNPM_CHILD_CONCURRENCY=1
+ENV FRONTEND_INSTALL_NODE_MAX_OLD_SPACE_SIZE=768
+ENV FRONTEND_NODE_MAX_OLD_SPACE_SIZE=1024
 
 RUN npm i -g corepack
 
@@ -15,7 +17,12 @@ WORKDIR /app
 COPY . /app
 
 # 安装依赖
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    npm_config_node_options="--max-old-space-size=${FRONTEND_INSTALL_NODE_MAX_OLD_SPACE_SIZE}" \
+    pnpm install \
+      --frozen-lockfile \
+      --network-concurrency="${PNPM_NETWORK_CONCURRENCY}" \
+      --child-concurrency="${PNPM_CHILD_CONCURRENCY}"
 RUN pnpm run build --filter=\!./docs
 
 RUN echo "Builder Success 🎉"

@@ -1,6 +1,6 @@
 # Docker 开发说明
 
-本说明描述仓库保留的 Docker 方案，适用于具备 Docker 条件的环境。当前低配机器不要在本机执行 Docker。
+本说明描述仓库保留的 Docker 方案，适用于具备 Docker 条件的环境。低配机器建议保持 backend-only，不要默认拉起前端容器。
 
 ## 目录约定
 
@@ -37,6 +37,15 @@
 ```
 
 默认启动只包含后端、数据库和 adminer；`frontend` 改为显式 profile，避免低配机器在容器启动时自动执行 `pnpm install`。
+`compose.sh` / `compose.ps1` 在检测到 `frontend` 启动请求时，会先校验宿主机可用内存，默认要求至少 `2048MB`；不足时会直接拒绝启动。确需强制启动时可临时设置 `ALLOW_LOW_MEMORY_FRONTEND=1`，也可通过 `FRONTEND_MIN_HOST_MEM_MB` 调整阈值。
+
+## 前端代理约定
+
+- `web-antd` 开发环境 `VITE_GLOB_API_URL=/api`
+- `docker/dev/.env` 默认注入 `VITE_PROXY_SYSTEM_TARGET=http://system:8000`
+- `docker/dev/.env` 默认注入 `VITE_PROXY_UPLOAD_TARGET=http://upload:8002`
+- 如果不是走 Docker 前端容器，而是宿主机直跑 `web-antd`，`apps/web-antd/.env.development` 默认把 `/api/system`、`/api/upload` 转发到 `127.0.0.1:44003`、`127.0.0.1:44004`
+- 前端容器内端口为 `5666`，compose 暴露端口为 `44005`
 
 ## env 同步规则
 
@@ -62,6 +71,8 @@
 - upload：`127.0.0.1:44004`
 - frontend：`127.0.0.1:44005`（需显式启用 `frontend` profile）
 - adminer：`127.0.0.1:44006`
+- `system` 健康检查：`GET /healthz`
+- `upload` 健康检查：`GET /healthz`
 
 ## 初始化来源
 

@@ -101,10 +101,15 @@ const [Form, formApi] = useVbenForm({
       componentProps: { placeholder: '请输入文件扩展名', maxlength: 20 },
     },
     {
-      component: 'Input',
+      component: 'InputNumber',
       fieldName: 'size',
       label: '文件大小',
-      componentProps: { placeholder: '请输入文件大小' },
+      componentProps: {
+        placeholder: '请输入文件大小',
+        min: 0,
+        precision: 0,
+        class: 'w-full',
+      },
     },
     {
       component: 'Input',

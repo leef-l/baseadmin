@@ -91,7 +91,7 @@ func TestChangePasswordInputValidation(t *testing.T) {
 	if err := authSvc.ChangePassword(nil, &model.AuthChangePasswordInput{
 		UserID:      1,
 		OldPassword: " ",
-		NewPassword: "abc123",
+		NewPassword: "abc12345",
 	}); err == nil || err.Error() != "旧密码不能为空" {
 		t.Fatalf("ChangePassword blank old password mismatch: %v", err)
 	}
@@ -104,8 +104,15 @@ func TestChangePasswordInputValidation(t *testing.T) {
 	}
 	if err := authSvc.ChangePassword(nil, &model.AuthChangePasswordInput{
 		UserID:      1,
-		OldPassword: "abc123",
-		NewPassword: "abc123",
+		OldPassword: "abc12345",
+		NewPassword: "short1",
+	}); err == nil || err.Error() != "密码长度需为8-64位" {
+		t.Fatalf("ChangePassword weak password mismatch: %v", err)
+	}
+	if err := authSvc.ChangePassword(nil, &model.AuthChangePasswordInput{
+		UserID:      1,
+		OldPassword: "abc12345",
+		NewPassword: "abc12345",
 	}); err == nil || err.Error() != "新密码不能与旧密码相同" {
 		t.Fatalf("ChangePassword same password mismatch: %v", err)
 	}

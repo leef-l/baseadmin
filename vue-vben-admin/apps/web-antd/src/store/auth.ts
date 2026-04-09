@@ -10,7 +10,14 @@ import { resetAllStores, useAccessStore, useUserStore } from '@vben/stores';
 import { notification } from 'ant-design-vue';
 import { defineStore } from 'pinia';
 
-import { getAccessCodesApi, getUserInfoApi, loginApi, logoutApi } from '#/api';
+import {
+  extractAccessCodes,
+  getAuthInfoApi,
+  getUserInfoApi,
+  loginApi,
+  logoutApi,
+} from '#/api';
+import { mapToUserInfo } from '#/api/core/user-mapper';
 import { $t } from '#/locales';
 
 export const useAuthStore = defineStore('auth', () => {
@@ -42,13 +49,9 @@ export const useAuthStore = defineStore('auth', () => {
       if (accessToken) {
         accessStore.setAccessToken(accessToken);
 
-        // 获取用户信息并存储到 accessStore 中
-        const [fetchUserInfoResult, accessCodes] = await Promise.all([
-          fetchUserInfo(),
-          getAccessCodesApi(),
-        ]);
-
-        userInfo = fetchUserInfoResult;
+        const authInfo = await getAuthInfoApi();
+        userInfo = mapToUserInfo(authInfo, preferences.app.defaultHomePath);
+        const accessCodes = extractAccessCodes(authInfo);
 
         userStore.setUserInfo(userInfo);
         accessStore.setAccessCodes(accessCodes);

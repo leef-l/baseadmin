@@ -3,6 +3,7 @@ package menu
 import (
 	"database/sql"
 	"reflect"
+	"strings"
 	"testing"
 
 	"gbaseadmin/codegen/parser"
@@ -148,5 +149,50 @@ func TestGenerateIDRemainsMonotonicWhenClockMovesBackwards(t *testing.T) {
 func TestFindMenuIDRejectsNilDB(t *testing.T) {
 	if _, err := findMenuID(nil, "path", "/demo", menuTypeDirectory); err != sql.ErrConnDone {
 		t.Fatalf("findMenuID nil db mismatch: %v", err)
+	}
+}
+
+func TestGenerateBatchWithEmptyInputReturnsEarly(t *testing.T) {
+	gen := New(Config{DSN: "invalid-dsn"})
+	count, err := gen.GenerateBatch(nil)
+	if err != nil {
+		t.Fatalf("GenerateBatch should ignore empty input: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("GenerateBatch empty count mismatch: %d", count)
+	}
+}
+
+func TestValidateBatchMetasRejectsDuplicateMenuPath(t *testing.T) {
+	metas := []*parser.TableMeta{
+		{TableName: "system_user", AppName: "system", ModuleName: "user", ModelName: "User", Comment: "用户"},
+		{TableName: "system_user", AppName: "system", ModuleName: "user", ModelName: "User", Comment: "用户"},
+	}
+
+	err := validateBatchMetas(metas)
+	if err == nil || !strings.Contains(err.Error(), "菜单 path 冲突") {
+		t.Fatalf("expected duplicate path error, got %v", err)
+	}
+}
+
+func TestValidateBatchMetasRejectsNilMeta(t *testing.T) {
+	metas := []*parser.TableMeta{
+		nil,
+	}
+
+	err := validateBatchMetas(metas)
+	if err == nil || !strings.Contains(err.Error(), "元数据为空") {
+		t.Fatalf("expected nil meta error, got %v", err)
+	}
+}
+
+func TestValidateBatchMetasRejectsMissingIdentity(t *testing.T) {
+	metas := []*parser.TableMeta{
+		{TableName: "broken_table", AppName: "", ModuleName: "", Comment: "损坏"},
+	}
+
+	err := validateBatchMetas(metas)
+	if err == nil || !strings.Contains(err.Error(), "缺少应用名") {
+		t.Fatalf("expected missing app error, got %v", err)
 	}
 }

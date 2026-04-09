@@ -11,6 +11,7 @@ import {
 import { getDeptTree } from '#/api/system/dept';
 import { getRoleTree } from '#/api/system/role';
 import type { DeptItem } from '#/api/system/dept/types';
+import { normalizeRoleIds } from './role-ids';
 
 const emit = defineEmits<{ success: [] }>();
 const isEdit = ref(false);
@@ -66,15 +67,17 @@ const [Form, formApi] = useVbenForm({
       },
     },
     {
-      component: 'Cascader',
+      component: 'TreeSelect',
       fieldName: 'roleIds',
       label: '角色',
       componentProps: {
-        options: [],
+        treeData: [],
         fieldNames: { label: 'title', value: 'id', children: 'children' },
         placeholder: '请选择角色',
         multiple: true,
         allowClear: true,
+        treeCheckable: true,
+        treeDefaultExpandAll: true,
         class: 'w-full',
       },
     },
@@ -97,13 +100,17 @@ const [Modal, modalApi] = useVbenModal({
   onConfirm: async () => {
     const values = await formApi.validateAndSubmitForm();
     if (!values) return;
+    const submitValues = {
+      ...values,
+      roleIds: normalizeRoleIds(values.roleIds),
+    };
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateUsers({ id: editId.value, ...values });
+        await updateUsers({ id: editId.value, ...submitValues });
         message.success('更新成功');
       } else {
-        await createUsers(values);
+        await createUsers(submitValues);
         message.success('创建成功');
       }
       emit('success');
@@ -148,7 +155,7 @@ const [Modal, modalApi] = useVbenModal({
       formApi.updateSchema([
         {
           fieldName: 'roleIds',
-          componentProps: { options: res ?? [] },
+          componentProps: { treeData: res ?? [] },
         },
       ]);
     } catch { /* ignore */ }
@@ -166,7 +173,10 @@ const [Modal, modalApi] = useVbenModal({
           return;
         }
         if (detail) {
-          formApi.setValues(detail);
+          formApi.setValues({
+            ...detail,
+            roleIds: normalizeRoleIds(detail.roleIds),
+          });
         }
       } catch {
         if (currentOpenToken === openToken.value) {

@@ -28,21 +28,21 @@ for dir in "${business_pages[@]}"; do
   fi
 done
 
-if rg -L "useVbenVxeGrid" "$VIEWS_DIR/system" "$VIEWS_DIR/upload" -g 'index.vue' >/dev/null; then
+if rg --files-without-match "useVbenVxeGrid" "$VIEWS_DIR/system" "$VIEWS_DIR/upload" -g 'index.vue' >/dev/null; then
   fail "存在未使用 useVbenVxeGrid 的业务列表页"
 fi
 
-if rg -L "useVbenForm" "$VIEWS_DIR/system" "$VIEWS_DIR/upload" -g 'form.vue' >/dev/null; then
+if rg --files-without-match "useVbenForm" "$VIEWS_DIR/system" "$VIEWS_DIR/upload" -g 'form.vue' >/dev/null; then
   fail "存在未使用 useVbenForm 的业务表单页"
 fi
 
-if rg -L "useVbenModal" "$VIEWS_DIR/system" "$VIEWS_DIR/upload" -g 'form.vue' >/dev/null; then
+if rg --files-without-match "useVbenModal" "$VIEWS_DIR/system" "$VIEWS_DIR/upload" -g 'form.vue' >/dev/null; then
   fail "存在未使用 useVbenModal 的业务弹窗表单页"
 fi
 
 # 认证页使用官方 Authentication* 组件和 Vben* 基础表单组件，属于仓库允许的第二套 vben 风格。
 auth_dir="$VIEWS_DIR/_core/authentication"
-if rg -L "Authentication(Login|Register|CodeLogin|ForgetPassword)" "$auth_dir" -g '*.vue' >/dev/null; then
+if rg --files-without-match "Authentication(Login|Register|CodeLogin|ForgetPassword|QrCodeLogin)" "$auth_dir" -g '*.vue' >/dev/null; then
   fail "认证页必须使用官方 Authentication* 组件"
 fi
 
