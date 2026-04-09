@@ -19,7 +19,7 @@ import { Button, message, Modal{{if .HasEnum}}, Tag{{end}} } from 'ant-design-vu
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 {{- if .HasParentID}}
-import { get{{.ModelName}}Tree, delete{{.ModelName}}, export{{.ModelName}}{{if .HasImport}}, import{{.ModelName}}, downloadImportTemplate{{.ModelName}}{{end}} } from '#/api/{{.AppName}}/{{.ModuleName}}';
+import { get{{.ModelName}}Tree, delete{{.ModelName}}, batchDelete{{.ModelName}}, export{{.ModelName}}{{if .HasImport}}, import{{.ModelName}}, downloadImportTemplate{{.ModelName}}{{end}}{{if .HasBatchEdit}}, batchUpdate{{.ModelName}}{{end}} } from '#/api/{{.AppName}}/{{.ModuleName}}';
 {{- else}}
 import { get{{.ModelName}}List, delete{{.ModelName}}, batchDelete{{.ModelName}}, export{{.ModelName}}{{if .HasImport}}, import{{.ModelName}}, downloadImportTemplate{{.ModelName}}{{end}}{{if .HasBatchEdit}}, batchUpdate{{.ModelName}}{{end}} } from '#/api/{{.AppName}}/{{.ModuleName}}';
 {{- end}}
@@ -191,9 +191,7 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
   columns: [
-{{- if not .HasParentID}}
     { type: 'checkbox', width: 50 },
-{{- end}}
     { title: '序号', type: 'seq', width: 50 },
 {{- $isTree := .HasParentID}}
 {{- $firstDataCol := true}}
@@ -430,7 +428,6 @@ function handleDelete(row: {{.ModelName}}Item) {
   });
 }
 
-{{- if not .HasParentID}}
 /** 批量删除 */
 function handleBatchDelete() {
   const rows = gridApi.grid.getCheckboxRecords();
@@ -449,7 +446,6 @@ function handleBatchDelete() {
     },
   });
 }
-{{- end}}
 
 /** 导出 */
 async function handleExport() {
@@ -567,9 +563,7 @@ function handleBatchUpdateStatus() {
     <Grid>
       <template #toolbar-actions>
         <Button v-auth="['{{.AppName}}:{{.ModuleName}}:create']" type="primary" @click="handleCreate">新建</Button>
-{{- if not .HasParentID}}
         <Button v-auth="['{{.AppName}}:{{.ModuleName}}:batch-delete']" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
-{{- end}}
         <Button v-auth="['{{.AppName}}:{{.ModuleName}}:export']" class="ml-2" @click="handleExport">导出</Button>
 {{- if .HasImport}}
         <Button v-auth="['{{.AppName}}:{{.ModuleName}}:import']" class="ml-2" @click="handleImportTrigger">导入</Button>

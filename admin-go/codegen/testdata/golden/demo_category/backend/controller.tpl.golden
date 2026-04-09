@@ -47,6 +47,12 @@ func (c *cCategory) Delete(ctx context.Context, req *v1.CategoryDeleteReq) (res 
 	return
 }
 
+// BatchDelete 批量删除分类
+func (c *cCategory) BatchDelete(ctx context.Context, req *v1.CategoryBatchDeleteReq) (res *v1.CategoryBatchDeleteRes, err error) {
+	err = service.Category().BatchDelete(ctx, req.IDs)
+	return
+}
+
 // BatchUpdate 批量编辑分类
 func (c *cCategory) BatchUpdate(ctx context.Context, req *v1.CategoryBatchUpdateReq) (res *v1.CategoryBatchUpdateRes, err error) {
 	err = service.Category().BatchUpdate(ctx, &model.CategoryBatchUpdateInput{

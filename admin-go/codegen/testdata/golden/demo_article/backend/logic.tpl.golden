@@ -29,6 +29,29 @@ func New() *sArticle {
 
 type sArticle struct{}
 
+func normalizeArticleIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
+	if len(ids) == 0 {
+		return nil
+	}
+	seen := make(map[int64]struct{}, len(ids))
+	normalized := make([]snowflake.JsonInt64, 0, len(ids))
+	for _, id := range ids {
+		value := int64(id)
+		if value <= 0 {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, id)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
 // Create 创建文章
 func (s *sArticle) Create(ctx context.Context, in *model.ArticleCreateInput) error {
 	id := snowflake.Generate()
@@ -131,7 +154,11 @@ func (s *sArticle) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 
 // BatchDelete 批量软删除文章
 func (s *sArticle) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error {
-	_, err := dao.DemoArticle.Ctx(ctx).WhereIn(dao.DemoArticle.Columns().Id, ids).Data(g.Map{
+	normalizedIDs := normalizeArticleIDs(ids)
+	if len(normalizedIDs) == 0 {
+		return nil
+	}
+	_, err := dao.DemoArticle.Ctx(ctx).WhereIn(dao.DemoArticle.Columns().Id, normalizedIDs).Data(g.Map{
 		dao.DemoArticle.Columns().DeletedAt: gtime.Now(),
 	}).Update()
 	return err

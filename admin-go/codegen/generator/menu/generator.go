@@ -552,9 +552,7 @@ func buildButtonSpecs(meta *parser.TableMeta) []buttonSpec {
 		{suffix: "新增", permission: meta.AppName + ":" + meta.ModuleName + ":create", sort: 1},
 		{suffix: "修改", permission: meta.AppName + ":" + meta.ModuleName + ":update", sort: 2},
 		{suffix: "删除", permission: meta.AppName + ":" + meta.ModuleName + ":delete", sort: 3},
-	}
-	if !meta.HasParentID {
-		buttons = append(buttons, buttonSpec{suffix: "批量删除", permission: meta.AppName + ":" + meta.ModuleName + ":batch-delete", sort: 4})
+		{suffix: "批量删除", permission: meta.AppName + ":" + meta.ModuleName + ":batch-delete", sort: 4},
 	}
 	buttons = append(buttons,
 		buttonSpec{suffix: "查看", permission: meta.AppName + ":" + meta.ModuleName + ":detail", sort: 5},

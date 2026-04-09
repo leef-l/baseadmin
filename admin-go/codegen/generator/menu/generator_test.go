@@ -45,9 +45,19 @@ func TestBuildButtonSpecsSkipsUnsupportedActions(t *testing.T) {
 
 	got := buildButtonSpecs(meta)
 	for _, btn := range got {
-		if btn.permission == "demo:category:batch-delete" || btn.permission == "demo:category:import" || btn.permission == "demo:category:batch-update" {
+		if btn.permission == "demo:category:import" || btn.permission == "demo:category:batch-update" {
 			t.Fatalf("unexpected button permission for tree/non-import module: %+v", got)
 		}
+	}
+	foundBatchDelete := false
+	for _, btn := range got {
+		if btn.permission == "demo:category:batch-delete" {
+			foundBatchDelete = true
+			break
+		}
+	}
+	if !foundBatchDelete {
+		t.Fatalf("tree module should still expose batch-delete permission: %+v", got)
 	}
 }
 

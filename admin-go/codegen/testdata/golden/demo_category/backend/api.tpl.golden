@@ -55,6 +55,17 @@ type CategoryDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// CategoryBatchDeleteReq 批量删除分类请求
+type CategoryBatchDeleteReq struct {
+	g.Meta `path:"/category/batch-delete" method:"delete" tags:"分类" summary:"批量删除分类"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"分类ID列表"`
+}
+
+// CategoryBatchDeleteRes 批量删除分类响应
+type CategoryBatchDeleteRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 // CategoryBatchUpdateReq 批量编辑分类请求
 type CategoryBatchUpdateReq struct {
 	g.Meta `path:"/category/batch-update" method:"put" tags:"分类" summary:"批量编辑分类"`

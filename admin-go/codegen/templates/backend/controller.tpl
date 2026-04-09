@@ -46,14 +46,12 @@ func (c *c{{.ModelName}}) Delete(ctx context.Context, req *v1.{{.ModelName}}Dele
 	err = service.{{.ModelName}}().Delete(ctx, req.ID)
 	return
 }
-{{- if not .HasParentID}}
 
 // BatchDelete 批量删除{{.Comment}}
 func (c *c{{.ModelName}}) BatchDelete(ctx context.Context, req *v1.{{.ModelName}}BatchDeleteReq) (res *v1.{{.ModelName}}BatchDeleteRes, err error) {
 	err = service.{{.ModelName}}().BatchDelete(ctx, req.IDs)
 	return
 }
-{{- end}}
 {{- if .HasBatchEdit}}
 
 // BatchUpdate 批量编辑{{.Comment}}

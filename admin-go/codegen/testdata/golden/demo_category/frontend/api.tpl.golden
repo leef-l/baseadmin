@@ -41,6 +41,11 @@ export function deleteCategory(id: string) {
   return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
 }
 
+/** 批量删除分类 */
+export function batchDeleteCategory(ids: string[]) {
+  return requestClient.delete(`${PREFIX}/batch-delete`, { data: { ids } });
+}
+
 /** 导出分类 */
 export function exportCategory(params?: Partial<CategoryListParams>) {
   return requestClient.get(`${PREFIX}/export`, {

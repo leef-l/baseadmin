@@ -42,6 +42,29 @@ func New() *s{{.ModelName}} {
 
 type s{{.ModelName}} struct{}
 
+func normalize{{.ModelName}}IDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
+	if len(ids) == 0 {
+		return nil
+	}
+	seen := make(map[int64]struct{}, len(ids))
+	normalized := make([]snowflake.JsonInt64, 0, len(ids))
+	for _, id := range ids {
+		value := int64(id)
+		if value <= 0 {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		normalized = append(normalized, id)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
 // Create 创建{{.Comment}}
 func (s *s{{.ModelName}}) Create(ctx context.Context, in *model.{{.ModelName}}CreateInput) error {
 	id := snowflake.Generate()
@@ -132,13 +155,14 @@ func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}Up
 // Delete 软删除{{.Comment}}
 func (s *s{{.ModelName}}) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 {{- if .HasParentID}}
-	// 树形表：递归软删除所有子节点
-	childIDs, err := s.collectChildIDs(ctx, id)
+	deleteIDs, err := s.collectDeleteIDs(ctx, []snowflake.JsonInt64{id})
 	if err != nil {
 		return err
 	}
-	allIDs := append([]snowflake.JsonInt64{id}, childIDs...)
-	_, err = dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, allIDs).Data(g.Map{
+	if len(deleteIDs) == 0 {
+		return nil
+	}
+	_, err = dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, deleteIDs).Data(g.Map{
 		dao.{{.DaoName}}.Columns().DeletedAt: gtime.Now(),
 	}).Update()
 {{- else}}
@@ -154,6 +178,54 @@ func (s *s{{.ModelName}}) Delete(ctx context.Context, id snowflake.JsonInt64) er
 	return err
 }
 {{- if .HasParentID}}
+
+// BatchDelete 批量软删除{{.Comment}}
+func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error {
+	deleteIDs, err := s.collectDeleteIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+	if len(deleteIDs) == 0 {
+		return nil
+	}
+	_, err = dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, deleteIDs).Data(g.Map{
+		dao.{{.DaoName}}.Columns().DeletedAt: gtime.Now(),
+	}).Update()
+{{- if .EnableOpLog}}
+	if err == nil {
+		go oplog.Record(ctx, "{{.ModuleName}}", "batch-delete", fmt.Sprintf("%v", deleteIDs), "")
+	}
+{{- end}}
+	return err
+}
+
+// collectDeleteIDs 汇总批量删除所需的节点 ID，并补齐所有子节点
+func (s *s{{.ModelName}}) collectDeleteIDs(ctx context.Context, ids []snowflake.JsonInt64) ([]snowflake.JsonInt64, error) {
+	normalized := normalize{{.ModelName}}IDs(ids)
+	if len(normalized) == 0 {
+		return nil, nil
+	}
+	collected := make([]snowflake.JsonInt64, 0, len(normalized))
+	seen := make(map[int64]struct{}, len(normalized))
+	for _, id := range normalized {
+		if _, ok := seen[int64(id)]; !ok {
+			seen[int64(id)] = struct{}{}
+			collected = append(collected, id)
+		}
+		childIDs, err := s.collectChildIDs(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		for _, childID := range childIDs {
+			if _, ok := seen[int64(childID)]; ok {
+				continue
+			}
+			seen[int64(childID)] = struct{}{}
+			collected = append(collected, childID)
+		}
+	}
+	return collected, nil
+}
 
 // collectChildIDs 递归收集所有子节点 ID（最大深度 20 层防止无限递归）
 func (s *s{{.ModelName}}) collectChildIDs(ctx context.Context, parentID snowflake.JsonInt64) ([]snowflake.JsonInt64, error) {
@@ -185,21 +257,23 @@ func (s *s{{.ModelName}}) doCollectChildIDs(ctx context.Context, parentID snowfl
 	return childIDs, nil
 }
 {{- end}}
-{{- if not .HasParentID}}
 
 // BatchDelete 批量软删除{{.Comment}}
 func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error {
-	_, err := dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, ids).Data(g.Map{
+	normalizedIDs := normalize{{.ModelName}}IDs(ids)
+	if len(normalizedIDs) == 0 {
+		return nil
+	}
+	_, err := dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, normalizedIDs).Data(g.Map{
 		dao.{{.DaoName}}.Columns().DeletedAt: gtime.Now(),
 	}).Update()
 {{- if .EnableOpLog}}
 	if err == nil {
-		go oplog.Record(ctx, "{{.ModuleName}}", "batch-delete", fmt.Sprintf("%v", ids), "")
+		go oplog.Record(ctx, "{{.ModuleName}}", "batch-delete", fmt.Sprintf("%v", normalizedIDs), "")
 	}
 {{- end}}
 	return err
 }
-{{- end}}
 
 // Detail 获取{{.Comment}}详情
 func (s *s{{.ModelName}}) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.{{.ModelName}}DetailOutput, err error) {

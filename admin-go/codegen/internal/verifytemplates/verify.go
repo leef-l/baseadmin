@@ -168,11 +168,10 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			if meta.HasParentID {
 				chk(strings.Contains(output, "collectChildIDs"), "树形表缺少 collectChildIDs")
 				chk(strings.Contains(output, "doCollectChildIDs"), "树形表缺少 doCollectChildIDs")
+				chk(strings.Contains(output, "collectDeleteIDs"), "树形表缺少 collectDeleteIDs")
 				chk(strings.Contains(output, "Tree("), "树形表缺少 Tree 方法")
-				chk(!strings.Contains(output, "BatchDelete("), "树形表不应生成 BatchDelete 方法")
-			} else {
-				chk(strings.Contains(output, "BatchDelete("), "非树形表缺少 BatchDelete 方法")
 			}
+			chk(strings.Contains(output, "BatchDelete("), "缺少 BatchDelete 方法")
 			if meta.HasMoney {
 				chk(strings.Contains(output, "LockUpdate"), "金额表缺少行锁")
 				chk(strings.Contains(output, "Transaction"), "金额表缺少事务")
@@ -211,11 +210,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 		}
 
 		if strings.Contains(tplFile, "api") {
-			if meta.HasParentID {
-				chk(!strings.Contains(output, "BatchDeleteReq"), "树形表不应生成 BatchDeleteReq")
-			} else {
-				chk(strings.Contains(output, "BatchDeleteReq"), "非树形表缺少 BatchDeleteReq")
-			}
+			chk(strings.Contains(output, "BatchDeleteReq"), "缺少 BatchDeleteReq")
 			if meta.HasBatchEdit {
 				chk(strings.Contains(output, "BatchUpdateReq"), "缺少 BatchUpdateReq")
 			} else {
@@ -287,11 +282,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 
 		if strings.Contains(tplFile, "controller") {
 			chk(strings.Contains(output, "csv.NewWriter"), "Export 应使用 csv.Writer")
-			if meta.HasParentID {
-				chk(!strings.Contains(output, "BatchDelete("), "树形表 controller 不应生成 BatchDelete")
-			} else {
-				chk(strings.Contains(output, "BatchDelete("), "非树形表 controller 缺少 BatchDelete")
-			}
+			chk(strings.Contains(output, "BatchDelete("), "controller 缺少 BatchDelete")
 			if meta.HasImport {
 				chk(strings.Contains(output, "ImportTemplate"), "缺少 ImportTemplate")
 			} else {
@@ -300,11 +291,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 		}
 
 		if strings.Contains(tplFile, "service") {
-			if meta.HasParentID {
-				chk(!strings.Contains(output, "BatchDelete("), "树形表 service 不应生成 BatchDelete")
-			} else {
-				chk(strings.Contains(output, "BatchDelete("), "非树形表 service 缺少 BatchDelete")
-			}
+			chk(strings.Contains(output, "BatchDelete("), "service 缺少 BatchDelete")
 			if meta.HasBatchEdit {
 				chk(strings.Contains(output, "BatchUpdate("), "缺少 BatchUpdate service 方法")
 			} else {
@@ -352,14 +339,10 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			}
 			if meta.HasParentID {
 				chk(strings.Contains(output, "treeConfig"), "树形表缺少 treeConfig")
-				chk(!strings.Contains(output, "checkbox"), "树形表不应有 checkbox")
-				chk(!strings.Contains(output, "handleBatchDelete"), "树形表不应生成 handleBatchDelete")
-				chk(!strings.Contains(output, ":batch-delete"), "树形表不应出现 batch-delete 权限按钮")
-			} else {
-				chk(strings.Contains(output, "checkbox"), "非树形表应有 checkbox")
-				chk(strings.Contains(output, "handleBatchDelete"), "非树形表缺少 handleBatchDelete")
-				chk(strings.Contains(output, ":batch-delete"), "非树形表缺少 batch-delete 权限按钮")
 			}
+			chk(strings.Contains(output, "checkbox"), "列表应有 checkbox")
+			chk(strings.Contains(output, "handleBatchDelete"), "列表缺少 handleBatchDelete")
+			chk(strings.Contains(output, ":batch-delete"), "列表缺少 batch-delete 权限按钮")
 			if meta.HasImport {
 				chk(strings.Contains(output, "handleImportTrigger"), "缺少 handleImportTrigger")
 				chk(strings.Contains(output, "handleImportChange"), "缺少 handleImportChange")
@@ -482,11 +465,10 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			chk(strings.Contains(output, "Partial<"+meta.ModelName+"ListParams>"), "export API 应复用 ListParams 类型")
 			if meta.HasParentID {
 				chk(strings.Contains(output, "get"+meta.ModelName+"Tree"), "树形表缺少 getTree")
-				chk(!strings.Contains(output, "batchDelete"+meta.ModelName), "树形表不应生成 batchDelete API")
 			} else {
 				chk(strings.Contains(output, "get"+meta.ModelName+"List"), "非树形表缺少 getList")
-				chk(strings.Contains(output, "batchDelete"+meta.ModelName), "非树形表缺少 batchDelete API")
 			}
+			chk(strings.Contains(output, "batchDelete"+meta.ModelName), "缺少 batchDelete API")
 			if meta.HasImport {
 				chk(strings.Contains(output, "import"+meta.ModelName), "缺少 import API")
 				chk(strings.Contains(output, "downloadImportTemplate"+meta.ModelName), "缺少模板下载 API")

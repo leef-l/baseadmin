@@ -193,6 +193,7 @@ function handleDelete(row: TagItem) {
     },
   });
 }
+
 /** 批量删除 */
 function handleBatchDelete() {
   const rows = gridApi.grid.getCheckboxRecords();
