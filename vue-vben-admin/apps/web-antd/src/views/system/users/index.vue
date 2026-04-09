@@ -39,7 +39,7 @@ function getStatusColor(val: number): string {
 }
 
 /** 部门树状态 */
-const deptTree = ref<DeptItem[]>([]);
+const deptTree = ref<any[]>([]);
 const searchValue = ref('');
 const selectedDeptId = ref<string>('');
 const deptExpandedKeys = ref<string[]>([]);
@@ -74,8 +74,9 @@ function filterTreeNode(node: any): boolean {
 }
 
 /** 选择部门节点 */
-function handleDeptSelect(selectedKeys: string[]) {
-  selectedDeptId.value = selectedKeys[0] ?? '';
+function handleDeptSelect(selectedKeys: Array<string | number>) {
+  const first = selectedKeys[0];
+  selectedDeptId.value = typeof first === 'string' ? first : first == null ? '' : String(first);
   gridApi.reload();
 }
 
@@ -272,8 +273,8 @@ function handleResetPassword(row: UsersItem) {
             <Button v-access:code="'system:user:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
           </template>
           <template #status_cell="{ row }">
-            <Tag :color="getStatusColor(row.status)">
-              {{ statusMap[row.status] || row.status }}
+            <Tag :color="getStatusColor(row.status ?? 0)">
+              {{ statusMap[row.status ?? 0] || row.status }}
             </Tag>
           </template>
           <template #roleTitles_cell="{ row }">

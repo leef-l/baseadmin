@@ -12,7 +12,7 @@ const confirmLoading = ref(false);
 const roleId = ref('');
 const dataScope = ref(1);
 const checkedDeptKeys = ref<string[]>([]);
-const treeData = ref<DeptItem[]>([]);
+const treeData = ref<any[]>([]);
 const expandedKeys = ref<string[]>([]);
 
 const dataScopeOptions = [

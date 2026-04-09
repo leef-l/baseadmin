@@ -15,11 +15,11 @@ import (
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
-	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model"
+	"gbaseadmin/app/upload/internal/model/do"
 	"gbaseadmin/app/upload/internal/service"
 	"gbaseadmin/utility/snowflake"
 )
@@ -105,18 +105,16 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 
 	// 生成ID并写入数据库
 	id := snowflake.Generate()
-	_, err = dao.UploadFile.Ctx(ctx).Data(g.Map{
-		"id":         id,
-		"dir_id":     dirId,
-		"name":       file.Filename,
-		"url":        storeResult.FileURL,
-		"ext":        fileMeta.Ext,
-		"size":       file.Size,
-		"mime":       fileMeta.Mime,
-		"storage":    cfg.StorageType,
-		"is_image":   fileMeta.IsImage,
-		"created_at": gtime.Now(),
-		"updated_at": gtime.Now(),
+	_, err = dao.UploadFile.Ctx(ctx).Data(do.UploadFile{
+		Id:      id,
+		DirId:   dirId,
+		Name:    file.Filename,
+		Url:     storeResult.FileURL,
+		Ext:     fileMeta.Ext,
+		Size:    file.Size,
+		Mime:    fileMeta.Mime,
+		Storage: cfg.StorageType,
+		IsImage: fileMeta.IsImage,
 	}).Insert()
 	if err != nil {
 		runCleanupHook(ctx, "rollback", storeResult.OnRollback)

@@ -9,7 +9,11 @@ import {
   updateDir,
   getDirTree,
 } from '#/api/upload/dir';
-import type { DirItem } from '#/api/upload/dir/types';
+import type {
+  DirCreateParams,
+  DirItem,
+  DirUpdateParams,
+} from '#/api/upload/dir/types';
 
 const treeData = ref<DirItem[]>([]);
 
@@ -72,12 +76,14 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.close();
   },
   onConfirm: async () => {
-    const values = await formApi.validateAndSubmitForm();
+    const values = await formApi.validateAndSubmitForm() as
+      | DirCreateParams
+      | undefined;
     if (!values) return;
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateDir({ id: editId.value, ...values });
+        await updateDir({ id: editId.value, ...values } as DirUpdateParams);
         message.success('更新成功');
       } else {
         await createDir(values);
@@ -97,7 +103,7 @@ const [Modal, modalApi] = useVbenModal({
 
     const currentOpenToken = ++openToken.value;
     formApi.resetForm();
-    const data = modalApi.getData<{ id?: string } | null>();
+    const data = modalApi.getData<{ id?: string }>();
     // 加载树形数据
     try {
       const res = await getDirTree();

@@ -30,7 +30,7 @@ const [Modal, modalApi] = useVbenModal({
         maxCount?: number;
         accept?: string;
         maxSize?: number;
-      } | null>();
+      }>();
       mode.value = data?.mode ?? 'all';
       multiple.value = data?.multiple ?? false;
       maxCount.value = data?.maxCount ?? 1;

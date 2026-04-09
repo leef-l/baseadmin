@@ -10,6 +10,10 @@ import {
 } from '#/api/upload/dir_rule';
 import { getDirTree } from '#/api/upload/dir';
 import type { DirItem } from '#/api/upload/dir/types';
+import type {
+  DirRuleCreateParams,
+  DirRuleUpdateParams,
+} from '#/api/upload/dir_rule/types';
 
 /** 类别选项 */
 const categoryOptions = [
@@ -105,12 +109,14 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.close();
   },
   onConfirm: async () => {
-    const values = await formApi.validateAndSubmitForm();
+    const values = await formApi.validateAndSubmitForm() as
+      | DirRuleCreateParams
+      | undefined;
     if (!values) return;
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateDirRule({ id: editId.value, ...values });
+        await updateDirRule({ id: editId.value, ...values } as DirRuleUpdateParams);
         message.success('更新成功');
       } else {
         await createDirRule(values);
@@ -135,7 +141,7 @@ const [Modal, modalApi] = useVbenModal({
       return;
     }
     applyDirOptions(options);
-    const data = modalApi.getData<{ id?: string } | null>();
+    const data = modalApi.getData<{ id?: string }>();
     if (data?.id) {
       isEdit.value = true;
       editId.value = data.id;

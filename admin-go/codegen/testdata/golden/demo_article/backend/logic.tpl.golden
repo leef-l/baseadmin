@@ -15,6 +15,7 @@ import (
 	"gbaseadmin/app/demo/internal/dao"
 	"gbaseadmin/app/demo/internal/middleware"
 	"gbaseadmin/app/demo/internal/model"
+	"gbaseadmin/app/demo/internal/model/do"
 	"gbaseadmin/app/demo/internal/service"
 	"gbaseadmin/utility/snowflake"
 )
@@ -59,72 +60,69 @@ func (s *sArticle) Create(ctx context.Context, in *model.ArticleCreateInput) err
 	if err != nil {
 		return err
 	}
-	_, err = dao.DemoArticle.Ctx(ctx).Data(g.Map{
-		dao.DemoArticle.Columns().Id:        id,
-		dao.DemoArticle.Columns().CategoryId: in.CategoryID,
-		dao.DemoArticle.Columns().UserId: in.UserID,
-		dao.DemoArticle.Columns().Title: in.Title,
-		dao.DemoArticle.Columns().OrderNo: in.OrderNo,
-		dao.DemoArticle.Columns().Cover: in.Cover,
-		dao.DemoArticle.Columns().AttachmentFile: in.AttachmentFile,
-		dao.DemoArticle.Columns().BodyContent: in.BodyContent,
-		dao.DemoArticle.Columns().ExtraJson: in.ExtraJSON,
-		dao.DemoArticle.Columns().LinkUrl: in.LinkURL,
-		dao.DemoArticle.Columns().Status: in.Status,
-		dao.DemoArticle.Columns().Type: in.Type,
-		dao.DemoArticle.Columns().IsTop: in.IsTop,
-		dao.DemoArticle.Columns().Price: in.Price,
-		dao.DemoArticle.Columns().PayPassword: string(hashedPayPassword),
-		dao.DemoArticle.Columns().Sort: in.Sort,
-		dao.DemoArticle.Columns().Icon: in.Icon,
-		dao.DemoArticle.Columns().Email: in.Email,
-		dao.DemoArticle.Columns().Phone: in.Phone,
-		dao.DemoArticle.Columns().Remark: in.Remark,
-		dao.DemoArticle.Columns().Level: in.Level,
-		dao.DemoArticle.Columns().ExtraField: in.ExtraField,
-		dao.DemoArticle.Columns().PublishAt: in.PublishAt,
-		dao.DemoArticle.Columns().ExpireAt: in.ExpireAt,
-		dao.DemoArticle.Columns().CreatedBy: middleware.GetUserID(ctx),
-		dao.DemoArticle.Columns().DeptId: middleware.GetDeptID(ctx),
-		dao.DemoArticle.Columns().CreatedAt: gtime.Now(),
-		dao.DemoArticle.Columns().UpdatedAt: gtime.Now(),
+	_, err = dao.DemoArticle.Ctx(ctx).Data(do.Article{
+		Id:        id,
+		CategoryID: in.CategoryID,
+		UserID: in.UserID,
+		Title: in.Title,
+		OrderNo: in.OrderNo,
+		Cover: in.Cover,
+		AttachmentFile: in.AttachmentFile,
+		BodyContent: in.BodyContent,
+		ExtraJSON: in.ExtraJSON,
+		LinkURL: in.LinkURL,
+		Status: in.Status,
+		Type: in.Type,
+		IsTop: in.IsTop,
+		Price: in.Price,
+		PayPassword: string(hashedPayPassword),
+		Sort: in.Sort,
+		Icon: in.Icon,
+		Email: in.Email,
+		Phone: in.Phone,
+		Remark: in.Remark,
+		Level: in.Level,
+		ExtraField: in.ExtraField,
+		PublishAt: in.PublishAt,
+		ExpireAt: in.ExpireAt,
+		CreatedBy: middleware.GetUserID(ctx),
+		DeptId: middleware.GetDeptID(ctx),
 	}).Insert()
 	return err
 }
 
 // Update 更新文章
 func (s *sArticle) Update(ctx context.Context, in *model.ArticleUpdateInput) error {
-	data := g.Map{
-		dao.DemoArticle.Columns().CategoryId: in.CategoryID,
-		dao.DemoArticle.Columns().UserId: in.UserID,
-		dao.DemoArticle.Columns().Title: in.Title,
-		dao.DemoArticle.Columns().OrderNo: in.OrderNo,
-		dao.DemoArticle.Columns().Cover: in.Cover,
-		dao.DemoArticle.Columns().AttachmentFile: in.AttachmentFile,
-		dao.DemoArticle.Columns().BodyContent: in.BodyContent,
-		dao.DemoArticle.Columns().ExtraJson: in.ExtraJSON,
-		dao.DemoArticle.Columns().LinkUrl: in.LinkURL,
-		dao.DemoArticle.Columns().Status: in.Status,
-		dao.DemoArticle.Columns().Type: in.Type,
-		dao.DemoArticle.Columns().IsTop: in.IsTop,
-		dao.DemoArticle.Columns().Price: in.Price,
-		dao.DemoArticle.Columns().Sort: in.Sort,
-		dao.DemoArticle.Columns().Icon: in.Icon,
-		dao.DemoArticle.Columns().Email: in.Email,
-		dao.DemoArticle.Columns().Phone: in.Phone,
-		dao.DemoArticle.Columns().Remark: in.Remark,
-		dao.DemoArticle.Columns().Level: in.Level,
-		dao.DemoArticle.Columns().ExtraField: in.ExtraField,
-		dao.DemoArticle.Columns().PublishAt: in.PublishAt,
-		dao.DemoArticle.Columns().ExpireAt: in.ExpireAt,
-		dao.DemoArticle.Columns().UpdatedAt: gtime.Now(),
+	data := do.Article{
+		CategoryID: in.CategoryID,
+		UserID: in.UserID,
+		Title: in.Title,
+		OrderNo: in.OrderNo,
+		Cover: in.Cover,
+		AttachmentFile: in.AttachmentFile,
+		BodyContent: in.BodyContent,
+		ExtraJSON: in.ExtraJSON,
+		LinkURL: in.LinkURL,
+		Status: in.Status,
+		Type: in.Type,
+		IsTop: in.IsTop,
+		Price: in.Price,
+		Sort: in.Sort,
+		Icon: in.Icon,
+		Email: in.Email,
+		Phone: in.Phone,
+		Remark: in.Remark,
+		Level: in.Level,
+		ExtraField: in.ExtraField,
+		PublishAt: in.PublishAt,
+		ExpireAt: in.ExpireAt,
 	}
 	if in.PayPassword != "" {
 		hashed, err := bcrypt.GenerateFromPassword([]byte(in.PayPassword), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
-		data[dao.DemoArticle.Columns().PayPassword] = string(hashed)
+		data.PayPassword = string(hashed)
 	}
 	// 含金额字段，使用事务 + 行锁保证并发安全
 	err := dao.DemoArticle.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
@@ -146,9 +144,7 @@ func (s *sArticle) Update(ctx context.Context, in *model.ArticleUpdateInput) err
 
 // Delete 软删除文章
 func (s *sArticle) Delete(ctx context.Context, id snowflake.JsonInt64) error {
-	_, err := dao.DemoArticle.Ctx(ctx).Where(dao.DemoArticle.Columns().Id, id).Data(g.Map{
-		dao.DemoArticle.Columns().DeletedAt: gtime.Now(),
-	}).Update()
+	_, err := dao.DemoArticle.Ctx(ctx).Where(dao.DemoArticle.Columns().Id, id).Delete()
 	return err
 }
 

@@ -7,12 +7,12 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/system/internal/dao"
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
 	"gbaseadmin/app/system/internal/logic/shared"
 	"gbaseadmin/app/system/internal/model"
+	"gbaseadmin/app/system/internal/model/do"
 	"gbaseadmin/app/system/internal/service"
 	"gbaseadmin/utility/batchutil"
 	"gbaseadmin/utility/inpututil"
@@ -61,19 +61,16 @@ func (s *sUsers) Create(ctx context.Context, in *model.UsersCreateInput) error {
 	if err != nil {
 		return err
 	}
-	now := gtime.Now()
 	return dao.Users.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		_, err = tx.Model(dao.Users.Table()).Ctx(ctx).Data(g.Map{
-			dao.Users.Columns().Id:        id,
-			dao.Users.Columns().Username:  in.Username,
-			dao.Users.Columns().Password:  hashedPassword,
-			dao.Users.Columns().Nickname:  in.Nickname,
-			dao.Users.Columns().Email:     in.Email,
-			dao.Users.Columns().Avatar:    in.Avatar,
-			dao.Users.Columns().Status:    in.Status,
-			dao.Users.Columns().DeptId:    in.DeptID,
-			dao.Users.Columns().CreatedAt: now,
-			dao.Users.Columns().UpdatedAt: now,
+		_, err = tx.Model(dao.Users.Table()).Ctx(ctx).Data(do.Users{
+			Id:       id,
+			Username: in.Username,
+			Password: hashedPassword,
+			Nickname: in.Nickname,
+			Email:    in.Email,
+			Avatar:   in.Avatar,
+			Status:   in.Status,
+			DeptId:   in.DeptID,
 		}).Insert()
 		if err != nil {
 			return err
@@ -156,14 +153,13 @@ func (s *sUsers) Update(ctx context.Context, in *model.UsersUpdateInput) error {
 			}
 		}
 	}
-	data := g.Map{
-		dao.Users.Columns().Username:  in.Username,
-		dao.Users.Columns().Nickname:  in.Nickname,
-		dao.Users.Columns().Email:     in.Email,
-		dao.Users.Columns().Avatar:    in.Avatar,
-		dao.Users.Columns().Status:    in.Status,
-		dao.Users.Columns().DeptId:    in.DeptID,
-		dao.Users.Columns().UpdatedAt: gtime.Now(),
+	data := do.Users{
+		Username: in.Username,
+		Nickname: in.Nickname,
+		Email:    in.Email,
+		Avatar:   in.Avatar,
+		Status:   in.Status,
+		DeptId:   in.DeptID,
 	}
 	if in.Password != "" {
 		if err := password.ValidatePolicy(in.Password); err != nil {
@@ -173,7 +169,7 @@ func (s *sUsers) Update(ctx context.Context, in *model.UsersUpdateInput) error {
 		if err != nil {
 			return err
 		}
-		data[dao.Users.Columns().Password] = hashedPassword
+		data.Password = hashedPassword
 	}
 	err = dao.Users.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Model(dao.Users.Table()).Ctx(ctx).
@@ -280,10 +276,7 @@ func (s *sUsers) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 		if _, err := tx.Model(dao.Users.Table()).Ctx(ctx).
 			Where(dao.Users.Columns().Id, id).
 			Where(dao.Users.Columns().DeletedAt, nil).
-			Data(g.Map{
-				dao.Users.Columns().DeletedAt: gtime.Now(),
-			}).
-			Update(); err != nil {
+			Delete(); err != nil {
 			return err
 		}
 		if _, err := tx.Model(dao.UserRole.Table()).Ctx(ctx).
@@ -349,10 +342,7 @@ func (s *sUsers) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) err
 		if _, err := tx.Model(dao.Users.Table()).Ctx(ctx).
 			WhereIn(dao.Users.Columns().Id, deleteIDs).
 			Where(dao.Users.Columns().DeletedAt, nil).
-			Data(g.Map{
-				dao.Users.Columns().DeletedAt: gtime.Now(),
-			}).
-			Update(); err != nil {
+			Delete(); err != nil {
 			return err
 		}
 		if _, err := tx.Model(dao.UserRole.Table()).Ctx(ctx).
@@ -398,7 +388,9 @@ func (s *sUsers) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model
 	var roles []struct {
 		RoleId int64 `json:"roleId"`
 	}
-	_ = dao.UserRole.Ctx(ctx).Where(dao.UserRole.Columns().UserId, id).Scan(&roles)
+	if err := dao.UserRole.Ctx(ctx).Where(dao.UserRole.Columns().UserId, id).Scan(&roles); err != nil {
+		return nil, err
+	}
 	out.RoleIDs = make([]snowflake.JsonInt64, 0, len(roles))
 	for _, r := range roles {
 		out.RoleIDs = append(out.RoleIDs, snowflake.JsonInt64(r.RoleId))
@@ -449,7 +441,9 @@ func (s *sUsers) List(ctx context.Context, in *model.UsersListInput) (list []*mo
 		return
 	}
 	s.fillDeptTitles(ctx, list)
-	s.fillRoleTitles(ctx, list)
+	if err = s.fillRoleTitles(ctx, list); err != nil {
+		return nil, 0, err
+	}
 	return
 }
 
@@ -492,9 +486,8 @@ func (s *sUsers) ResetPassword(ctx context.Context, in *model.UsersResetPassword
 	_, err = dao.Users.Ctx(ctx).
 		Where(dao.Users.Columns().Id, in.ID).
 		Where(dao.Users.Columns().DeletedAt, nil).
-		Data(g.Map{
-			dao.Users.Columns().Password:  hashedPassword,
-			dao.Users.Columns().UpdatedAt: gtime.Now(),
+		Data(do.Users{
+			Password: hashedPassword,
 		}).
 		Update()
 	if err == nil {
@@ -516,14 +509,14 @@ func (s *sUsers) fillDeptTitles(ctx context.Context, list []*model.UsersListOutp
 	}
 }
 
-func (s *sUsers) fillRoleTitles(ctx context.Context, list []*model.UsersListOutput) {
+func (s *sUsers) fillRoleTitles(ctx context.Context, list []*model.UsersListOutput) error {
 	userIDs := make([]int64, 0, len(list))
 	for _, item := range list {
 		userIDs = append(userIDs, int64(item.ID))
 		item.RoleTitles = make([]string, 0)
 	}
 	if len(userIDs) == 0 {
-		return
+		return nil
 	}
 	var userRoles []struct {
 		UserId int64 `json:"userId"`
@@ -531,8 +524,11 @@ func (s *sUsers) fillRoleTitles(ctx context.Context, list []*model.UsersListOutp
 	}
 	if err := dao.UserRole.Ctx(ctx).
 		WhereIn(dao.UserRole.Columns().UserId, userIDs).
-		Scan(&userRoles); err != nil || len(userRoles) == 0 {
-		return
+		Scan(&userRoles); err != nil {
+		return err
+	}
+	if len(userRoles) == 0 {
+		return nil
 	}
 	roleSet := make(map[int64]struct{})
 	userRoleMap := make(map[int64][]int64)
@@ -550,6 +546,7 @@ func (s *sUsers) fillRoleTitles(ctx context.Context, list []*model.UsersListOutp
 			appendUniqueRoleTitle(item, roleMap[roleID])
 		}
 	}
+	return nil
 }
 
 func appendUniqueRoleTitle(item *model.UsersListOutput, title string) {

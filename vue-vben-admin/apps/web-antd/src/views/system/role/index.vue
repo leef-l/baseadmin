@@ -217,7 +217,7 @@ function handleGrantMenu(row: RoleItem) {
 
 /** 数据权限 */
 function handleGrantDept(row: RoleItem) {
-  grantDeptRef.value?.open(row.id, row.dataScope);
+  grantDeptRef.value?.open(row.id, row.dataScope ?? 1);
 }
 </script>
 
@@ -230,18 +230,18 @@ function handleGrantDept(row: RoleItem) {
         <Button v-access:code="'system:role:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #dataScope_cell="{ row }">
-        <Tag :color="getDataScopeColor(row.dataScope)">
-          {{ dataScopeMap[row.dataScope] || row.dataScope }}
+        <Tag :color="getDataScopeColor(row.dataScope ?? 1)">
+          {{ dataScopeMap[row.dataScope ?? 1] || row.dataScope }}
         </Tag>
       </template>
       <template #status_cell="{ row }">
-        <Tag :color="getStatusColor(row.status)">
-          {{ statusMap[row.status] || row.status }}
+        <Tag :color="getStatusColor(row.status ?? 0)">
+          {{ statusMap[row.status ?? 0] || row.status }}
         </Tag>
       </template>
       <template #isAdmin_cell="{ row }">
-        <Tag :color="getIsAdminColor(row.isAdmin)">
-          {{ isAdminMap[row.isAdmin] || '否' }}
+        <Tag :color="getIsAdminColor(row.isAdmin ?? 0)">
+          {{ isAdminMap[row.isAdmin ?? 0] || '否' }}
         </Tag>
       </template>
       <template #action="{ row }">

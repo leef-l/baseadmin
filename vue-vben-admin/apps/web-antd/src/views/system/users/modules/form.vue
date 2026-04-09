@@ -11,6 +11,10 @@ import {
 import { getDeptTree } from '#/api/system/dept';
 import { getRoleTree } from '#/api/system/role';
 import type { DeptItem } from '#/api/system/dept/types';
+import type {
+  UsersCreateParams,
+  UsersUpdateParams,
+} from '#/api/system/users/types';
 import { normalizeRoleIds } from './role-ids';
 
 const emit = defineEmits<{ success: [] }>();
@@ -98,16 +102,18 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.close();
   },
   onConfirm: async () => {
-    const values = await formApi.validateAndSubmitForm();
+    const values = await formApi.validateAndSubmitForm() as
+      | UsersCreateParams
+      | undefined;
     if (!values) return;
-    const submitValues = {
+    const submitValues: UsersCreateParams = {
       ...values,
       roleIds: normalizeRoleIds(values.roleIds),
     };
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateUsers({ id: editId.value, ...submitValues });
+        await updateUsers({ id: editId.value, ...submitValues } as UsersUpdateParams);
         message.success('更新成功');
       } else {
         await createUsers(submitValues);
@@ -127,7 +133,7 @@ const [Modal, modalApi] = useVbenModal({
 
     const currentOpenToken = ++openToken.value;
     formApi.resetForm();
-    const data = modalApi.getData<{ id?: string } | null>();
+    const data = modalApi.getData<{ id?: string }>();
 
     // 加载部门树
     try {

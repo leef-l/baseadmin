@@ -67,4 +67,17 @@ setupVbenVxeTable({
 
 export { useVbenVxeGrid };
 
-export type * from '@vben/plugins/vxe-table';
+export type {
+  VxeGridListeners,
+  VxeGridPropTypes,
+  VxeTableGridColumns,
+  VxeTableGridOptions,
+} from '@vben/plugins/vxe-table';
+
+// Local pages configure raw grid options rather than the wrapper component props.
+export type VxeGridProps<T extends Record<string, any> = any> = Omit<
+  VxeTableGridOptions<T>,
+  'columns'
+> & {
+  columns?: Array<Record<string, any>>;
+};

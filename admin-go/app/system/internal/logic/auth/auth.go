@@ -9,10 +9,10 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/system/internal/dao"
 	"gbaseadmin/app/system/internal/model"
+	"gbaseadmin/app/system/internal/model/do"
 	"gbaseadmin/app/system/internal/service"
 	"gbaseadmin/utility/authz"
 	"gbaseadmin/utility/cache"
@@ -117,9 +117,8 @@ func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model
 		if upgraded, hashErr := password.Hash(in.Password); hashErr == nil {
 			_, _ = dao.Users.Ctx(ctx).
 				Where(dao.Users.Columns().Id, user.Id).
-				Data(g.Map{
-					dao.Users.Columns().Password:  upgraded,
-					dao.Users.Columns().UpdatedAt: gtime.Now(),
+				Data(do.Users{
+					Password: upgraded,
 				}).
 				Update()
 		}
@@ -172,6 +171,9 @@ func (s *sAuth) loadInfo(ctx context.Context, userID snowflake.JsonInt64) (out *
 	if err != nil {
 		return nil, err
 	}
+	if user.Id == 0 {
+		return nil, gerror.New("用户不存在或已删除")
+	}
 
 	out = &model.AuthInfoOutput{
 		UserID:   snowflake.JsonInt64(user.Id),
@@ -186,17 +188,25 @@ func (s *sAuth) loadInfo(ctx context.Context, userID snowflake.JsonInt64) (out *
 	}
 
 	roles, err := loadUserRoles(ctx, int64(userID))
-	if err == nil && len(roles) > 0 {
-		roleIDs := collectRoleIDs(roles)
-		out.Roles = collectRoleTitles(roles)
-		if hasAdminRole(roles) {
-			out.Perms = loadActiveMenuPermissions(ctx, nil)
-		} else {
-			menuIDs, menuErr := loadRoleMenuIDs(ctx, roleIDs)
-			if menuErr == nil {
-				out.Perms = loadActiveMenuPermissions(ctx, menuIDs)
-			}
-		}
+	if err != nil {
+		return nil, err
+	}
+	if len(roles) == 0 {
+		return out, nil
+	}
+	roleIDs := collectRoleIDs(roles)
+	out.Roles = collectRoleTitles(roles)
+	if hasAdminRole(roles) {
+		out.Perms, err = loadActiveMenuPermissions(ctx, nil)
+		return out, err
+	}
+	menuIDs, err := loadRoleMenuIDs(ctx, roleIDs)
+	if err != nil {
+		return nil, err
+	}
+	out.Perms, err = loadActiveMenuPermissions(ctx, menuIDs)
+	if err != nil {
+		return nil, err
 	}
 
 	return
@@ -223,9 +233,13 @@ func (s *sAuth) ChangePassword(ctx context.Context, in *model.AuthChangePassword
 	// 查询当前密码
 	currentPassword, err := dao.Users.Ctx(ctx).
 		Where(dao.Users.Columns().Id, in.UserID).
+		Where(dao.Users.Columns().DeletedAt, nil).
 		Value(dao.Users.Columns().Password)
 	if err != nil {
 		return err
+	}
+	if currentPassword.IsEmpty() {
+		return gerror.New("用户不存在或已删除")
 	}
 
 	// 校验旧密码
@@ -243,7 +257,9 @@ func (s *sAuth) ChangePassword(ctx context.Context, in *model.AuthChangePassword
 	_, err = dao.Users.Ctx(ctx).
 		Where(dao.Users.Columns().Id, in.UserID).
 		Where(dao.Users.Columns().DeletedAt, nil).
-		Data(dao.Users.Columns().Password, hashedNew).
+		Data(do.Users{
+			Password: hashedNew,
+		}).
 		Update()
 	if err == nil {
 		s.clearAuthCache(ctx, int64(in.UserID))
@@ -559,16 +575,16 @@ func activeMenuModel(ctx context.Context) *gdb.Model {
 		Where("status", 1)
 }
 
-func loadActiveMenuPermissions(ctx context.Context, menuIDs []int64) []string {
+func loadActiveMenuPermissions(ctx context.Context, menuIDs []int64) ([]string, error) {
 	var perms []permissionRow
 	model := activeMenuModel(ctx)
 	if len(menuIDs) > 0 {
 		model = model.Where("id", menuIDs)
 	}
 	if err := model.WhereNot("permission", "").Scan(&perms); err != nil {
-		return nil
+		return nil, err
 	}
-	return compactPermissions(collectPermissions(perms))
+	return compactPermissions(collectPermissions(perms)), nil
 }
 
 func loadActiveMenus(ctx context.Context, menuIDs []int64) ([]*model.AuthMenuOutput, error) {

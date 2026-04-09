@@ -44,18 +44,19 @@ export function transformMenus(
     .filter((menu) => menu.isShow === 1 && routeMenuTypes.has(menu.type))
     .map((menu) => {
       const link = getMenuLink(menu);
+      const baseMeta = {
+        title: menu.title,
+        icon: menu.icon || undefined,
+        order: menu.sort,
+        hideInMenu: menu.isShow !== 1,
+        keepAlive: menu.isCache === 1,
+        authority: menu.permission ? [menu.permission] : undefined,
+      };
       const route: RouteRecordStringComponent = {
         name: menu.path?.replace(/\//g, '-').replace(/^-/, '') || `menu-${menu.id}`,
         path: menu.path || '',
         component: getMenuComponent(menu, link),
-        meta: {
-          title: menu.title,
-          icon: menu.icon || undefined,
-          order: menu.sort,
-          hideInMenu: menu.isShow !== 1,
-          keepAlive: menu.isCache === 1,
-          authority: menu.permission ? [menu.permission] : undefined,
-        },
+        meta: baseMeta,
       };
 
       if (menu.children?.length) {
@@ -63,11 +64,11 @@ export function transformMenus(
       }
 
       if (menu.type === 4 && link) {
-        route.meta = { ...route.meta, link };
+        route.meta = { ...baseMeta, link };
       }
 
       if (menu.type === 5 && link) {
-        route.meta = { ...route.meta, iframeSrc: link };
+        route.meta = { ...baseMeta, iframeSrc: link };
       }
 
       return route;

@@ -14,6 +14,7 @@ import (
 	"gbaseadmin/app/demo/internal/dao"
 	"gbaseadmin/app/demo/internal/middleware"
 	"gbaseadmin/app/demo/internal/model"
+	"gbaseadmin/app/demo/internal/model/do"
 	"gbaseadmin/app/demo/internal/service"
 	"gbaseadmin/utility/snowflake"
 )
@@ -54,28 +55,25 @@ func normalizeTagIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 // Create 创建标签
 func (s *sTag) Create(ctx context.Context, in *model.TagCreateInput) error {
 	id := snowflake.Generate()
-	_, err := dao.DemoTag.Ctx(ctx).Data(g.Map{
-		dao.DemoTag.Columns().Id:        id,
-		dao.DemoTag.Columns().Name: in.Name,
-		dao.DemoTag.Columns().Color: in.Color,
-		dao.DemoTag.Columns().Sort: in.Sort,
-		dao.DemoTag.Columns().Status: in.Status,
-		dao.DemoTag.Columns().CreatedBy: middleware.GetUserID(ctx),
-		dao.DemoTag.Columns().DeptId: middleware.GetDeptID(ctx),
-		dao.DemoTag.Columns().CreatedAt: gtime.Now(),
-		dao.DemoTag.Columns().UpdatedAt: gtime.Now(),
+	_, err := dao.DemoTag.Ctx(ctx).Data(do.Tag{
+		Id:        id,
+		Name: in.Name,
+		Color: in.Color,
+		Sort: in.Sort,
+		Status: in.Status,
+		CreatedBy: middleware.GetUserID(ctx),
+		DeptId: middleware.GetDeptID(ctx),
 	}).Insert()
 	return err
 }
 
 // Update 更新标签
 func (s *sTag) Update(ctx context.Context, in *model.TagUpdateInput) error {
-	data := g.Map{
-		dao.DemoTag.Columns().Name: in.Name,
-		dao.DemoTag.Columns().Color: in.Color,
-		dao.DemoTag.Columns().Sort: in.Sort,
-		dao.DemoTag.Columns().Status: in.Status,
-		dao.DemoTag.Columns().UpdatedAt: gtime.Now(),
+	data := do.Tag{
+		Name: in.Name,
+		Color: in.Color,
+		Sort: in.Sort,
+		Status: in.Status,
 	}
 	_, err := dao.DemoTag.Ctx(ctx).Where(dao.DemoTag.Columns().Id, in.ID).Data(data).Update()
 	return err
@@ -83,9 +81,7 @@ func (s *sTag) Update(ctx context.Context, in *model.TagUpdateInput) error {
 
 // Delete 软删除标签
 func (s *sTag) Delete(ctx context.Context, id snowflake.JsonInt64) error {
-	_, err := dao.DemoTag.Ctx(ctx).Where(dao.DemoTag.Columns().Id, id).Data(g.Map{
-		dao.DemoTag.Columns().DeletedAt: gtime.Now(),
-	}).Update()
+	_, err := dao.DemoTag.Ctx(ctx).Where(dao.DemoTag.Columns().Id, id).Delete()
 	return err
 }
 

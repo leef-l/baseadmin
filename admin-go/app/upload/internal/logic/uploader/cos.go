@@ -42,7 +42,7 @@ func newCOSClient(cfg cosConfig) (*cos.Client, error) {
 }
 
 // uploadToCOS 上传文件到腾讯云 COS，返回可访问的完整 URL
-func uploadToCOS(cfg cosConfig, localFilePath, objectKey string) (string, error) {
+func uploadToCOS(ctx context.Context, cfg cosConfig, localFilePath, objectKey string) (string, error) {
 	client, err := newCOSClient(cfg)
 	if err != nil {
 		return "", err
@@ -54,7 +54,7 @@ func uploadToCOS(cfg cosConfig, localFilePath, objectKey string) (string, error)
 	}
 	defer f.Close()
 
-	_, err = client.Object.Put(context.Background(), objectKey, f, nil)
+	_, err = client.Object.Put(ctx, objectKey, f, nil)
 	if err != nil {
 		return "", fmt.Errorf("COS上传失败: %w", err)
 	}
@@ -64,13 +64,13 @@ func uploadToCOS(cfg cosConfig, localFilePath, objectKey string) (string, error)
 }
 
 // deleteFromCOS 从腾讯云 COS 删除文件
-func deleteFromCOS(cfg cosConfig, objectKey string) error {
+func deleteFromCOS(ctx context.Context, cfg cosConfig, objectKey string) error {
 	client, err := newCOSClient(cfg)
 	if err != nil {
 		return err
 	}
 
-	_, err = client.Object.Delete(context.Background(), objectKey, nil)
+	_, err = client.Object.Delete(ctx, objectKey, nil)
 	if err != nil {
 		return fmt.Errorf("COS删除失败: %w", err)
 	}

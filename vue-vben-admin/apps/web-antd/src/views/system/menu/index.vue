@@ -268,23 +268,23 @@ function handleBatchDelete() {
         <Button v-access:code="'system:menu:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #type_cell="{ row }">
-        <Tag :color="getTypeColor(row.type)">
-          {{ typeMap[row.type] || row.type }}
+        <Tag :color="getTypeColor(row.type ?? 1)">
+          {{ typeMap[row.type ?? 1] || row.type }}
         </Tag>
       </template>
       <template #isShow_cell="{ row }">
-        <Tag :color="getIsShowColor(row.isShow)">
-          {{ isShowMap[row.isShow] || row.isShow }}
+        <Tag :color="getIsShowColor(row.isShow ?? 0)">
+          {{ isShowMap[row.isShow ?? 0] || row.isShow }}
         </Tag>
       </template>
       <template #isCache_cell="{ row }">
-        <Tag :color="getIsCacheColor(row.isCache)">
-          {{ isCacheMap[row.isCache] || row.isCache }}
+        <Tag :color="getIsCacheColor(row.isCache ?? 0)">
+          {{ isCacheMap[row.isCache ?? 0] || row.isCache }}
         </Tag>
       </template>
       <template #status_cell="{ row }">
-        <Tag :color="getStatusColor(row.status)">
-          {{ statusMap[row.status] || row.status }}
+        <Tag :color="getStatusColor(row.status ?? 0)">
+          {{ statusMap[row.status ?? 0] || row.status }}
         </Tag>
       </template>
       <template #action="{ row }">

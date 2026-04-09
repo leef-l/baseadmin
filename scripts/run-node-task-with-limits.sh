@@ -47,6 +47,7 @@ if command -v systemd-run >/dev/null 2>&1 && [ -d /run/systemd/system ] && [ "$(
     --property="MemoryMax=${RESOURCE_MEMORY_MAX}" \
     --property="CPUQuota=${RESOURCE_CPU_QUOTA}" \
     --property="TasksMax=${RESOURCE_TASKS_MAX}" \
+    --setenv="PATH=${PATH}" \
     --setenv="PNPM_NETWORK_CONCURRENCY=${PNPM_NETWORK_CONCURRENCY}" \
     --setenv="PNPM_CHILD_CONCURRENCY=${PNPM_CHILD_CONCURRENCY}" \
     --setenv="npm_config_maxsockets=${NPM_CONFIG_MAXSOCKETS}" \

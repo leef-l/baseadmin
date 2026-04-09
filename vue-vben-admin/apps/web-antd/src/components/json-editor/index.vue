@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue';
 
 import JsonEditorVue from 'json-editor-vue';
+import { Mode } from 'vanilla-jsoneditor';
 
 interface Props {
   value?: string;
@@ -59,7 +60,7 @@ function handleChange(val: any) {
   <JsonEditorVue
     :model-value="jsonValue"
     :main-menu-bar="true"
-    :mode="'tree'"
+    :mode="Mode.tree"
     :navigation-bar="false"
     :read-only="disabled"
     :style="{ height: `${height}px`, width: '100%' }"

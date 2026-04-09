@@ -12,7 +12,7 @@ const confirmLoading = ref(false);
 const roleId = ref('');
 const checkedKeys = ref<string[]>([]);
 const halfCheckedKeys = ref<string[]>([]);
-const treeData = ref<MenuItem[]>([]);
+const treeData = ref<any[]>([]);
 const expandedKeys = ref<string[]>([]);
 
 /** 递归收集所有节点 key */
@@ -68,9 +68,15 @@ async function open(id: string) {
 }
 
 /** 勾选事件 */
-function handleCheck(_checkedKeys: string[], e: any) {
-  checkedKeys.value = _checkedKeys as string[];
-  halfCheckedKeys.value = e.halfCheckedKeys as string[];
+function handleCheck(
+  checked:
+    | Array<string | number>
+    | { checked: Array<string | number>; halfChecked: Array<string | number> },
+  e: any,
+) {
+  const checkedKeysValue = Array.isArray(checked) ? checked : checked.checked;
+  checkedKeys.value = checkedKeysValue.map((key) => String(key));
+  halfCheckedKeys.value = (e.halfCheckedKeys as Array<string | number>).map((key) => String(key));
 }
 
 /** 提交 */

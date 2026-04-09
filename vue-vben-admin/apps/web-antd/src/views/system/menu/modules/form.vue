@@ -9,7 +9,11 @@ import {
   updateMenu,
   getMenuTree,
 } from '#/api/system/menu';
-import type { MenuItem } from '#/api/system/menu/types';
+import type {
+  MenuCreateParams,
+  MenuItem,
+  MenuUpdateParams,
+} from '#/api/system/menu/types';
 
 const treeData = ref<MenuItem[]>([]);
 
@@ -125,12 +129,14 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.close();
   },
   onConfirm: async () => {
-    const values = await formApi.validateAndSubmitForm();
+    const values = await formApi.validateAndSubmitForm() as
+      | MenuCreateParams
+      | undefined;
     if (!values) return;
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateMenu({ id: editId.value, ...values });
+        await updateMenu({ id: editId.value, ...values } as MenuUpdateParams);
         message.success('更新成功');
       } else {
         await createMenu(values);
@@ -150,7 +156,7 @@ const [Modal, modalApi] = useVbenModal({
 
     const currentOpenToken = ++openToken.value;
     formApi.resetForm();
-    const data = modalApi.getData<{ id?: string } | null>();
+    const data = modalApi.getData<{ id?: string }>();
     // 加载树形数据
     try {
       const res = await getMenuTree();

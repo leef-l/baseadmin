@@ -74,7 +74,7 @@ type cosStorageProvider struct {
 }
 
 func (p cosStorageProvider) Store(ctx context.Context, req storeRequest) (*storeResult, error) {
-	fileURL, err := uploadToCOS(p.cfg, req.LocalFilePath, req.ObjectKey)
+	fileURL, err := uploadToCOS(ctx, p.cfg, req.LocalFilePath, req.ObjectKey)
 	if err != nil {
 		_ = removeLocalFile(req.LocalFilePath)
 		return nil, fmt.Errorf("上传至COS失败: %w", err)
@@ -83,7 +83,7 @@ func (p cosStorageProvider) Store(ctx context.Context, req storeRequest) (*store
 		FileURL:  fileURL,
 		OnCommit: func(context.Context) error { return removeLocalFile(req.LocalFilePath) },
 		OnRollback: combineCleanupHooks(
-			func(context.Context) error { return deleteFromCOS(p.cfg, req.ObjectKey) },
+			func(ctx context.Context) error { return deleteFromCOS(ctx, p.cfg, req.ObjectKey) },
 			func(context.Context) error { return removeLocalFile(req.LocalFilePath) },
 		),
 	}, nil

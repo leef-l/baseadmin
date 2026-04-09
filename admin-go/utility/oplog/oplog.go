@@ -30,5 +30,8 @@ func Record(ctx context.Context, module, action, targetID, detail string) {
 		"detail":     strings.TrimSpace(detail),
 		"created_at": gtime.Now(),
 	}
-	go insertOperationLog(context.Background(), data)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	go insertOperationLog(context.WithoutCancel(ctx), data)
 }

@@ -10,6 +10,10 @@ import {
 } from '#/api/upload/file';
 import { getDirTree } from '#/api/upload/dir';
 import type { DirItem } from '#/api/upload/dir/types';
+import type {
+  FileCreateParams,
+  FileUpdateParams,
+} from '#/api/upload/file/types';
 
 /** 存储类型选项 */
 const storageOptions = [
@@ -141,12 +145,14 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.close();
   },
   onConfirm: async () => {
-    const values = await formApi.validateAndSubmitForm();
+    const values = await formApi.validateAndSubmitForm() as
+      | FileCreateParams
+      | undefined;
     if (!values) return;
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateFile({ id: editId.value, ...values });
+        await updateFile({ id: editId.value, ...values } as FileUpdateParams);
         message.success('更新成功');
       } else {
         await createFile(values);
@@ -171,7 +177,7 @@ const [Modal, modalApi] = useVbenModal({
       return;
     }
     applyDirOptions(options);
-    const data = modalApi.getData<{ id?: string } | null>();
+    const data = modalApi.getData<{ id?: string }>();
     if (data?.id) {
       isEdit.value = true;
       editId.value = data.id;

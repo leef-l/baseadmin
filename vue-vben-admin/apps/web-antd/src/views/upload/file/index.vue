@@ -202,13 +202,13 @@ function handleBatchDelete() {
         <Button v-access:code="'upload:file:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #storage_cell="{ row }">
-        <Tag :color="getStorageColor(row.storage)">
-          {{ storageMap[row.storage] || row.storage }}
+        <Tag :color="getStorageColor(row.storage ?? 1)">
+          {{ storageMap[row.storage ?? 1] || row.storage }}
         </Tag>
       </template>
       <template #isImage_cell="{ row }">
-        <Tag :color="getIsImageColor(row.isImage)">
-          {{ isImageMap[row.isImage] || row.isImage }}
+        <Tag :color="getIsImageColor(row.isImage ?? 0)">
+          {{ isImageMap[row.isImage ?? 0] || row.isImage }}
         </Tag>
       </template>
       <template #action="{ row }">

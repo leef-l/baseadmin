@@ -10,6 +10,7 @@ import (
 	"gbaseadmin/app/demo/internal/dao"
 	"gbaseadmin/app/demo/internal/middleware"
 	"gbaseadmin/app/demo/internal/model"
+	"gbaseadmin/app/demo/internal/model/do"
 	"gbaseadmin/app/demo/internal/service"
 	"gbaseadmin/utility/snowflake"
 )
@@ -50,30 +51,27 @@ func normalizeCategoryIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 // Create 创建分类
 func (s *sCategory) Create(ctx context.Context, in *model.CategoryCreateInput) error {
 	id := snowflake.Generate()
-	_, err := dao.DemoCategory.Ctx(ctx).Data(g.Map{
-		dao.DemoCategory.Columns().Id:        id,
-		dao.DemoCategory.Columns().ParentId: in.ParentID,
-		dao.DemoCategory.Columns().Name: in.Name,
-		dao.DemoCategory.Columns().Icon: in.Icon,
-		dao.DemoCategory.Columns().Sort: in.Sort,
-		dao.DemoCategory.Columns().Status: in.Status,
-		dao.DemoCategory.Columns().CreatedBy: middleware.GetUserID(ctx),
-		dao.DemoCategory.Columns().DeptId: middleware.GetDeptID(ctx),
-		dao.DemoCategory.Columns().CreatedAt: gtime.Now(),
-		dao.DemoCategory.Columns().UpdatedAt: gtime.Now(),
+	_, err := dao.DemoCategory.Ctx(ctx).Data(do.Category{
+		Id:        id,
+		ParentID: in.ParentID,
+		Name: in.Name,
+		Icon: in.Icon,
+		Sort: in.Sort,
+		Status: in.Status,
+		CreatedBy: middleware.GetUserID(ctx),
+		DeptId: middleware.GetDeptID(ctx),
 	}).Insert()
 	return err
 }
 
 // Update 更新分类
 func (s *sCategory) Update(ctx context.Context, in *model.CategoryUpdateInput) error {
-	data := g.Map{
-		dao.DemoCategory.Columns().ParentId: in.ParentID,
-		dao.DemoCategory.Columns().Name: in.Name,
-		dao.DemoCategory.Columns().Icon: in.Icon,
-		dao.DemoCategory.Columns().Sort: in.Sort,
-		dao.DemoCategory.Columns().Status: in.Status,
-		dao.DemoCategory.Columns().UpdatedAt: gtime.Now(),
+	data := do.Category{
+		ParentID: in.ParentID,
+		Name: in.Name,
+		Icon: in.Icon,
+		Sort: in.Sort,
+		Status: in.Status,
 	}
 	_, err := dao.DemoCategory.Ctx(ctx).Where(dao.DemoCategory.Columns().Id, in.ID).Data(data).Update()
 	return err
@@ -88,9 +86,7 @@ func (s *sCategory) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if len(deleteIDs) == 0 {
 		return nil
 	}
-	_, err = dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, deleteIDs).Data(g.Map{
-		dao.DemoCategory.Columns().DeletedAt: gtime.Now(),
-	}).Update()
+	_, err = dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, deleteIDs).Delete()
 	return err
 }
 
@@ -103,9 +99,7 @@ func (s *sCategory) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) 
 	if len(deleteIDs) == 0 {
 		return nil
 	}
-	_, err = dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, deleteIDs).Data(g.Map{
-		dao.DemoCategory.Columns().DeletedAt: gtime.Now(),
-	}).Update()
+	_, err = dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, deleteIDs).Delete()
 	return err
 }
 

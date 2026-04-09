@@ -9,7 +9,11 @@ import {
   updateRole,
   getRoleTree,
 } from '#/api/system/role';
-import type { RoleItem } from '#/api/system/role/types';
+import type {
+  RoleCreateParams,
+  RoleItem,
+  RoleUpdateParams,
+} from '#/api/system/role/types';
 
 const treeData = ref<RoleItem[]>([]);
 
@@ -88,12 +92,14 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.close();
   },
   onConfirm: async () => {
-    const values = await formApi.validateAndSubmitForm();
+    const values = await formApi.validateAndSubmitForm() as
+      | RoleCreateParams
+      | undefined;
     if (!values) return;
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateRole({ id: editId.value, ...values });
+        await updateRole({ id: editId.value, ...values } as RoleUpdateParams);
         message.success('更新成功');
       } else {
         await createRole(values);
@@ -113,7 +119,7 @@ const [Modal, modalApi] = useVbenModal({
 
     const currentOpenToken = ++openToken.value;
     formApi.resetForm();
-    const data = modalApi.getData<{ id?: string } | null>();
+    const data = modalApi.getData<{ id?: string }>();
     // 加载树形数据
     try {
       const res = await getRoleTree();

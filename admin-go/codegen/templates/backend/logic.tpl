@@ -25,6 +25,7 @@ import (
 	"gbaseadmin/app/{{.AppName}}/internal/middleware"
 {{- end}}
 	"gbaseadmin/app/{{.AppName}}/internal/model"
+	"gbaseadmin/app/{{.AppName}}/internal/model/do"
 	"gbaseadmin/app/{{.AppName}}/internal/service"
 	"gbaseadmin/utility/snowflake"
 {{- if .EnableOpLog}}
@@ -76,25 +77,23 @@ func (s *s{{.ModelName}}) Create(ctx context.Context, in *model.{{.ModelName}}Cr
 	}
 {{- end}}
 {{- end}}
-	_, err{{if not .HasPassword}} :={{else}} ={{end}} dao.{{.DaoName}}.Ctx(ctx).Data(g.Map{
-		dao.{{.DaoName}}.Columns().Id:        id,
+	_, err{{if not .HasPassword}} :={{else}} ={{end}} dao.{{.DaoName}}.Ctx(ctx).Data(do.{{.ModelName}}{
+		Id:        id,
 {{- range .Fields}}
 {{- if and (not .IsID) (not .IsHidden)}}
 {{- if .IsPassword}}
-		dao.{{$.DaoName}}.Columns().{{.NameDao}}: string(hashed{{.NameCamel}}),
+		{{.NameCamel}}: string(hashed{{.NameCamel}}),
 {{- else}}
-		dao.{{$.DaoName}}.Columns().{{.NameDao}}: in.{{.NameCamel}},
+		{{.NameCamel}}: in.{{.NameCamel}},
 {{- end}}
 {{- end}}
 {{- end}}
 {{- if .HasCreatedBy}}
-		dao.{{.DaoName}}.Columns().CreatedBy: middleware.GetUserID(ctx),
+		CreatedBy: middleware.GetUserID(ctx),
 {{- end}}
 {{- if .HasDeptID}}
-		dao.{{.DaoName}}.Columns().DeptId: middleware.GetDeptID(ctx),
+		DeptId: middleware.GetDeptID(ctx),
 {{- end}}
-		dao.{{.DaoName}}.Columns().CreatedAt: gtime.Now(),
-		dao.{{.DaoName}}.Columns().UpdatedAt: gtime.Now(),
 	}).Insert()
 {{- if .EnableOpLog}}
 	if err == nil {
@@ -106,13 +105,12 @@ func (s *s{{.ModelName}}) Create(ctx context.Context, in *model.{{.ModelName}}Cr
 
 // Update 更新{{.Comment}}
 func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}UpdateInput) error {
-	data := g.Map{
+	data := do.{{.ModelName}}{
 {{- range .Fields}}
 {{- if and (not .IsID) (not .IsHidden) (not .IsPassword)}}
-		dao.{{$.DaoName}}.Columns().{{.NameDao}}: in.{{.NameCamel}},
+		{{.NameCamel}}: in.{{.NameCamel}},
 {{- end}}
 {{- end}}
-		dao.{{.DaoName}}.Columns().UpdatedAt: gtime.Now(),
 	}
 {{- range .Fields}}
 {{- if .IsPassword}}
@@ -121,7 +119,7 @@ func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}Up
 		if err != nil {
 			return err
 		}
-		data[dao.{{$.DaoName}}.Columns().{{.NameDao}}] = string(hashed)
+		data.{{.NameCamel}} = string(hashed)
 	}
 {{- end}}
 {{- end}}
@@ -162,13 +160,9 @@ func (s *s{{.ModelName}}) Delete(ctx context.Context, id snowflake.JsonInt64) er
 	if len(deleteIDs) == 0 {
 		return nil
 	}
-	_, err = dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, deleteIDs).Data(g.Map{
-		dao.{{.DaoName}}.Columns().DeletedAt: gtime.Now(),
-	}).Update()
+	_, err = dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, deleteIDs).Delete()
 {{- else}}
-	_, err := dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().Id, id).Data(g.Map{
-		dao.{{.DaoName}}.Columns().DeletedAt: gtime.Now(),
-	}).Update()
+	_, err := dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().Id, id).Delete()
 {{- end}}
 {{- if .EnableOpLog}}
 	if err == nil {
@@ -188,9 +182,7 @@ func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonI
 	if len(deleteIDs) == 0 {
 		return nil
 	}
-	_, err = dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, deleteIDs).Data(g.Map{
-		dao.{{.DaoName}}.Columns().DeletedAt: gtime.Now(),
-	}).Update()
+	_, err = dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, deleteIDs).Delete()
 {{- if .EnableOpLog}}
 	if err == nil {
 		go oplog.Record(ctx, "{{.ModuleName}}", "batch-delete", fmt.Sprintf("%v", deleteIDs), "")

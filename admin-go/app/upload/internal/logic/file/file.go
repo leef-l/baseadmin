@@ -12,12 +12,11 @@ import (
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/gogf/gf/v2/errors/gerror"
-	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model"
+	"gbaseadmin/app/upload/internal/model/do"
 	"gbaseadmin/app/upload/internal/model/entity"
 	"gbaseadmin/app/upload/internal/service"
 	"gbaseadmin/utility/batchutil"
@@ -56,18 +55,16 @@ func (s *sFile) Create(ctx context.Context, in *model.FileCreateInput) error {
 		return err
 	}
 	id := snowflake.Generate()
-	_, err := dao.UploadFile.Ctx(ctx).Data(g.Map{
-		dao.UploadFile.Columns().Id:        id,
-		dao.UploadFile.Columns().DirId:     in.DirID,
-		dao.UploadFile.Columns().Name:      in.Name,
-		dao.UploadFile.Columns().Url:       in.URL,
-		dao.UploadFile.Columns().Ext:       in.Ext,
-		dao.UploadFile.Columns().Size:      in.Size,
-		dao.UploadFile.Columns().Mime:      in.Mime,
-		dao.UploadFile.Columns().Storage:   in.Storage,
-		dao.UploadFile.Columns().IsImage:   in.IsImage,
-		dao.UploadFile.Columns().CreatedAt: gtime.Now(),
-		dao.UploadFile.Columns().UpdatedAt: gtime.Now(),
+	_, err := dao.UploadFile.Ctx(ctx).Data(do.UploadFile{
+		Id:      id,
+		DirId:   in.DirID,
+		Name:    in.Name,
+		Url:     in.URL,
+		Ext:     in.Ext,
+		Size:    in.Size,
+		Mime:    in.Mime,
+		Storage: in.Storage,
+		IsImage: in.IsImage,
 	}).Insert()
 	return err
 }
@@ -87,16 +84,15 @@ func (s *sFile) Update(ctx context.Context, in *model.FileUpdateInput) error {
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
 		return err
 	}
-	data := g.Map{
-		dao.UploadFile.Columns().DirId:     in.DirID,
-		dao.UploadFile.Columns().Name:      in.Name,
-		dao.UploadFile.Columns().Url:       in.URL,
-		dao.UploadFile.Columns().Ext:       in.Ext,
-		dao.UploadFile.Columns().Size:      in.Size,
-		dao.UploadFile.Columns().Mime:      in.Mime,
-		dao.UploadFile.Columns().Storage:   in.Storage,
-		dao.UploadFile.Columns().IsImage:   in.IsImage,
-		dao.UploadFile.Columns().UpdatedAt: gtime.Now(),
+	data := do.UploadFile{
+		DirId:   in.DirID,
+		Name:    in.Name,
+		Url:     in.URL,
+		Ext:     in.Ext,
+		Size:    in.Size,
+		Mime:    in.Mime,
+		Storage: in.Storage,
+		IsImage: in.IsImage,
 	}
 	_, err := dao.UploadFile.Ctx(ctx).
 		Where(dao.UploadFile.Columns().Id, in.ID).
@@ -218,10 +214,7 @@ func (s *sFile) deleteTarget(ctx context.Context, target fileDeleteTarget) error
 	_, err := dao.UploadFile.Ctx(ctx).
 		Where(dao.UploadFile.Columns().Id, target.ID).
 		Where(dao.UploadFile.Columns().DeletedAt, nil).
-		Data(g.Map{
-			dao.UploadFile.Columns().DeletedAt: gtime.Now(),
-		}).
-		Update()
+		Delete()
 	return err
 }
 

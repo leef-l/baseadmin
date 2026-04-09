@@ -9,7 +9,11 @@ import {
   updateDept,
   getDeptTree,
 } from '#/api/system/dept';
-import type { DeptItem } from '#/api/system/dept/types';
+import type {
+  DeptCreateParams,
+  DeptItem,
+  DeptUpdateParams,
+} from '#/api/system/dept/types';
 
 const treeData = ref<DeptItem[]>([]);
 
@@ -77,12 +81,14 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.close();
   },
   onConfirm: async () => {
-    const values = await formApi.validateAndSubmitForm();
+    const values = await formApi.validateAndSubmitForm() as
+      | DeptCreateParams
+      | undefined;
     if (!values) return;
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateDept({ id: editId.value, ...values });
+        await updateDept({ id: editId.value, ...values } as DeptUpdateParams);
         message.success('更新成功');
       } else {
         await createDept(values);
@@ -102,7 +108,7 @@ const [Modal, modalApi] = useVbenModal({
 
     const currentOpenToken = ++openToken.value;
     formApi.resetForm();
-    const data = modalApi.getData<{ id?: string } | null>();
+    const data = modalApi.getData<{ id?: string }>();
     // 加载树形数据
     try {
       const res = await getDeptTree();

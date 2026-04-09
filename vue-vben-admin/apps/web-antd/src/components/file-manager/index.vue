@@ -165,8 +165,14 @@ function toggleSelect(file: FileItem) {
 }
 
 /** 目录选择 */
-function onDirSelect(keys: (string | undefined)[]) {
-  selectedDirId.value = keys[0] ?? undefined;
+function onDirSelect(keys: Array<string | number>) {
+  const first = keys[0];
+  selectedDirId.value
+    = typeof first === 'string'
+      ? first
+      : first == null
+        ? undefined
+        : String(first);
   pagination.current = 1;
   loadFileList();
 }

@@ -166,8 +166,8 @@ function handleBatchDelete() {
         <Button v-access:code="'system:dept:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #status_cell="{ row }">
-        <Tag :color="getStatusColor(row.status)">
-          {{ statusMap[row.status] || row.status }}
+        <Tag :color="getStatusColor(row.status ?? 0)">
+          {{ statusMap[row.status ?? 0] || row.status }}
         </Tag>
       </template>
       <template #action="{ row }">

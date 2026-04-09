@@ -9,6 +9,10 @@ import {
   createConfig,
   updateConfig,
 } from '#/api/upload/config';
+import type {
+  ConfigCreateParams,
+  ConfigUpdateParams,
+} from '#/api/upload/config/types';
 
 /** 存储类型选项 */
 const storageOptions = [
@@ -166,12 +170,14 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.close();
   },
   onConfirm: async () => {
-    const values = await formApi.validateAndSubmitForm();
+    const values = await formApi.validateAndSubmitForm() as
+      | ConfigCreateParams
+      | undefined;
     if (!values) return;
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateConfig({ id: editId.value, ...values });
+        await updateConfig({ id: editId.value, ...values } as ConfigUpdateParams);
         message.success('更新成功');
       } else {
         await createConfig(values);
@@ -191,7 +197,7 @@ const [Modal, modalApi] = useVbenModal({
 
     const currentOpenToken = ++openToken.value;
     formApi.resetForm();
-    const data = modalApi.getData<{ id?: string } | null>();
+    const data = modalApi.getData<{ id?: string }>();
     if (data?.id) {
       isEdit.value = true;
       editId.value = data.id;
