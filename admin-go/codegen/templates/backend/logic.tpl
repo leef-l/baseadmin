@@ -397,6 +397,9 @@ func (s *s{{.ModelName}}) fillRefFields(ctx context.Context, list []*model.{{.Mo
 
 // List 获取{{.Comment}}列表
 func (s *s{{.ModelName}}) List(ctx context.Context, in *model.{{.ModelName}}ListInput) (list []*model.{{.ModelName}}ListOutput, total int, err error) {
+	if in == nil {
+		in = &model.{{.ModelName}}ListInput{}
+	}
 	// PageSize 上限保护
 	if in.PageSize <= 0 {
 		in.PageSize = 10
@@ -459,6 +462,9 @@ func (s *s{{.ModelName}}) applyListOrder(m *gdb.Model, orderBy, orderDir string)
 
 // Export 导出{{.Comment}}（不分页）
 func (s *s{{.ModelName}}) Export(ctx context.Context, in *model.{{.ModelName}}ListInput) (list []*model.{{.ModelName}}ListOutput, err error) {
+	if in == nil {
+		in = &model.{{.ModelName}}ListInput{}
+	}
 	m := s.applyListFilter(ctx, in)
 	err = s.applyListOrder(m, in.OrderBy, in.OrderDir).Limit(10000).Scan(&list)
 	if err != nil {
@@ -474,6 +480,9 @@ func (s *s{{.ModelName}}) Export(ctx context.Context, in *model.{{.ModelName}}Li
 // Tree 获取{{.Comment}}树形结构
 func (s *s{{.ModelName}}) Tree(ctx context.Context, in *model.{{.ModelName}}TreeInput) (tree []*model.{{.ModelName}}TreeOutput, err error) {
 	var list []*model.{{.ModelName}}TreeOutput
+	if in == nil {
+		in = &model.{{.ModelName}}TreeInput{}
+	}
 	m := dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().DeletedAt, nil)
 {{- if .HasKeywordSearch}}
 	if in.Keyword != "" {

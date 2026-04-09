@@ -241,6 +241,9 @@ func (s *sCategory) fillRefFields(ctx context.Context, list []*model.CategoryLis
 
 // List 获取分类列表
 func (s *sCategory) List(ctx context.Context, in *model.CategoryListInput) (list []*model.CategoryListOutput, total int, err error) {
+	if in == nil {
+		in = &model.CategoryListInput{}
+	}
 	// PageSize 上限保护
 	if in.PageSize <= 0 {
 		in.PageSize = 10
@@ -289,6 +292,9 @@ func (s *sCategory) applyListOrder(m *gdb.Model, orderBy, orderDir string) *gdb.
 
 // Export 导出分类（不分页）
 func (s *sCategory) Export(ctx context.Context, in *model.CategoryListInput) (list []*model.CategoryListOutput, err error) {
+	if in == nil {
+		in = &model.CategoryListInput{}
+	}
 	m := s.applyListFilter(ctx, in)
 	err = s.applyListOrder(m, in.OrderBy, in.OrderDir).Limit(10000).Scan(&list)
 	if err != nil {
@@ -301,6 +307,9 @@ func (s *sCategory) Export(ctx context.Context, in *model.CategoryListInput) (li
 // Tree 获取分类树形结构
 func (s *sCategory) Tree(ctx context.Context, in *model.CategoryTreeInput) (tree []*model.CategoryTreeOutput, err error) {
 	var list []*model.CategoryTreeOutput
+	if in == nil {
+		in = &model.CategoryTreeInput{}
+	}
 	m := dao.DemoCategory.Ctx(ctx).Where(dao.DemoCategory.Columns().DeletedAt, nil)
 	if in.Name != "" {
 		m = m.WhereLike(dao.DemoCategory.Columns().Name, "%"+in.Name+"%")

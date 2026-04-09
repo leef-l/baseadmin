@@ -165,11 +165,13 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			chk(strings.Contains(output, "applyListFilter"), "缺少 applyListFilter")
 			chk(strings.Contains(output, "isAllowedOrderField"), "缺少 isAllowedOrderField")
 			chk(strings.Contains(output, "applyListOrder"), "缺少 applyListOrder")
+			chk(strings.Contains(output, "in = &model."+meta.ModelName+"ListInput{}"), "List/Export 缺少 nil 入参保护")
 			if meta.HasParentID {
 				chk(strings.Contains(output, "collectChildIDs"), "树形表缺少 collectChildIDs")
 				chk(strings.Contains(output, "doCollectChildIDs"), "树形表缺少 doCollectChildIDs")
 				chk(strings.Contains(output, "collectDeleteIDs"), "树形表缺少 collectDeleteIDs")
 				chk(strings.Contains(output, "Tree("), "树形表缺少 Tree 方法")
+				chk(strings.Contains(output, "in = &model."+meta.ModelName+"TreeInput{}"), "树形表 Tree 缺少 nil 入参保护")
 			}
 			chk(strings.Contains(output, "BatchDelete("), "缺少 BatchDelete 方法")
 			if meta.HasMoney {

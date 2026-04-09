@@ -129,6 +129,9 @@ func (s *sTag) applyListFilter(ctx context.Context, in *model.TagListInput) *gdb
 
 // List 获取标签列表
 func (s *sTag) List(ctx context.Context, in *model.TagListInput) (list []*model.TagListOutput, total int, err error) {
+	if in == nil {
+		in = &model.TagListInput{}
+	}
 	// PageSize 上限保护
 	if in.PageSize <= 0 {
 		in.PageSize = 10
@@ -176,6 +179,9 @@ func (s *sTag) applyListOrder(m *gdb.Model, orderBy, orderDir string) *gdb.Model
 
 // Export 导出标签（不分页）
 func (s *sTag) Export(ctx context.Context, in *model.TagListInput) (list []*model.TagListOutput, err error) {
+	if in == nil {
+		in = &model.TagListInput{}
+	}
 	m := s.applyListFilter(ctx, in)
 	err = s.applyListOrder(m, in.OrderBy, in.OrderDir).Limit(10000).Scan(&list)
 	if err != nil {

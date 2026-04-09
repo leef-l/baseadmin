@@ -315,6 +315,9 @@ func (s *sArticle) fillRefFields(ctx context.Context, list []*model.ArticleListO
 
 // List 获取文章列表
 func (s *sArticle) List(ctx context.Context, in *model.ArticleListInput) (list []*model.ArticleListOutput, total int, err error) {
+	if in == nil {
+		in = &model.ArticleListInput{}
+	}
 	// PageSize 上限保护
 	if in.PageSize <= 0 {
 		in.PageSize = 10
@@ -367,6 +370,9 @@ func (s *sArticle) applyListOrder(m *gdb.Model, orderBy, orderDir string) *gdb.M
 
 // Export 导出文章（不分页）
 func (s *sArticle) Export(ctx context.Context, in *model.ArticleListInput) (list []*model.ArticleListOutput, err error) {
+	if in == nil {
+		in = &model.ArticleListInput{}
+	}
 	m := s.applyListFilter(ctx, in)
 	err = s.applyListOrder(m, in.OrderBy, in.OrderDir).Limit(10000).Scan(&list)
 	if err != nil {
