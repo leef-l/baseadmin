@@ -2,12 +2,14 @@
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
+import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
 import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getDirRuleList, deleteDirRule } from '#/api/upload/dir_rule';
+import { batchDeleteDirRule, deleteDirRule, getDirRuleList } from '#/api/upload/dir_rule';
 import type { DirRuleItem } from '#/api/upload/dir_rule/types';
+import { getGridSelectedIds } from '#/utils/grid-selection';
 import FormModal from './modules/form.vue';
 
 /** 标签颜色池 */
@@ -58,7 +60,8 @@ const [FormModalComp, formModalApi] = useVbenModal({
   connectedComponent: FormModal,
   destroyOnClose: true,
 });
-
+const { hasAccessByCodes } = useAccess();
+const canBatchDelete = hasAccessByCodes(['upload:dir_rule:batch-delete']);
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -102,8 +105,10 @@ const formOptions: VbenFormProps = {
 
 /** 表格列配置 */
 const gridOptions: VxeGridProps<DirRuleItem> = {
+  checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
   columns: [
     { title: '序号', type: 'seq', width: 50 },
+    ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { field: 'dirName', title: '所属目录' },
     { field: 'category', title: '类别', width: 120, slots: { default: 'category_cell' } },
     { field: 'savePath', title: '保存目录' },
@@ -160,6 +165,28 @@ function handleDelete(row: DirRuleItem) {
     },
   });
 }
+
+function getSelectedIds() {
+  return getGridSelectedIds<DirRuleItem>(gridApi.grid as any);
+}
+
+function handleBatchDelete() {
+  const ids = getSelectedIds();
+  if (ids.length === 0) {
+    message.warning('请选择要删除的目录规则');
+    return;
+  }
+  Modal.confirm({
+    title: '确认批量删除',
+    content: `确定要删除选中的 ${ids.length} 条目录规则吗？`,
+    okType: 'danger',
+    async onOk() {
+      await batchDeleteDirRule(ids);
+      message.success('批量删除成功');
+      gridApi.reload();
+    },
+  });
+}
 </script>
 
 <template>
@@ -167,7 +194,8 @@ function handleDelete(row: DirRuleItem) {
     <FormModalComp @success="() => gridApi.reload()" />
     <Grid>
       <template #toolbar-actions>
-        <Button type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'upload:dir_rule:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'upload:dir_rule:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #category_cell="{ row }">
         <Tag :color="getCategoryColor(row.category)">
@@ -180,8 +208,8 @@ function handleDelete(row: DirRuleItem) {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <Button v-access:code="'upload:dir_rule:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+        <Button v-access:code="'upload:dir_rule:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
       </template>
     </Grid>
   </Page>

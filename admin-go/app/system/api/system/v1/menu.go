@@ -65,6 +65,17 @@ type MenuDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// MenuBatchDeleteReq 批量删除菜单表请求
+type MenuBatchDeleteReq struct {
+	g.Meta `path:"/menu/batch-delete" method:"delete" tags:"菜单表" summary:"批量删除菜单表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"菜单表ID列表"`
+}
+
+// MenuBatchDeleteRes 批量删除菜单表响应
+type MenuBatchDeleteRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 // MenuDetailReq 获取菜单表详情请求
 type MenuDetailReq struct {
 	g.Meta `path:"/menu/detail" method:"get" tags:"菜单表" summary:"获取菜单表详情"`

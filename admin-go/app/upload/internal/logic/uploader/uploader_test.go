@@ -136,3 +136,15 @@ func TestLocalStorageProviderRollbackRemovesFile(t *testing.T) {
 		t.Fatalf("rollback should remove local file, got err=%v", err)
 	}
 }
+
+func TestCheckStorageReadyValidatesConfigShape(t *testing.T) {
+	if err := checkStorageReady(context.Background(), uploadStorageConfig{StorageType: 1, LocalPath: t.TempDir()}); err != nil {
+		t.Fatalf("local storage should be ready: %v", err)
+	}
+	if err := checkStorageReady(context.Background(), uploadStorageConfig{StorageType: 2, OSS: ossConfig{Endpoint: "oss-cn-shanghai.aliyuncs.com"}}); err == nil {
+		t.Fatal("incomplete oss config should fail")
+	}
+	if err := checkStorageReady(context.Background(), uploadStorageConfig{StorageType: 3, COS: cosConfig{Region: "ap-guangzhou"}}); err == nil {
+		t.Fatal("incomplete cos config should fail")
+	}
+}

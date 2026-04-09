@@ -10,6 +10,7 @@ type IUsers interface {
 	Create(ctx context.Context, in *model.UsersCreateInput) error
 	Update(ctx context.Context, in *model.UsersUpdateInput) error
 	Delete(ctx context.Context, id snowflake.JsonInt64) error
+	BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error
 	Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.UsersDetailOutput, err error)
 	List(ctx context.Context, in *model.UsersListInput) (list []*model.UsersListOutput, total int, err error)
 	ResetPassword(ctx context.Context, in *model.UsersResetPasswordInput) error

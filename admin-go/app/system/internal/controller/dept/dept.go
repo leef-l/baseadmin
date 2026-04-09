@@ -45,6 +45,12 @@ func (c *cDept) Delete(ctx context.Context, req *v1.DeptDeleteReq) (res *v1.Dept
 	return
 }
 
+// BatchDelete 批量删除部门表
+func (c *cDept) BatchDelete(ctx context.Context, req *v1.DeptBatchDeleteReq) (res *v1.DeptBatchDeleteRes, err error) {
+	err = service.Dept().BatchDelete(ctx, req.IDs)
+	return
+}
+
 // Detail 获取部门表详情
 func (c *cDept) Detail(ctx context.Context, req *v1.DeptDetailReq) (res *v1.DeptDetailRes, err error) {
 	res = &v1.DeptDetailRes{}

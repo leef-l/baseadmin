@@ -4,14 +4,16 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { h, onMounted, ref } from 'vue';
 
+import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
 import { Button, Card, Input, message, Modal, Tag, Tree } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { getDeptTree } from '#/api/system/dept';
 import type { DeptItem } from '#/api/system/dept/types';
-import { getUsersList, deleteUsers, resetUsersPassword } from '#/api/system/users';
+import { batchDeleteUsers, deleteUsers, getUsersList, resetUsersPassword } from '#/api/system/users';
 import type { UsersItem } from '#/api/system/users/types';
+import { getGridSelectedIds } from '#/utils/grid-selection';
 import FormModal from './modules/form.vue';
 
 /** 标签颜色池 */
@@ -82,7 +84,8 @@ const [FormModalComp, formModalApi] = useVbenModal({
   connectedComponent: FormModal,
   destroyOnClose: true,
 });
-
+const { hasAccessByCodes } = useAccess();
+const canBatchDelete = hasAccessByCodes(['system:user:batch-delete']);
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -115,8 +118,15 @@ const formOptions: VbenFormProps = {
 
 /** 表格列配置 */
 const gridOptions: VxeGridProps<UsersItem> = {
+  checkboxConfig: canBatchDelete
+    ? {
+        highlight: true,
+        checkMethod: ({ row }) => row.username !== 'admin',
+      }
+    : undefined,
   columns: [
     { title: '序号', type: 'seq', width: 50 },
+    ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { field: 'username', title: '登录用户名' },
     { field: 'nickname', title: '昵称' },
     { field: 'deptTitle', title: '所属部门' },
@@ -172,6 +182,28 @@ function handleDelete(row: UsersItem) {
     async onOk() {
       await deleteUsers(row.id);
       message.success('删除成功');
+      gridApi.reload();
+    },
+  });
+}
+
+function getSelectedIds() {
+  return getGridSelectedIds<UsersItem>(gridApi.grid as any);
+}
+
+function handleBatchDelete() {
+  const ids = getSelectedIds();
+  if (ids.length === 0) {
+    message.warning('请选择要删除的用户');
+    return;
+  }
+  Modal.confirm({
+    title: '确认批量删除',
+    content: `确定要删除选中的 ${ids.length} 个用户吗？`,
+    okType: 'danger',
+    async onOk() {
+      await batchDeleteUsers(ids);
+      message.success('批量删除成功');
       gridApi.reload();
     },
   });
@@ -236,7 +268,8 @@ function handleResetPassword(row: UsersItem) {
       <div class="flex-1 overflow-hidden">
         <Grid>
           <template #toolbar-actions>
-            <Button type="primary" @click="handleCreate">新建</Button>
+            <Button v-access:code="'system:user:create'" type="primary" @click="handleCreate">新建</Button>
+            <Button v-access:code="'system:user:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
           </template>
           <template #status_cell="{ row }">
             <Tag :color="getStatusColor(row.status)">
@@ -249,9 +282,9 @@ function handleResetPassword(row: UsersItem) {
             </Tag>
           </template>
           <template #action="{ row }">
-            <Button type="link" size="small" @click="handleEdit(row)">编辑</Button>
-            <Button type="link" size="small" @click="handleResetPassword(row)">重置密码</Button>
-            <Button v-if="row.username !== 'admin'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+            <Button v-access:code="'system:user:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+            <Button v-access:code="'system:user:update'" type="link" size="small" @click="handleResetPassword(row)">重置密码</Button>
+            <Button v-if="row.username !== 'admin'" v-access:code="'system:user:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
           </template>
         </Grid>
       </div>

@@ -41,6 +41,11 @@ export function deleteUsers(id: string) {
   return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
 }
 
+/** 批量删除用户表 */
+export function batchDeleteUsers(ids: string[]) {
+  return requestClient.delete(`${PREFIX}/batch-delete`, { data: { ids } });
+}
+
 /** 重置用户密码 */
 export function resetUsersPassword(data: UsersResetPasswordParams) {
   return requestClient.put(`${PREFIX}/reset-password`, data);

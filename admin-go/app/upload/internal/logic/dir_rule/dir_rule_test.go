@@ -38,4 +38,13 @@ func TestDirRuleInputValidation(t *testing.T) {
 	if err := dirRuleSvc.Update(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
 		t.Fatalf("Update nil input mismatch: %v", err)
 	}
+	if err := validateDirRuleFields(0, 1, 1); err == nil || err.Error() != "目录ID不能为空" {
+		t.Fatalf("validateDirRuleFields missing dirID mismatch: %v", err)
+	}
+	if err := validateDirRuleFields(1, 9, 1); err == nil || err.Error() != "类别值不合法" {
+		t.Fatalf("validateDirRuleFields invalid category mismatch: %v", err)
+	}
+	if _, err := dirRuleSvc.Detail(nil, 0); err == nil || err.Error() != "目录规则不存在或已删除" {
+		t.Fatalf("Detail invalid id mismatch: %v", err)
+	}
 }

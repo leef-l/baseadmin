@@ -10,6 +10,7 @@ type IDir interface {
 	Create(ctx context.Context, in *model.DirCreateInput) error
 	Update(ctx context.Context, in *model.DirUpdateInput) error
 	Delete(ctx context.Context, id snowflake.JsonInt64) error
+	BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error
 	Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.DirDetailOutput, err error)
 	List(ctx context.Context, in *model.DirListInput) (list []*model.DirListOutput, total int, err error)
 	Tree(ctx context.Context, in *model.DirTreeInput) (tree []*model.DirTreeOutput, err error)

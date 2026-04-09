@@ -43,6 +43,11 @@ export function deleteRole(id: string) {
   return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
 }
 
+/** 批量删除角色表 */
+export function batchDeleteRole(ids: string[]) {
+  return requestClient.delete(`${PREFIX}/batch-delete`, { data: { ids } });
+}
+
 /** 获取角色表树形结构 */
 export async function getRoleTree(params?: RoleTreeParams) {
   const res = await requestClient.get<{ list: RoleItem[] }>(

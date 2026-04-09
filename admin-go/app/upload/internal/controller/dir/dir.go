@@ -43,6 +43,12 @@ func (c *cDir) Delete(ctx context.Context, req *v1.DirDeleteReq) (res *v1.DirDel
 	return
 }
 
+// BatchDelete 批量删除文件目录
+func (c *cDir) BatchDelete(ctx context.Context, req *v1.DirBatchDeleteReq) (res *v1.DirBatchDeleteRes, err error) {
+	err = service.Dir().BatchDelete(ctx, req.IDs)
+	return
+}
+
 // Detail 获取文件目录详情
 func (c *cDir) Detail(ctx context.Context, req *v1.DirDetailReq) (res *v1.DirDetailRes, err error) {
 	res = &v1.DirDetailRes{}

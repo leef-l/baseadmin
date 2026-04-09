@@ -51,4 +51,13 @@ func TestDeptInputValidation(t *testing.T) {
 	if err := deptSvc.Update(nil, &model.DeptUpdateInput{ID: 1, Title: " "}); err == nil || err.Error() != "部门名称不能为空" {
 		t.Fatalf("Update blank title mismatch: %v", err)
 	}
+	if err := validateDeptFields("技术部", -1, 1); err == nil || err.Error() != "排序不能小于0" {
+		t.Fatalf("validateDeptFields negative sort mismatch: %v", err)
+	}
+	if err := validateDeptFields("技术部", 0, 2); err == nil || err.Error() != "状态值不合法" {
+		t.Fatalf("validateDeptFields invalid status mismatch: %v", err)
+	}
+	if _, err := deptSvc.Detail(nil, 0); err == nil || err.Error() != "部门不存在或已删除" {
+		t.Fatalf("Detail invalid id mismatch: %v", err)
+	}
 }

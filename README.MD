@@ -9,8 +9,8 @@
 
 当前代码里实际保留的业务模块：
 
-- `system`：`auth`、`dept`、`role`、`menu`、`users`，以及公开探活 `healthz`
-- `upload`：`config`、`dir`、`dir_rule`、`file`、`uploader`，以及公开探活 `healthz`
+- `system`：`auth`、`dept`、`role`、`menu`、`users`，以及公开探活 `healthz` / `readyz`
+- `upload`：`config`、`dir`、`dir_rule`、`file`、`uploader`，以及公开探活 `healthz` / `readyz`
 - `web-antd` 页面：`views/system/{dept,menu,role,users}`、`views/upload/{config,dir,dir_rule,file}`
 - 上传复用组件：`components/file-manager`、`components/upload`、`components/tinymce`、`components/json-editor`
 
@@ -134,8 +134,8 @@ Docker 铁律：
 
 ### 健康检查
 
-- `system`：`GET /healthz`
-- `upload`：`GET /healthz`
+- `system`：`GET /healthz`、`GET /readyz`
+- `upload`：`GET /healthz`、`GET /readyz`
 
 ### 本地直跑（非 Docker）
 

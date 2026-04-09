@@ -211,7 +211,7 @@ jobs:
           echo "[$APP] Status: $status"
           if [ "$status" != "active" ]; then exit 1; fi
 
-          HEALTH_URL=http://127.0.0.1:8000/healthz
+          HEALTH_URL=http://127.0.0.1:8000/readyz
           echo "[$APP] Health check: $HEALTH_URL"
           for i in $(seq 1 15); do
               if curl --silent --show-error --fail "$HEALTH_URL" >/dev/null; then
@@ -296,7 +296,7 @@ jobs:
           echo "[$APP] Status: $status"
           if [ "$status" != "active" ]; then exit 1; fi
 
-          HEALTH_URL=http://127.0.0.1:8002/healthz
+          HEALTH_URL=http://127.0.0.1:8002/readyz
           echo "[$APP] Health check: $HEALTH_URL"
           for i in $(seq 1 15); do
               if curl --silent --show-error --fail "$HEALTH_URL" >/dev/null; then
@@ -480,8 +480,8 @@ jobs:
               echo "gba-$app: $status"
           done
           echo "===== Health Checks ====="
-          curl --silent --show-error --fail http://127.0.0.1:8000/healthz >/dev/null && echo "system health: ok"
-          curl --silent --show-error --fail http://127.0.0.1:8002/healthz >/dev/null && echo "upload health: ok"
+          curl --silent --show-error --fail http://127.0.0.1:8000/readyz >/dev/null && echo "system ready: ok"
+          curl --silent --show-error --fail http://127.0.0.1:8002/readyz >/dev/null && echo "upload ready: ok"
           EOF
 
       - name: Summary

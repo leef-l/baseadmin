@@ -61,6 +61,12 @@ func (c *cConfig) Delete(ctx context.Context, req *v1.ConfigDeleteReq) (res *v1.
 	return
 }
 
+// BatchDelete 批量删除上传配置
+func (c *cConfig) BatchDelete(ctx context.Context, req *v1.ConfigBatchDeleteReq) (res *v1.ConfigBatchDeleteRes, err error) {
+	err = service.Config().BatchDelete(ctx, req.IDs)
+	return
+}
+
 // Detail 获取上传配置详情
 func (c *cConfig) Detail(ctx context.Context, req *v1.ConfigDetailReq) (res *v1.ConfigDetailRes, err error) {
 	res = &v1.ConfigDetailRes{}

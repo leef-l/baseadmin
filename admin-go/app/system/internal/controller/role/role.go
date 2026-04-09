@@ -45,6 +45,12 @@ func (c *cRole) Delete(ctx context.Context, req *v1.RoleDeleteReq) (res *v1.Role
 	return
 }
 
+// BatchDelete 批量删除角色表
+func (c *cRole) BatchDelete(ctx context.Context, req *v1.RoleBatchDeleteReq) (res *v1.RoleBatchDeleteRes, err error) {
+	err = service.Role().BatchDelete(ctx, req.IDs)
+	return
+}
+
 // Detail 获取角色表详情
 func (c *cRole) Detail(ctx context.Context, req *v1.RoleDetailReq) (res *v1.RoleDetailRes, err error) {
 	res = &v1.RoleDetailRes{}

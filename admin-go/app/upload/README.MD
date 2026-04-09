@@ -22,17 +22,18 @@
 
 对外接口分两层：
 
-- 公开路由：`GET /healthz`
+- 公开路由：`GET /healthz`、`GET /readyz`
 - 业务接口前缀：`/api/upload/`，全部需要 Auth 认证
 
 | 模块 | 路径 | 鉴权 | 说明 |
 |------|------|------|------|
 | 健康检查 | `GET /healthz` | 否 | 返回 `{ status: "ok", service: "upload" }` |
+| 就绪检查 | `GET /readyz` | 否 | 返回数据库与上传存储检查结果 |
 | 文件上传 | `POST /api/upload/uploader/upload` | 是 | 上传文件（multipart/form-data） |
-| 文件目录 | `/api/upload/dir/list,create,update,delete,detail,tree` | 是 | 目录管理（树形） |
-| 文件记录 | `/api/upload/file/list,create,update,delete,detail` | 是 | 文件管理 |
-| 上传配置 | `/api/upload/config/list,create,update,delete,detail` | 是 | 配置管理 |
-| 目录规则 | `/api/upload/dir_rule/list,create,update,delete,detail` | 是 | 目录规则管理 |
+| 文件目录 | `/api/upload/dir/list,create,update,delete,batch-delete,detail,tree` | 是 | 目录管理（树形） |
+| 文件记录 | `/api/upload/file/list,create,update,delete,batch-delete,detail` | 是 | 文件管理 |
+| 上传配置 | `/api/upload/config/list,create,update,delete,batch-delete,detail` | 是 | 配置管理 |
+| 目录规则 | `/api/upload/dir_rule/list,create,update,delete,batch-delete,detail` | 是 | 目录规则管理 |
 
 静态文件访问：`/upload/` 映射到 `resource/upload/` 目录。
 
@@ -71,6 +72,7 @@
 删除文件时同时执行物理删除，根据 `storage` 字段判断存储类型：
 - 本地：直接删除磁盘文件
 - OSS/COS：按文件 URL 匹配真实配置后删除对应云端对象
+- 批量删除会先做一轮配置匹配预检，避免删到一半才发现某条云文件无法定位存储配置
 
 ## 前端组件
 
@@ -97,6 +99,8 @@
 Props: `mode`, `multiple`, `maxCount`, `accept`, `maxSize`
 
 功能：左侧目录树筛选、右侧文件网格、勾选多选、搜索、分页、上传文件
+
+当 `multiple=true` 且 `maxCount > 1` 时，文件管理器顶部上传入口也支持一次选择多个文件并并发上传。
 
 调用方式：
 

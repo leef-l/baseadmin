@@ -324,6 +324,10 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			chk(strings.Contains(output, "const sortableFieldMap"), "list 缺少排序字段映射")
 			chk(strings.Contains(output, "resolveSortField"), "list 缺少排序字段转换 helper")
 			chk(strings.Contains(output, "getSortColumns"), "list 导出应读取当前表格排序状态")
+			chk(strings.Contains(output, "useAccess"), "list 缺少 useAccess 权限能力")
+			chk(strings.Contains(output, "const canBatchDelete = hasAccessByCodes(['"+meta.AppName+":"+meta.ModuleName+":batch-delete'])"), "list 缺少 batch-delete 权限判断")
+			chk(strings.Contains(output, "checkboxConfig: canBatchDelete ? { highlight: true } : undefined"), "list 复选框高亮必须跟 batch-delete 权限绑定")
+			chk(strings.Contains(output, "...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : [])"), "list 复选框列必须跟 batch-delete 权限绑定")
 			if meta.HasKeywordSearch {
 				chk(strings.Contains(output, "fieldName: 'keyword'"), "关键词搜索缺少 keyword 控件")
 			}

@@ -57,6 +57,12 @@ func (c *cMenu) Delete(ctx context.Context, req *v1.MenuDeleteReq) (res *v1.Menu
 	return
 }
 
+// BatchDelete 批量删除菜单表
+func (c *cMenu) BatchDelete(ctx context.Context, req *v1.MenuBatchDeleteReq) (res *v1.MenuBatchDeleteRes, err error) {
+	err = service.Menu().BatchDelete(ctx, req.IDs)
+	return
+}
+
 // Detail 获取菜单表详情
 func (c *cMenu) Detail(ctx context.Context, req *v1.MenuDetailReq) (res *v1.MenuDetailRes, err error) {
 	res = &v1.MenuDetailRes{}

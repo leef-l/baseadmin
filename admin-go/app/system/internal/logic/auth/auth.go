@@ -14,6 +14,7 @@ import (
 	"gbaseadmin/app/system/internal/dao"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
+	"gbaseadmin/utility/authz"
 	"gbaseadmin/utility/cache"
 	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/jwt"
@@ -411,6 +412,7 @@ func userCacheKeys(userID int64) []string {
 	return []string{
 		infoCacheKey(userID),
 		menusCacheKey(userID),
+		authz.PermissionCacheKey(userID),
 	}
 }
 

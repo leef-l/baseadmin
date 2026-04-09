@@ -41,6 +41,11 @@ export function deleteMenu(id: string) {
   return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
 }
 
+/** 批量删除菜单表 */
+export function batchDeleteMenu(ids: string[]) {
+  return requestClient.delete(`${PREFIX}/batch-delete`, { data: { ids } });
+}
+
 /** 获取菜单表树形结构 */
 export async function getMenuTree(params?: MenuTreeParams) {
   const res = await requestClient.get<{ list: MenuItem[] }>(

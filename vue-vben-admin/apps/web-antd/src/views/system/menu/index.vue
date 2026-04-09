@@ -2,12 +2,14 @@
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
+import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
 import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getMenuTree, deleteMenu } from '#/api/system/menu';
+import { batchDeleteMenu, deleteMenu, getMenuTree } from '#/api/system/menu';
 import type { MenuItem } from '#/api/system/menu/types';
+import { getGridSelectedIds } from '#/utils/grid-selection';
 import FormModal from './modules/form.vue';
 
 /** 标签颜色池 */
@@ -100,7 +102,8 @@ const [FormModalComp, formModalApi] = useVbenModal({
   connectedComponent: FormModal,
   destroyOnClose: true,
 });
-
+const { hasAccessByCodes } = useAccess();
+const canBatchDelete = hasAccessByCodes(['system:menu:batch-delete']);
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -166,7 +169,9 @@ const formOptions: VbenFormProps = {
 
 /** 表格列配置 */
 const gridOptions: VxeGridProps<MenuItem> = {
+  checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
   columns: [
+    ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     // { title: '序号', type: 'seq', width: 50 },
     { field: 'title', title: '菜单名称', width:200, treeNode: true },
     { field: 'type', title: '类型', width: 60, slots: { default: 'type_cell' } },
@@ -230,6 +235,28 @@ function handleDelete(row: MenuItem) {
     },
   });
 }
+
+function getSelectedIds() {
+  return getGridSelectedIds<MenuItem>(gridApi.grid as any);
+}
+
+function handleBatchDelete() {
+  const ids = getSelectedIds();
+  if (ids.length === 0) {
+    message.warning('请选择要删除的菜单');
+    return;
+  }
+  Modal.confirm({
+    title: '确认批量删除',
+    content: `确定要删除选中的 ${ids.length} 个菜单吗？`,
+    okType: 'danger',
+    async onOk() {
+      await batchDeleteMenu(ids);
+      message.success('批量删除成功');
+      gridApi.reload();
+    },
+  });
+}
 </script>
 
 <template>
@@ -237,7 +264,8 @@ function handleDelete(row: MenuItem) {
     <FormModalComp @success="() => gridApi.reload()" />
     <Grid>
       <template #toolbar-actions>
-        <Button type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'system:menu:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'system:menu:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #type_cell="{ row }">
         <Tag :color="getTypeColor(row.type)">
@@ -260,8 +288,8 @@ function handleDelete(row: MenuItem) {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <Button v-access:code="'system:menu:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+        <Button v-access:code="'system:menu:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
       </template>
     </Grid>
   </Page>

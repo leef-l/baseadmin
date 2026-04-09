@@ -2,12 +2,14 @@
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
+import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
 import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getDeptTree, deleteDept } from '#/api/system/dept';
+import { batchDeleteDept, deleteDept, getDeptTree } from '#/api/system/dept';
 import type { DeptItem } from '#/api/system/dept/types';
+import { getGridSelectedIds } from '#/utils/grid-selection';
 import FormModal from './modules/form.vue';
 
 /** 标签颜色池 */
@@ -37,7 +39,8 @@ const [FormModalComp, formModalApi] = useVbenModal({
   connectedComponent: FormModal,
   destroyOnClose: true,
 });
-
+const { hasAccessByCodes } = useAccess();
+const canBatchDelete = hasAccessByCodes(['system:dept:batch-delete']);
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -70,8 +73,10 @@ const formOptions: VbenFormProps = {
 
 /** 表格列配置 */
 const gridOptions: VxeGridProps<DeptItem> = {
+  checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
   columns: [
     { title: '序号', type: 'seq', width: 50 },
+    ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { field: 'title', title: '部门名称', treeNode: true },
     { field: 'username', title: '部门负责人姓名' },
     { field: 'email', title: '负责人邮箱' },
@@ -128,6 +133,28 @@ function handleDelete(row: DeptItem) {
     },
   });
 }
+
+function getSelectedIds() {
+  return getGridSelectedIds<DeptItem>(gridApi.grid as any);
+}
+
+function handleBatchDelete() {
+  const ids = getSelectedIds();
+  if (ids.length === 0) {
+    message.warning('请选择要删除的部门');
+    return;
+  }
+  Modal.confirm({
+    title: '确认批量删除',
+    content: `确定要删除选中的 ${ids.length} 个部门吗？`,
+    okType: 'danger',
+    async onOk() {
+      await batchDeleteDept(ids);
+      message.success('批量删除成功');
+      gridApi.reload();
+    },
+  });
+}
 </script>
 
 <template>
@@ -135,7 +162,8 @@ function handleDelete(row: DeptItem) {
     <FormModalComp @success="() => gridApi.reload()" />
     <Grid>
       <template #toolbar-actions>
-        <Button type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'system:dept:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'system:dept:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #status_cell="{ row }">
         <Tag :color="getStatusColor(row.status)">
@@ -143,8 +171,8 @@ function handleDelete(row: DeptItem) {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <Button v-access:code="'system:dept:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+        <Button v-access:code="'system:dept:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
       </template>
     </Grid>
   </Page>

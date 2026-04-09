@@ -53,6 +53,17 @@ type DirRuleDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// DirRuleBatchDeleteReq 批量删除文件目录规则请求
+type DirRuleBatchDeleteReq struct {
+	g.Meta `path:"/dir_rule/batch-delete" method:"delete" tags:"文件目录规则" summary:"批量删除文件目录规则"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"文件目录规则ID列表"`
+}
+
+// DirRuleBatchDeleteRes 批量删除文件目录规则响应
+type DirRuleBatchDeleteRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 // DirRuleDetailReq 获取文件目录规则详情请求
 type DirRuleDetailReq struct {
 	g.Meta `path:"/dir_rule/detail" method:"get" tags:"文件目录规则" summary:"获取文件目录规则详情"`

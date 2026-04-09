@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"testing"
 
 	"gbaseadmin/app/upload/internal/model"
@@ -193,14 +194,23 @@ func TestNormalizeFileInputs(t *testing.T) {
 }
 
 func TestValidateFileFields(t *testing.T) {
-	if err := validateFileFields("", "/upload/demo.png"); err == nil || err.Error() != "文件名称不能为空" {
+	if err := validateFileFields("", "/upload/demo.png", 1, 0, 0); err == nil || err.Error() != "文件名称不能为空" {
 		t.Fatalf("validateFileFields blank name mismatch: %v", err)
 	}
-	if err := validateFileFields("demo.png", ""); err == nil || err.Error() != "文件地址不能为空" {
+	if err := validateFileFields("demo.png", "", 1, 0, 0); err == nil || err.Error() != "文件地址不能为空" {
 		t.Fatalf("validateFileFields blank url mismatch: %v", err)
 	}
-	if err := validateFileFields("demo.png", "/upload/demo.png"); err != nil {
+	if err := validateFileFields("demo.png", "/upload/demo.png", 1, 0, 0); err != nil {
 		t.Fatalf("validateFileFields should succeed: %v", err)
+	}
+	if err := validateFileFields("demo.png", "/upload/demo.png", 9, 0, 0); err == nil || err.Error() != "存储类型值不合法" {
+		t.Fatalf("validateFileFields invalid storage mismatch: %v", err)
+	}
+	if err := validateFileFields("demo.png", "/upload/demo.png", 1, 3, 0); err == nil || err.Error() != "是否图片值不合法" {
+		t.Fatalf("validateFileFields invalid isImage mismatch: %v", err)
+	}
+	if err := validateFileFields("demo.png", "/upload/demo.png", 1, 0, -1); err == nil || err.Error() != "文件大小不能小于0" {
+		t.Fatalf("validateFileFields negative size mismatch: %v", err)
 	}
 }
 
@@ -214,5 +224,29 @@ func TestFileInputValidation(t *testing.T) {
 	}
 	if err := fileSvc.Update(nil, &model.FileUpdateInput{ID: 1, Name: "demo.png", URL: " "}); err == nil || err.Error() != "文件地址不能为空" {
 		t.Fatalf("Update blank url mismatch: %v", err)
+	}
+	if _, err := fileSvc.Detail(nil, 0); err == nil || err.Error() != "文件记录不存在或已删除" {
+		t.Fatalf("Detail invalid id mismatch: %v", err)
+	}
+}
+
+func TestDeleteStoredFileIgnoresMissingLocalFile(t *testing.T) {
+	if err := deleteStoredFile(context.Background(), 1, "/upload/not-found/demo.txt"); err != nil {
+		t.Fatalf("deleteStoredFile should ignore missing local file: %v", err)
+	}
+}
+
+func TestOrderDeleteTargetsKeepsRequestOrder(t *testing.T) {
+	rows := []fileDeleteTarget{
+		{ID: 9, URL: "/upload/9.txt", Storage: 1},
+		{ID: 3, URL: "/upload/3.txt", Storage: 1},
+		{ID: 7, URL: "/upload/7.txt", Storage: 1},
+	}
+	ordered := orderDeleteTargets(rows, []int64{3, 7, 9})
+	if len(ordered) != 3 {
+		t.Fatalf("orderDeleteTargets length mismatch: %d", len(ordered))
+	}
+	if ordered[0].ID != 3 || ordered[1].ID != 7 || ordered[2].ID != 9 {
+		t.Fatalf("orderDeleteTargets order mismatch: %+v", ordered)
 	}
 }

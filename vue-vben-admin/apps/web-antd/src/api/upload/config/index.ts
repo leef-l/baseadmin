@@ -39,3 +39,8 @@ export function updateConfig(data: ConfigUpdateParams) {
 export function deleteConfig(id: string) {
   return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
 }
+
+/** 批量删除上传配置 */
+export function batchDeleteConfig(ids: string[]) {
+  return requestClient.delete(`${PREFIX}/batch-delete`, { data: { ids } });
+}

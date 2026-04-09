@@ -12,7 +12,10 @@ import (
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model"
+	"gbaseadmin/app/upload/internal/model/entity"
 	"gbaseadmin/app/upload/internal/service"
+	"gbaseadmin/utility/batchutil"
+	"gbaseadmin/utility/fieldvalid"
 	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
@@ -35,6 +38,12 @@ func (s *sConfig) Create(ctx context.Context, in *model.ConfigCreateInput) error
 	}
 	normalizeConfigCreateInput(in)
 	if err := validateConfigName(in.Name); err != nil {
+		return err
+	}
+	if err := validateConfigMeta(in.Storage, in.IsDefault, in.MaxSize, in.Status); err != nil {
+		return err
+	}
+	if err := s.ensureConfigNameUnique(ctx, 0, in.Name); err != nil {
 		return err
 	}
 	if err := validateConfigFields(
@@ -97,21 +106,18 @@ func (s *sConfig) Update(ctx context.Context, in *model.ConfigUpdateInput) error
 	if err := validateConfigName(in.Name); err != nil {
 		return err
 	}
+	if err := validateConfigMeta(in.Storage, in.IsDefault, in.MaxSize, in.Status); err != nil {
+		return err
+	}
+	current, err := s.getConfigByID(ctx, in.ID)
+	if err != nil {
+		return err
+	}
+	if err := s.ensureConfigNameUnique(ctx, in.ID, in.Name); err != nil {
+		return err
+	}
 	now := gtime.Now()
 	return dao.UploadConfig.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		var current struct {
-			IsDefault    int    `json:"isDefault"`
-			OssAccessKey string `json:"ossAccessKey"`
-			OssSecretKey string `json:"ossSecretKey"`
-			CosSecretID  string `json:"cosSecretID"`
-			CosSecretKey string `json:"cosSecretKey"`
-		}
-		if err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).
-			Where(dao.UploadConfig.Columns().Id, in.ID).
-			Where(dao.UploadConfig.Columns().DeletedAt, nil).
-			Scan(&current); err != nil {
-			return err
-		}
 		if current.IsDefault == 1 && in.IsDefault != 1 {
 			return gerror.New("默认上传配置不能直接取消默认，请先设置其他配置为默认")
 		}
@@ -129,7 +135,7 @@ func (s *sConfig) Update(ctx context.Context, in *model.ConfigUpdateInput) error
 		}
 		ossAccessKey := pickSensitiveValue(in.OssAccessKey, current.OssAccessKey)
 		ossSecretKey := pickSensitiveValue(in.OssSecretKey, current.OssSecretKey)
-		cosSecretID := pickSensitiveValue(in.CosSecretID, current.CosSecretID)
+		cosSecretID := pickSensitiveValue(in.CosSecretID, current.CosSecretId)
 		cosSecretKey := pickSensitiveValue(in.CosSecretKey, current.CosSecretKey)
 		if err := validateConfigFields(
 			in.Storage,
@@ -173,19 +179,14 @@ func (s *sConfig) Update(ctx context.Context, in *model.ConfigUpdateInput) error
 
 // Delete 软删除上传配置
 func (s *sConfig) Delete(ctx context.Context, id snowflake.JsonInt64) error {
-	var current struct {
-		IsDefault int `json:"isDefault"`
-	}
-	if err := dao.UploadConfig.Ctx(ctx).
-		Where(dao.UploadConfig.Columns().Id, id).
-		Where(dao.UploadConfig.Columns().DeletedAt, nil).
-		Scan(&current); err != nil {
+	current, err := s.getConfigByID(ctx, id)
+	if err != nil {
 		return err
 	}
-	if current.IsDefault == 1 {
-		return gerror.New("默认上传配置不能删除，请先设置其他配置为默认")
+	if err := s.ensureConfigDeletable(ctx, current); err != nil {
+		return err
 	}
-	_, err := dao.UploadConfig.Ctx(ctx).
+	_, err = dao.UploadConfig.Ctx(ctx).
 		Where(dao.UploadConfig.Columns().Id, id).
 		Where(dao.UploadConfig.Columns().DeletedAt, nil).
 		Data(g.Map{
@@ -195,12 +196,160 @@ func (s *sConfig) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	return err
 }
 
+// BatchDelete 批量删除上传配置
+func (s *sConfig) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error {
+	ids = batchutil.CompactIDs(ids)
+	if len(ids) == 0 {
+		return gerror.New("请选择要删除的上传配置")
+	}
+	deleteIDs := batchutil.ToInt64s(ids)
+	configs, err := s.listConfigsByIDs(ctx, deleteIDs)
+	if err != nil {
+		return err
+	}
+	if len(configs) != len(deleteIDs) {
+		return gerror.New("包含不存在或已删除的上传配置")
+	}
+	for _, cfg := range configs {
+		if err := s.ensureConfigDeletable(ctx, cfg); err != nil {
+			return err
+		}
+	}
+	return dao.UploadConfig.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		_, err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).
+			WhereIn(dao.UploadConfig.Columns().Id, deleteIDs).
+			Where(dao.UploadConfig.Columns().DeletedAt, nil).
+			Data(g.Map{
+				dao.UploadConfig.Columns().DeletedAt: gtime.Now(),
+			}).
+			Update()
+		return err
+	})
+}
+
+func (s *sConfig) getConfigByID(ctx context.Context, id snowflake.JsonInt64) (*entity.UploadConfig, error) {
+	if id <= 0 {
+		return nil, gerror.New("上传配置不存在或已删除")
+	}
+	var cfg *entity.UploadConfig
+	if err := dao.UploadConfig.Ctx(ctx).
+		Where(dao.UploadConfig.Columns().Id, id).
+		Where(dao.UploadConfig.Columns().DeletedAt, nil).
+		Scan(&cfg); err != nil {
+		return nil, err
+	}
+	if cfg == nil || cfg.Id == 0 {
+		return nil, gerror.New("上传配置不存在或已删除")
+	}
+	return cfg, nil
+}
+
+func (s *sConfig) listConfigsByIDs(ctx context.Context, ids []int64) ([]*entity.UploadConfig, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var configs []*entity.UploadConfig
+	if err := dao.UploadConfig.Ctx(ctx).
+		WhereIn(dao.UploadConfig.Columns().Id, ids).
+		Where(dao.UploadConfig.Columns().DeletedAt, nil).
+		Scan(&configs); err != nil {
+		return nil, err
+	}
+	return configs, nil
+}
+
+func (s *sConfig) ensureConfigDeletable(ctx context.Context, cfg *entity.UploadConfig) error {
+	if cfg == nil || cfg.Id == 0 {
+		return gerror.New("上传配置不存在或已删除")
+	}
+	if cfg.IsDefault == 1 {
+		return gerror.New("默认上传配置不能删除，请先设置其他配置为默认")
+	}
+	refCount, err := s.countActiveFileReferences(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	if refCount > 0 {
+		return gerror.New("当前上传配置仍有关联文件，不能直接删除")
+	}
+	return nil
+}
+
+func (s *sConfig) ensureConfigNameUnique(ctx context.Context, currentID snowflake.JsonInt64, name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil
+	}
+	m := dao.UploadConfig.Ctx(ctx).
+		Where(dao.UploadConfig.Columns().Name, name).
+		Where(dao.UploadConfig.Columns().DeletedAt, nil)
+	if currentID > 0 {
+		m = m.WhereNot(dao.UploadConfig.Columns().Id, currentID)
+	}
+	count, err := m.Count()
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return gerror.New("配置名称已存在")
+	}
+	return nil
+}
+
+func (s *sConfig) countActiveFileReferences(ctx context.Context, cfg *entity.UploadConfig) (int, error) {
+	if cfg == nil || cfg.Id == 0 {
+		return 0, nil
+	}
+	if cfg.Storage != 2 && cfg.Storage != 3 {
+		return 0, nil
+	}
+	var files []struct {
+		Url string `json:"url"`
+	}
+	if err := dao.UploadFile.Ctx(ctx).
+		Fields(dao.UploadFile.Columns().Url).
+		Where(dao.UploadFile.Columns().Storage, cfg.Storage).
+		Where(dao.UploadFile.Columns().DeletedAt, nil).
+		Scan(&files); err != nil {
+		return 0, err
+	}
+	refCount := 0
+	for _, file := range files {
+		if configMatchesFileURL(cfg, file.Url) {
+			refCount++
+		}
+	}
+	return refCount, nil
+}
+
+func configMatchesFileURL(cfg *entity.UploadConfig, fileURL string) bool {
+	if cfg == nil || strings.TrimSpace(fileURL) == "" {
+		return false
+	}
+	switch cfg.Storage {
+	case 2:
+		_, ok := shared.MatchOSSObjectKey(fileURL, cfg)
+		return ok
+	case 3:
+		_, ok := shared.MatchCOSObjectKey(fileURL, cfg)
+		return ok
+	default:
+		return false
+	}
+}
+
 // Detail 获取上传配置详情
 func (s *sConfig) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.ConfigDetailOutput, err error) {
+	if id <= 0 {
+		return nil, gerror.New("上传配置不存在或已删除")
+	}
 	out = &model.ConfigDetailOutput{}
 	err = dao.UploadConfig.Ctx(ctx).Where(dao.UploadConfig.Columns().Id, id).Where(dao.UploadConfig.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
 		return nil, err
+	}
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("上传配置不存在或已删除")
 	}
 	sanitizeConfigOutput(out)
 	return
@@ -343,6 +492,22 @@ func normalizeConfigListInput(in *model.ConfigListInput) {
 func validateConfigName(name string) error {
 	if name == "" {
 		return gerror.New("配置名称不能为空")
+	}
+	return nil
+}
+
+func validateConfigMeta(storage, isDefault, maxSize, status int) error {
+	if err := fieldvalid.Enum("存储类型", storage, 1, 2, 3); err != nil {
+		return err
+	}
+	if err := fieldvalid.Binary("是否默认", isDefault); err != nil {
+		return err
+	}
+	if maxSize <= 0 {
+		return gerror.New("最大文件大小必须大于0")
+	}
+	if err := fieldvalid.Binary("状态", status); err != nil {
+		return err
 	}
 	return nil
 }

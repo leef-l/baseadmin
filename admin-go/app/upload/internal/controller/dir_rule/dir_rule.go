@@ -41,6 +41,12 @@ func (c *cDirRule) Delete(ctx context.Context, req *v1.DirRuleDeleteReq) (res *v
 	return
 }
 
+// BatchDelete 批量删除文件目录规则
+func (c *cDirRule) BatchDelete(ctx context.Context, req *v1.DirRuleBatchDeleteReq) (res *v1.DirRuleBatchDeleteRes, err error) {
+	err = service.DirRule().BatchDelete(ctx, req.IDs)
+	return
+}
+
 // Detail 获取文件目录规则详情
 func (c *cDirRule) Detail(ctx context.Context, req *v1.DirRuleDetailReq) (res *v1.DirRuleDetailRes, err error) {
 	res = &v1.DirRuleDetailRes{}

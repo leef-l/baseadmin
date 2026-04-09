@@ -49,6 +49,12 @@ func (c *cFile) Delete(ctx context.Context, req *v1.FileDeleteReq) (res *v1.File
 	return
 }
 
+// BatchDelete 批量删除文件记录
+func (c *cFile) BatchDelete(ctx context.Context, req *v1.FileBatchDeleteReq) (res *v1.FileBatchDeleteRes, err error) {
+	err = service.File().BatchDelete(ctx, req.IDs)
+	return
+}
+
 // Detail 获取文件记录详情
 func (c *cFile) Detail(ctx context.Context, req *v1.FileDetailReq) (res *v1.FileDetailRes, err error) {
 	res = &v1.FileDetailRes{}

@@ -10,3 +10,13 @@ type CheckRes struct {
 	Status  string `json:"status"`
 	Service string `json:"service"`
 }
+
+type ReadyReq struct {
+	g.Meta `path:"/readyz" tags:"Health" method:"get" summary:"Upload readiness check"`
+}
+
+type ReadyRes struct {
+	Status  string            `json:"status"`
+	Service string            `json:"service"`
+	Checks  map[string]string `json:"checks"`
+}

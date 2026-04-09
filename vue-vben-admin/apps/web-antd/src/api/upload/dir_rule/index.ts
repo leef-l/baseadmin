@@ -39,3 +39,8 @@ export function updateDirRule(data: DirRuleUpdateParams) {
 export function deleteDirRule(id: string) {
   return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
 }
+
+/** 批量删除文件目录规则 */
+export function batchDeleteDirRule(ids: string[]) {
+  return requestClient.delete(`${PREFIX}/batch-delete`, { data: { ids } });
+}

@@ -60,11 +60,13 @@ const emit = defineEmits<{
 }>();
 
 const effectiveMax = computed(() => (props.multiple ? props.maxCount : 1));
+const uploadMultiple = computed(() => props.multiple && effectiveMax.value > 1);
 
 /** State */
 const loading = ref(false);
 const treeLoading = ref(false);
-const uploading = ref(false);
+const uploadingCount = ref(0);
+const uploading = computed(() => uploadingCount.value > 0);
 const keyword = ref('');
 const selectedDirId = ref<string | undefined>(undefined);
 const fileListData = ref<FileItem[]>([]);
@@ -196,7 +198,7 @@ const customUpload: UploadProps['customRequest'] = async (options) => {
     onError?.(new Error('文件过大') as any);
     return;
   }
-  uploading.value = true;
+  uploadingCount.value += 1;
   try {
     await uploadFile(f, selectedDirId.value);
     message.success('上传成功');
@@ -206,7 +208,7 @@ const customUpload: UploadProps['customRequest'] = async (options) => {
     message.error('上传失败');
     onError?.(err);
   } finally {
-    uploading.value = false;
+    uploadingCount.value = Math.max(0, uploadingCount.value - 1);
   }
 };
 
@@ -253,6 +255,7 @@ onMounted(() => {
         :accept="accept"
         :custom-request="customUpload"
         :show-upload-list="false"
+        :multiple="uploadMultiple"
         :disabled="uploading"
       >
         <Button type="primary" :loading="uploading">

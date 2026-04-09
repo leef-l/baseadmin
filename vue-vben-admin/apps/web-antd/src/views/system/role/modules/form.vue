@@ -55,13 +55,14 @@ const [Form, formApi] = useVbenForm({
       component: 'Select',
       fieldName: 'dataScope',
       label: '数据范围',
+      rules: 'selectRequired',
       componentProps: { options: dataScopeOptions, placeholder: '请选择数据范围', allowClear: true, class: 'w-full' },
     },
     {
       component: 'InputNumber',
       fieldName: 'sort',
       label: '排序（升序）',
-      componentProps: { placeholder: '请输入排序（升序）', class: 'w-full' },
+      componentProps: { placeholder: '请输入排序（升序）', min: 0, class: 'w-full' },
     },
     {
       component: 'Switch',

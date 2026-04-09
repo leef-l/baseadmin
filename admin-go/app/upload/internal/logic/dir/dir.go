@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gtime"
@@ -12,6 +13,8 @@ import (
 	"gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/service"
+	"gbaseadmin/utility/batchutil"
+	"gbaseadmin/utility/fieldvalid"
 	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
@@ -34,7 +37,10 @@ func (s *sDir) Create(ctx context.Context, in *model.DirCreateInput) error {
 		return err
 	}
 	normalizeDirCreateInput(in)
-	if err := validateDirFields(in.Name, in.Path); err != nil {
+	if err := validateDirFields(in.Name, in.Path, in.Sort, in.Status); err != nil {
+		return err
+	}
+	if err := s.ensureDirPathUnique(ctx, 0, in.Path); err != nil {
 		return err
 	}
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
@@ -60,7 +66,13 @@ func (s *sDir) Update(ctx context.Context, in *model.DirUpdateInput) error {
 		return err
 	}
 	normalizeDirUpdateInput(in)
-	if err := validateDirFields(in.Name, in.Path); err != nil {
+	if err := validateDirFields(in.Name, in.Path, in.Sort, in.Status); err != nil {
+		return err
+	}
+	if err := s.ensureDirExists(ctx, in.ID); err != nil {
+		return err
+	}
+	if err := s.ensureDirPathUnique(ctx, in.ID, in.Path); err != nil {
 		return err
 	}
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
@@ -84,6 +96,9 @@ func (s *sDir) Update(ctx context.Context, in *model.DirUpdateInput) error {
 
 // Delete 软删除文件目录
 func (s *sDir) Delete(ctx context.Context, id snowflake.JsonInt64) error {
+	if err := s.ensureDirExists(ctx, id); err != nil {
+		return err
+	}
 	if err := s.ensureDirDeletable(ctx, id); err != nil {
 		return err
 	}
@@ -97,12 +112,52 @@ func (s *sDir) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	return err
 }
 
+// BatchDelete 批量删除文件目录
+func (s *sDir) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error {
+	ids = batchutil.CompactIDs(ids)
+	if len(ids) == 0 {
+		return gerror.New("请选择要删除的目录")
+	}
+	if err := s.ensureDirIDsExist(ctx, ids); err != nil {
+		return err
+	}
+	order, err := s.collectBatchDeleteOrder(ctx, ids)
+	if err != nil {
+		return err
+	}
+	if len(order) == 0 {
+		return nil
+	}
+	deleteIDs := batchutil.ToInt64s(order)
+	for _, id := range order {
+		if err := s.ensureDirBatchDeletable(ctx, id, deleteIDs); err != nil {
+			return err
+		}
+	}
+	return dao.UploadDir.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		_, err := tx.Model(dao.UploadDir.Table()).Ctx(ctx).
+			WhereIn(dao.UploadDir.Columns().Id, deleteIDs).
+			Where(dao.UploadDir.Columns().DeletedAt, nil).
+			Data(g.Map{
+				dao.UploadDir.Columns().DeletedAt: gtime.Now(),
+			}).
+			Update()
+		return err
+	})
+}
+
 // Detail 获取文件目录详情
 func (s *sDir) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.DirDetailOutput, err error) {
+	if id <= 0 {
+		return nil, gerror.New("目录不存在或已删除")
+	}
 	out = &model.DirDetailOutput{}
 	err = dao.UploadDir.Ctx(ctx).Where(dao.UploadDir.Columns().Id, id).Where(dao.UploadDir.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
 		return nil, err
+	}
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("目录不存在或已删除")
 	}
 	out.DirName = shared.LookupDirName(ctx, int64(out.ParentID))
 	return
@@ -201,12 +256,18 @@ func normalizeDirUpdateInput(in *model.DirUpdateInput) {
 	in.Path = strings.TrimSpace(in.Path)
 }
 
-func validateDirFields(name, path string) error {
+func validateDirFields(name, path string, sort, status int) error {
 	if name == "" {
 		return gerror.New("目录名称不能为空")
 	}
 	if path == "" {
 		return gerror.New("目录路径不能为空")
+	}
+	if err := fieldvalid.NonNegative("排序", sort); err != nil {
+		return err
+	}
+	if err := fieldvalid.Binary("状态", status); err != nil {
+		return err
 	}
 	return nil
 }
@@ -256,6 +317,117 @@ func (s *sDir) ensureDirDeletable(ctx context.Context, id snowflake.JsonInt64) e
 		return gerror.New("当前目录仍有关联规则，不能直接删除")
 	}
 	return nil
+}
+
+func (s *sDir) ensureDirExists(ctx context.Context, id snowflake.JsonInt64) error {
+	if id <= 0 {
+		return gerror.New("目录不存在或已删除")
+	}
+	count, err := dao.UploadDir.Ctx(ctx).
+		Where(dao.UploadDir.Columns().Id, id).
+		Where(dao.UploadDir.Columns().DeletedAt, nil).
+		Count()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return gerror.New("目录不存在或已删除")
+	}
+	return nil
+}
+
+func (s *sDir) ensureDirIDsExist(ctx context.Context, ids []snowflake.JsonInt64) error {
+	dbIDs := batchutil.ToInt64s(ids)
+	count, err := dao.UploadDir.Ctx(ctx).
+		WhereIn(dao.UploadDir.Columns().Id, dbIDs).
+		Where(dao.UploadDir.Columns().DeletedAt, nil).
+		Count()
+	if err != nil {
+		return err
+	}
+	if count != len(dbIDs) {
+		return gerror.New("包含不存在或已删除的目录")
+	}
+	return nil
+}
+
+func (s *sDir) ensureDirPathUnique(ctx context.Context, currentID snowflake.JsonInt64, path string) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil
+	}
+	m := dao.UploadDir.Ctx(ctx).
+		Where(dao.UploadDir.Columns().Path, path).
+		Where(dao.UploadDir.Columns().DeletedAt, nil)
+	if currentID > 0 {
+		m = m.WhereNot(dao.UploadDir.Columns().Id, currentID)
+	}
+	count, err := m.Count()
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return gerror.New("目录路径已存在")
+	}
+	return nil
+}
+
+func (s *sDir) ensureDirBatchDeletable(ctx context.Context, id snowflake.JsonInt64, deleteIDs []int64) error {
+	childModel := dao.UploadDir.Ctx(ctx).
+		Where(dao.UploadDir.Columns().ParentId, id).
+		Where(dao.UploadDir.Columns().DeletedAt, nil)
+	if len(deleteIDs) > 0 {
+		childModel = childModel.WhereNotIn(dao.UploadDir.Columns().Id, deleteIDs)
+	}
+	childCount, err := childModel.Count()
+	if err != nil {
+		return err
+	}
+	if childCount > 0 {
+		return gerror.New("当前目录下存在子目录，不能直接删除")
+	}
+	fileCount, err := dao.UploadFile.Ctx(ctx).
+		Where(dao.UploadFile.Columns().DirId, id).
+		Where(dao.UploadFile.Columns().DeletedAt, nil).
+		Count()
+	if err != nil {
+		return err
+	}
+	if fileCount > 0 {
+		return gerror.New("当前目录下仍有关联文件，不能直接删除")
+	}
+	ruleCount, err := dao.UploadDirRule.Ctx(ctx).
+		Where(dao.UploadDirRule.Columns().DirId, id).
+		Where(dao.UploadDirRule.Columns().DeletedAt, nil).
+		Count()
+	if err != nil {
+		return err
+	}
+	if ruleCount > 0 {
+		return gerror.New("当前目录仍有关联规则，不能直接删除")
+	}
+	return nil
+}
+
+func (s *sDir) collectBatchDeleteOrder(ctx context.Context, ids []snowflake.JsonInt64) ([]snowflake.JsonInt64, error) {
+	var rows []struct {
+		Id       int64 `json:"id"`
+		ParentId int64 `json:"parentId"`
+	}
+	if err := dao.UploadDir.Ctx(ctx).
+		Fields(dao.UploadDir.Columns().Id, dao.UploadDir.Columns().ParentId).
+		Where(dao.UploadDir.Columns().DeletedAt, nil).
+		Scan(&rows); err != nil {
+		return nil, err
+	}
+	treeRows := make([]batchutil.TreeRow, 0, len(rows))
+	for _, row := range rows {
+		treeRows = append(treeRows, batchutil.TreeRow{
+			ID:       row.Id,
+			ParentID: row.ParentId,
+		})
+	}
+	return batchutil.ExpandTreeDeleteOrder(ids, treeRows), nil
 }
 
 func (s *sDir) ensureParentValid(ctx context.Context, parentID, currentID snowflake.JsonInt64) error {

@@ -73,6 +73,17 @@ type ConfigDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// ConfigBatchDeleteReq 批量删除上传配置请求
+type ConfigBatchDeleteReq struct {
+	g.Meta `path:"/config/batch-delete" method:"delete" tags:"上传配置" summary:"批量删除上传配置"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"上传配置ID列表"`
+}
+
+// ConfigBatchDeleteRes 批量删除上传配置响应
+type ConfigBatchDeleteRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 // ConfigDetailReq 获取上传配置详情请求
 type ConfigDetailReq struct {
 	g.Meta `path:"/config/detail" method:"get" tags:"上传配置" summary:"获取上传配置详情"`

@@ -53,6 +53,18 @@ func TestNormalizeUsersInputs(t *testing.T) {
 	if resetIn.Password != "new-pass" {
 		t.Fatalf("normalizeUsersResetPasswordInput mismatch: %+v", resetIn)
 	}
+
+	updateIn := &model.UsersUpdateInput{
+		Username: " admin ",
+		Password: " secret123 ",
+		Nickname: " 管理员 ",
+		Email:    " admin@example.com ",
+		Avatar:   " /avatar.png ",
+	}
+	normalizeUsersUpdateInput(updateIn)
+	if updateIn.Username != "admin" || updateIn.Password != "secret123" || updateIn.Nickname != "管理员" || updateIn.Email != "admin@example.com" || updateIn.Avatar != "/avatar.png" {
+		t.Fatalf("normalizeUsersUpdateInput mismatch: %+v", updateIn)
+	}
 }
 
 func TestAppendUniqueRoleTitle(t *testing.T) {
@@ -80,5 +92,44 @@ func TestResetPasswordInputValidation(t *testing.T) {
 	}
 	if err := usersSvc.ResetPassword(nil, &model.UsersResetPasswordInput{ID: 1, Password: "short1"}); err == nil || err.Error() != "密码长度需为8-64位" {
 		t.Fatalf("ResetPassword weak password mismatch: %v", err)
+	}
+	if _, err := usersSvc.Detail(nil, 0); err == nil || err.Error() != "用户不存在或已删除" {
+		t.Fatalf("Detail invalid id mismatch: %v", err)
+	}
+}
+
+func TestAdminRoleGrantValidation(t *testing.T) {
+	if err := validateAdminRoleGrantAllowed(false, false); err != nil {
+		t.Fatalf("validateAdminRoleGrantAllowed should ignore non-admin grants: %v", err)
+	}
+	if err := validateAdminRoleGrantAllowed(true, true); err != nil {
+		t.Fatalf("validateAdminRoleGrantAllowed should allow admin actor: %v", err)
+	}
+	if err := validateAdminRoleGrantAllowed(true, false); err == nil || err.Error() != "只有超级管理员可以分配超级管理员角色" {
+		t.Fatalf("validateAdminRoleGrantAllowed mismatch: %v", err)
+	}
+}
+
+func TestBuiltinAdminManageValidation(t *testing.T) {
+	if err := validateBuiltinAdminManageAllowed(false, false); err != nil {
+		t.Fatalf("validateBuiltinAdminManageAllowed should ignore non-admin account: %v", err)
+	}
+	if err := validateBuiltinAdminManageAllowed(true, true); err != nil {
+		t.Fatalf("validateBuiltinAdminManageAllowed should allow admin actor: %v", err)
+	}
+	if err := validateBuiltinAdminManageAllowed(true, false); err == nil || err.Error() != "内置管理员账号只能由超级管理员操作" {
+		t.Fatalf("validateBuiltinAdminManageAllowed mismatch: %v", err)
+	}
+}
+
+func TestAdminRoleUserManageValidation(t *testing.T) {
+	if err := validateAdminRoleUserManageAllowed(false, false); err != nil {
+		t.Fatalf("validateAdminRoleUserManageAllowed should ignore normal user: %v", err)
+	}
+	if err := validateAdminRoleUserManageAllowed(true, true); err != nil {
+		t.Fatalf("validateAdminRoleUserManageAllowed should allow admin actor: %v", err)
+	}
+	if err := validateAdminRoleUserManageAllowed(true, false); err == nil || err.Error() != "超级管理员账号只能由超级管理员操作" {
+		t.Fatalf("validateAdminRoleUserManageAllowed mismatch: %v", err)
 	}
 }

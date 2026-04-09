@@ -57,4 +57,16 @@ func TestMenuInputValidation(t *testing.T) {
 	if err := menuSvc.Update(nil, &model.MenuUpdateInput{ID: 1, Title: " "}); err == nil || err.Error() != "菜单名称不能为空" {
 		t.Fatalf("Update blank title mismatch: %v", err)
 	}
+	if err := validateMenuFields("系统管理", 0, 1, 0, 1, 1); err == nil || err.Error() != "菜单类型值不合法" {
+		t.Fatalf("validateMenuFields invalid type mismatch: %v", err)
+	}
+	if err := validateMenuFields("系统管理", 1, 1, 0, 1, -1); err == nil || err.Error() != "排序不能小于0" {
+		t.Fatalf("validateMenuFields negative sort mismatch: %v", err)
+	}
+	if err := validateMenuFields("系统管理", 1, 3, 0, 1, 0); err == nil || err.Error() != "是否显示值不合法" {
+		t.Fatalf("validateMenuFields invalid isShow mismatch: %v", err)
+	}
+	if _, err := menuSvc.Detail(nil, 0); err == nil || err.Error() != "菜单不存在或已删除" {
+		t.Fatalf("Detail invalid id mismatch: %v", err)
+	}
 }

@@ -53,6 +53,17 @@ type DeptDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// DeptBatchDeleteReq 批量删除部门表请求
+type DeptBatchDeleteReq struct {
+	g.Meta `path:"/dept/batch-delete" method:"delete" tags:"部门表" summary:"批量删除部门表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"部门表ID列表"`
+}
+
+// DeptBatchDeleteRes 批量删除部门表响应
+type DeptBatchDeleteRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 // DeptDetailReq 获取部门表详情请求
 type DeptDetailReq struct {
 	g.Meta `path:"/dept/detail" method:"get" tags:"部门表" summary:"获取部门表详情"`

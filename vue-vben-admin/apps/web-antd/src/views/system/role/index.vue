@@ -2,12 +2,14 @@
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
+import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
 import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getRoleTree, deleteRole } from '#/api/system/role';
+import { batchDeleteRole, deleteRole, getRoleTree } from '#/api/system/role';
 import type { RoleItem } from '#/api/system/role/types';
+import { getGridSelectedIds } from '#/utils/grid-selection';
 import FormModal from './modules/form.vue';
 import GrantMenuModal from './modules/grant-menu.vue';
 import GrantDeptModal from './modules/grant-dept.vue';
@@ -73,6 +75,8 @@ function getIsAdminColor(val: number): string {
 
 const grantMenuRef = ref();
 const grantDeptRef = ref();
+const { hasAccessByCodes } = useAccess();
+const canBatchDelete = hasAccessByCodes(['system:role:batch-delete']);
 
 /** 表单弹窗 */
 const [FormModalComp, formModalApi] = useVbenModal({
@@ -123,7 +127,9 @@ const formOptions: VbenFormProps = {
 
 /** 表格列配置 */
 const gridOptions: VxeGridProps<RoleItem> = {
+  checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
   columns: [
+    ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     // { title: '序号', type: 'seq', width: 50 },
     { field: 'title', title: '角色名称', treeNode: true},
     { field: 'dataScope', title: '数据范围', width: 120, slots: { default: 'dataScope_cell' } },
@@ -182,6 +188,28 @@ function handleDelete(row: RoleItem) {
   });
 }
 
+function getSelectedIds() {
+  return getGridSelectedIds<RoleItem>(gridApi.grid as any);
+}
+
+function handleBatchDelete() {
+  const ids = getSelectedIds();
+  if (ids.length === 0) {
+    message.warning('请选择要删除的角色');
+    return;
+  }
+  Modal.confirm({
+    title: '确认批量删除',
+    content: `确定要删除选中的 ${ids.length} 个角色吗？`,
+    okType: 'danger',
+    async onOk() {
+      await batchDeleteRole(ids);
+      message.success('批量删除成功');
+      gridApi.reload();
+    },
+  });
+}
+
 /** 授权菜单 */
 function handleGrantMenu(row: RoleItem) {
   grantMenuRef.value?.open(row.id);
@@ -198,7 +226,8 @@ function handleGrantDept(row: RoleItem) {
     <FormModalComp @success="() => gridApi.reload()" />
     <Grid>
       <template #toolbar-actions>
-        <Button type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'system:role:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'system:role:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #dataScope_cell="{ row }">
         <Tag :color="getDataScopeColor(row.dataScope)">
@@ -216,10 +245,10 @@ function handleGrantDept(row: RoleItem) {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button type="link" size="small" @click="handleGrantMenu(row)">菜单权限</Button>
-        <Button type="link" size="small" @click="handleGrantDept(row)">数据权限</Button>
-        <Button type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <Button v-access:code="'system:role:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+        <Button v-access:code="'system:role:grant:menu'" type="link" size="small" @click="handleGrantMenu(row)">菜单权限</Button>
+        <Button v-access:code="'system:role:grant:dept'" type="link" size="small" @click="handleGrantDept(row)">数据权限</Button>
+        <Button v-access:code="'system:role:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
       </template>
     </Grid>
     <GrantMenuModal ref="grantMenuRef" @success="() => gridApi.reload()" />

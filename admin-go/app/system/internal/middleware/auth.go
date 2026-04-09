@@ -1,13 +1,17 @@
 package middleware
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gogf/gf/v2/net/ghttp"
 
+	"gbaseadmin/utility/authz"
 	"gbaseadmin/utility/jwt"
 	"gbaseadmin/utility/response"
 )
+
+const denyPermission = "__deny__"
 
 // Auth JWT 鉴权中间件
 func Auth(r *ghttp.Request) {
@@ -37,5 +41,109 @@ func Auth(r *ghttp.Request) {
 	r.SetCtxVar("jwt_dept_id", claims.DeptID)
 	r.SetCtxVar("jwt_claims", claims)
 
+	if permission := resolveSystemPermission(r.Method, r.URL.Path); permission != "" {
+		if permission == denyPermission {
+			response.Forbidden(r, "未配置的权限动作")
+			return
+		}
+		allowed, err := authz.HasPermission(r.Context(), claims.UserID, permission)
+		if err != nil {
+			response.Forbidden(r, "权限校验失败")
+			return
+		}
+		if !allowed {
+			response.Forbidden(r, fmt.Sprintf("缺少权限: %s", permission))
+			return
+		}
+	}
+
 	r.Middleware.Next()
+}
+
+func resolveSystemPermission(method, path string) string {
+	module, action := splitRouteAction("/api/system/", path)
+	if module == "" {
+		return ""
+	}
+	switch module {
+	case "auth":
+		if isAllowedAuthAction(action) {
+			return ""
+		}
+		return denyPermission
+	case "users":
+		if resolved := resolveSystemAction(action); resolved != "" {
+			return "system:user:" + resolved
+		}
+		return denyPermission
+	case "dept", "menu":
+		if resolved := resolveSystemAction(action); resolved != "" {
+			return "system:" + module + ":" + resolved
+		}
+		return denyPermission
+	case "role":
+		switch action {
+		case "grant-menu", "menu-ids":
+			return "system:role:grant:menu"
+		case "grant-dept", "dept-ids":
+			return "system:role:grant:dept"
+		default:
+			if resolved := resolveSystemAction(action); resolved != "" {
+				return "system:role:" + resolved
+			}
+			return denyPermission
+		}
+	default:
+		_ = method
+		return denyPermission
+	}
+}
+
+func isAllowedAuthAction(action string) bool {
+	switch action {
+	case "login", "info", "menus", "change-password":
+		return true
+	default:
+		return false
+	}
+}
+
+func resolveSystemAction(action string) string {
+	switch action {
+	case "create":
+		return "create"
+	case "update", "reset-password":
+		return "update"
+	case "delete":
+		return "delete"
+	case "detail", "list", "tree":
+		return "list"
+	case "batch-delete":
+		return "batch-delete"
+	case "batch-update":
+		return "batch-update"
+	case "export":
+		return "export"
+	case "import", "import-template":
+		return "import"
+	default:
+		return ""
+	}
+}
+
+func splitRouteAction(prefix, path string) (string, string) {
+	path = strings.TrimSpace(path)
+	if !strings.HasPrefix(path, prefix) {
+		return "", ""
+	}
+	trimmed := strings.TrimPrefix(path, prefix)
+	trimmed = strings.Trim(trimmed, "/")
+	if trimmed == "" {
+		return "", ""
+	}
+	parts := strings.Split(trimmed, "/")
+	if len(parts) < 2 {
+		return "", ""
+	}
+	return parts[0], parts[1]
 }

@@ -16,6 +16,7 @@ func TestUserCacheKeys(t *testing.T) {
 	want := []string{
 		"system:auth:info:42",
 		"system:auth:menus:42",
+		"system:authz:perms:42",
 	}
 	if got := userCacheKeys(42); !reflect.DeepEqual(got, want) {
 		t.Fatalf("userCacheKeys mismatch: got=%v want=%v", got, want)

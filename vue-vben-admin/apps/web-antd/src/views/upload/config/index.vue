@@ -2,12 +2,14 @@
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
+import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
 import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getConfigList, deleteConfig } from '#/api/upload/config';
+import { batchDeleteConfig, deleteConfig, getConfigList } from '#/api/upload/config';
 import type { ConfigItem } from '#/api/upload/config/types';
+import { getGridSelectedIds } from '#/utils/grid-selection';
 import FormModal from './modules/form.vue';
 
 /** 标签颜色池 */
@@ -77,7 +79,8 @@ const [FormModalComp, formModalApi] = useVbenModal({
   connectedComponent: FormModal,
   destroyOnClose: true,
 });
-
+const { hasAccessByCodes } = useAccess();
+const canBatchDelete = hasAccessByCodes(['upload:config:batch-delete']);
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -132,8 +135,10 @@ const formOptions: VbenFormProps = {
 
 /** 表格列配置 */
 const gridOptions: VxeGridProps<ConfigItem> = {
+  checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
   columns: [
     { title: '序号', type: 'seq', width: 50 },
+    ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { field: 'name', title: '配置名称' },
     { field: 'storage', title: '存储类型', width: 120, slots: { default: 'storage_cell' } },
     { field: 'isDefault', title: '是否默认', width: 100, slots: { default: 'isDefault_cell' } },
@@ -191,6 +196,28 @@ function handleDelete(row: ConfigItem) {
     },
   });
 }
+
+function getSelectedIds() {
+  return getGridSelectedIds<ConfigItem>(gridApi.grid as any);
+}
+
+function handleBatchDelete() {
+  const ids = getSelectedIds();
+  if (ids.length === 0) {
+    message.warning('请选择要删除的上传配置');
+    return;
+  }
+  Modal.confirm({
+    title: '确认批量删除',
+    content: `确定要删除选中的 ${ids.length} 个上传配置吗？`,
+    okType: 'danger',
+    async onOk() {
+      await batchDeleteConfig(ids);
+      message.success('批量删除成功');
+      gridApi.reload();
+    },
+  });
+}
 </script>
 
 <template>
@@ -198,7 +225,8 @@ function handleDelete(row: ConfigItem) {
     <FormModalComp @success="() => gridApi.reload()" />
     <Grid>
       <template #toolbar-actions>
-        <Button type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'upload:config:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'upload:config:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #storage_cell="{ row }">
         <Tag :color="getStorageColor(row.storage)">
@@ -216,8 +244,8 @@ function handleDelete(row: ConfigItem) {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <Button v-access:code="'upload:config:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+        <Button v-access:code="'upload:config:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
       </template>
     </Grid>
   </Page>

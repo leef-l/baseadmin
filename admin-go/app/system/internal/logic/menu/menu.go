@@ -14,6 +14,8 @@ import (
 	"gbaseadmin/app/system/internal/logic/shared"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
+	"gbaseadmin/utility/batchutil"
+	"gbaseadmin/utility/fieldvalid"
 	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
@@ -36,7 +38,10 @@ func (s *sMenu) Create(ctx context.Context, in *model.MenuCreateInput) error {
 		return err
 	}
 	normalizeMenuCreateInput(in)
-	if err := validateMenuFields(in.Title); err != nil {
+	if err := validateMenuFields(in.Title, in.Type, in.IsShow, in.IsCache, in.Status, in.Sort); err != nil {
+		return err
+	}
+	if err := s.ensureMenuPermissionUnique(ctx, 0, in.Permission); err != nil {
 		return err
 	}
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
@@ -61,7 +66,7 @@ func (s *sMenu) Create(ctx context.Context, in *model.MenuCreateInput) error {
 		dao.Menu.Columns().UpdatedAt:  gtime.Now(),
 	}).Insert()
 	if err == nil {
-		authlogic.ClearAllUserCaches(ctx)
+		authlogic.ClearUserCaches(ctx, s.getAdminUserIDs(ctx)...)
 	}
 	return err
 }
@@ -72,7 +77,13 @@ func (s *sMenu) Update(ctx context.Context, in *model.MenuUpdateInput) error {
 		return err
 	}
 	normalizeMenuUpdateInput(in)
-	if err := validateMenuFields(in.Title); err != nil {
+	if err := validateMenuFields(in.Title, in.Type, in.IsShow, in.IsCache, in.Status, in.Sort); err != nil {
+		return err
+	}
+	if err := s.ensureMenuExists(ctx, in.ID); err != nil {
+		return err
+	}
+	if err := s.ensureMenuPermissionUnique(ctx, in.ID, in.Permission); err != nil {
 		return err
 	}
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
@@ -99,16 +110,20 @@ func (s *sMenu) Update(ctx context.Context, in *model.MenuUpdateInput) error {
 		Data(data).
 		Update()
 	if err == nil {
-		authlogic.ClearAllUserCaches(ctx)
+		authlogic.ClearUserCaches(ctx, s.getMenuAffectedUserIDs(ctx, []int64{int64(in.ID)})...)
 	}
 	return err
 }
 
 // Delete 软删除菜单表
 func (s *sMenu) Delete(ctx context.Context, id snowflake.JsonInt64) error {
+	if err := s.ensureMenuExists(ctx, id); err != nil {
+		return err
+	}
 	if err := s.ensureMenuDeletable(ctx, id); err != nil {
 		return err
 	}
+	affectedUserIDs := s.getMenuAffectedUserIDs(ctx, []int64{int64(id)})
 	err := dao.Menu.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Model(dao.Menu.Table()).Ctx(ctx).
 			Where(dao.Menu.Columns().Id, id).
@@ -127,17 +142,69 @@ func (s *sMenu) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 		return nil
 	})
 	if err == nil {
-		authlogic.ClearAllUserCaches(ctx)
+		authlogic.ClearUserCaches(ctx, affectedUserIDs...)
+	}
+	return err
+}
+
+// BatchDelete 批量删除菜单表
+func (s *sMenu) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error {
+	ids = batchutil.CompactIDs(ids)
+	if len(ids) == 0 {
+		return gerror.New("请选择要删除的菜单")
+	}
+	if err := s.ensureMenuIDsExist(ctx, ids); err != nil {
+		return err
+	}
+	order, err := s.collectBatchDeleteOrder(ctx, ids)
+	if err != nil {
+		return err
+	}
+	if len(order) == 0 {
+		return nil
+	}
+	deleteIDs := batchutil.ToInt64s(order)
+	for _, id := range order {
+		if err := s.ensureMenuBatchDeletable(ctx, id, deleteIDs); err != nil {
+			return err
+		}
+	}
+	affectedUserIDs := s.getMenuAffectedUserIDs(ctx, deleteIDs)
+	err = dao.Menu.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if _, err := tx.Model(dao.Menu.Table()).Ctx(ctx).
+			WhereIn(dao.Menu.Columns().Id, deleteIDs).
+			Where(dao.Menu.Columns().DeletedAt, nil).
+			Data(g.Map{
+				dao.Menu.Columns().DeletedAt: gtime.Now(),
+			}).
+			Update(); err != nil {
+			return err
+		}
+		if _, err := tx.Model(dao.RoleMenu.Table()).Ctx(ctx).
+			WhereIn(dao.RoleMenu.Columns().MenuId, deleteIDs).
+			Delete(); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err == nil {
+		authlogic.ClearUserCaches(ctx, affectedUserIDs...)
 	}
 	return err
 }
 
 // Detail 获取菜单表详情
 func (s *sMenu) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.MenuDetailOutput, err error) {
+	if id <= 0 {
+		return nil, gerror.New("菜单不存在或已删除")
+	}
 	out = &model.MenuDetailOutput{}
 	err = dao.Menu.Ctx(ctx).Where(dao.Menu.Columns().Id, id).Where(dao.Menu.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
 		return nil, err
+	}
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("菜单不存在或已删除")
 	}
 	out.MenuTitle = shared.LookupTitle(ctx, "system_menu", int64(out.ParentID))
 	return
@@ -266,9 +333,24 @@ func normalizeMenuTreeInput(in *model.MenuTreeInput) {
 	in.Keyword = strings.TrimSpace(in.Keyword)
 }
 
-func validateMenuFields(title string) error {
+func validateMenuFields(title string, menuType, isShow, isCache, status, sort int) error {
 	if title == "" {
 		return gerror.New("菜单名称不能为空")
+	}
+	if err := fieldvalid.Enum("菜单类型", menuType, 1, 2, 3, 4, 5); err != nil {
+		return err
+	}
+	if err := fieldvalid.NonNegative("排序", sort); err != nil {
+		return err
+	}
+	if err := fieldvalid.Binary("是否显示", isShow); err != nil {
+		return err
+	}
+	if err := fieldvalid.Binary("是否缓存", isCache); err != nil {
+		return err
+	}
+	if err := fieldvalid.Binary("状态", status); err != nil {
+		return err
 	}
 	return nil
 }
@@ -300,6 +382,97 @@ func (s *sMenu) ensureMenuDeletable(ctx context.Context, id snowflake.JsonInt64)
 	return nil
 }
 
+func (s *sMenu) ensureMenuExists(ctx context.Context, id snowflake.JsonInt64) error {
+	if id <= 0 {
+		return gerror.New("菜单不存在或已删除")
+	}
+	count, err := dao.Menu.Ctx(ctx).
+		Where(dao.Menu.Columns().Id, id).
+		Where(dao.Menu.Columns().DeletedAt, nil).
+		Count()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return gerror.New("菜单不存在或已删除")
+	}
+	return nil
+}
+
+func (s *sMenu) ensureMenuIDsExist(ctx context.Context, ids []snowflake.JsonInt64) error {
+	dbIDs := batchutil.ToInt64s(ids)
+	count, err := dao.Menu.Ctx(ctx).
+		WhereIn(dao.Menu.Columns().Id, dbIDs).
+		Where(dao.Menu.Columns().DeletedAt, nil).
+		Count()
+	if err != nil {
+		return err
+	}
+	if count != len(dbIDs) {
+		return gerror.New("包含不存在或已删除的菜单")
+	}
+	return nil
+}
+
+func (s *sMenu) ensureMenuPermissionUnique(ctx context.Context, currentID snowflake.JsonInt64, permission string) error {
+	permission = strings.TrimSpace(permission)
+	if permission == "" {
+		return nil
+	}
+	m := dao.Menu.Ctx(ctx).
+		Where(dao.Menu.Columns().Permission, permission).
+		Where(dao.Menu.Columns().DeletedAt, nil)
+	if currentID > 0 {
+		m = m.WhereNot(dao.Menu.Columns().Id, currentID)
+	}
+	count, err := m.Count()
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return gerror.New("权限标识已存在")
+	}
+	return nil
+}
+
+func (s *sMenu) ensureMenuBatchDeletable(ctx context.Context, id snowflake.JsonInt64, deleteIDs []int64) error {
+	childModel := dao.Menu.Ctx(ctx).
+		Where(dao.Menu.Columns().ParentId, id).
+		Where(dao.Menu.Columns().DeletedAt, nil)
+	if len(deleteIDs) > 0 {
+		childModel = childModel.WhereNotIn(dao.Menu.Columns().Id, deleteIDs)
+	}
+	childCount, err := childModel.Count()
+	if err != nil {
+		return err
+	}
+	if childCount > 0 {
+		return gerror.New("当前菜单下存在子菜单，不能直接删除")
+	}
+	return nil
+}
+
+func (s *sMenu) collectBatchDeleteOrder(ctx context.Context, ids []snowflake.JsonInt64) ([]snowflake.JsonInt64, error) {
+	var rows []struct {
+		Id       int64 `json:"id"`
+		ParentId int64 `json:"parentId"`
+	}
+	if err := dao.Menu.Ctx(ctx).
+		Fields(dao.Menu.Columns().Id, dao.Menu.Columns().ParentId).
+		Where(dao.Menu.Columns().DeletedAt, nil).
+		Scan(&rows); err != nil {
+		return nil, err
+	}
+	treeRows := make([]batchutil.TreeRow, 0, len(rows))
+	for _, row := range rows {
+		treeRows = append(treeRows, batchutil.TreeRow{
+			ID:       row.Id,
+			ParentID: row.ParentId,
+		})
+	}
+	return batchutil.ExpandTreeDeleteOrder(ids, treeRows), nil
+}
+
 func (s *sMenu) ensureParentValid(ctx context.Context, parentID, currentID snowflake.JsonInt64) error {
 	return treeutil.ValidateParent(parentID, currentID, func(id int64) (int64, int64, error) {
 		var parent struct {
@@ -321,4 +494,79 @@ func (s *sMenu) ensureParentValid(ctx context.Context, parentID, currentID snowf
 		Cycle:        "菜单层级存在循环引用",
 		InvalidChain: "上级菜单链路中存在无效节点",
 	})
+}
+
+func (s *sMenu) getMenuAffectedUserIDs(ctx context.Context, menuIDs []int64) []int64 {
+	menuIDs = compactMenuIDs(menuIDs)
+	userIDs := make([]int64, 0)
+	userIDs = append(userIDs, s.getAdminUserIDs(ctx)...)
+	if len(menuIDs) == 0 {
+		return compactMenuIDs(userIDs)
+	}
+
+	var rows []struct {
+		UserId int64 `json:"userId"`
+	}
+	if err := g.DB().Ctx(ctx).
+		Model(dao.UserRole.Table()+" ur").
+		LeftJoin(dao.Role.Table()+" r", "r.id = ur.role_id").
+		LeftJoin(dao.RoleMenu.Table()+" rm", "rm.role_id = ur.role_id").
+		LeftJoin(dao.Users.Table()+" u", "u.id = ur.user_id").
+		Fields("ur.user_id AS userId").
+		WhereIn("rm.menu_id", menuIDs).
+		Where("r.deleted_at", nil).
+		Where("r.status", 1).
+		Where("u.deleted_at", nil).
+		Scan(&rows); err != nil {
+		return compactMenuIDs(userIDs)
+	}
+	for _, row := range rows {
+		userIDs = append(userIDs, row.UserId)
+	}
+	return compactMenuIDs(userIDs)
+}
+
+func (s *sMenu) getAdminUserIDs(ctx context.Context) []int64 {
+	var rows []struct {
+		UserId int64 `json:"userId"`
+	}
+	if err := g.DB().Ctx(ctx).
+		Model(dao.UserRole.Table()+" ur").
+		LeftJoin(dao.Role.Table()+" r", "r.id = ur.role_id").
+		LeftJoin(dao.Users.Table()+" u", "u.id = ur.user_id").
+		Fields("ur.user_id AS userId").
+		Where("r.is_admin", 1).
+		Where("r.deleted_at", nil).
+		Where("r.status", 1).
+		Where("u.deleted_at", nil).
+		Scan(&rows); err != nil {
+		return nil
+	}
+	userIDs := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		userIDs = append(userIDs, row.UserId)
+	}
+	return compactMenuIDs(userIDs)
+}
+
+func compactMenuIDs(values []int64) []int64 {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[int64]struct{}, len(values))
+	ids := make([]int64, 0, len(values))
+	for _, value := range values {
+		if value <= 0 {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		ids = append(ids, value)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	return ids
 }

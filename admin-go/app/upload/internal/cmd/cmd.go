@@ -15,6 +15,7 @@ import (
 	"gbaseadmin/app/upload/internal/controller/uploader"
 
 	"gbaseadmin/app/upload/internal/middleware"
+	"gbaseadmin/utility/httpmeta"
 )
 
 var (
@@ -25,7 +26,7 @@ var (
 		Func: func(ctx context.Context, parser *gcmd.Parser) (err error) {
 			s := g.Server()
 			s.Group("/", func(group *ghttp.RouterGroup) {
-				group.Middleware(ghttp.MiddlewareHandlerResponse)
+				group.Middleware(httpmeta.RequestIDMiddleware, ghttp.MiddlewareHandlerResponse, httpmeta.AccessLogMiddleware)
 				group.Bind(
 					health.NewV1(),
 				)

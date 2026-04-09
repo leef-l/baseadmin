@@ -53,6 +53,17 @@ type RoleDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// RoleBatchDeleteReq 批量删除角色表请求
+type RoleBatchDeleteReq struct {
+	g.Meta `path:"/role/batch-delete" method:"delete" tags:"角色表" summary:"批量删除角色表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"角色表ID列表"`
+}
+
+// RoleBatchDeleteRes 批量删除角色表响应
+type RoleBatchDeleteRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 // RoleDetailReq 获取角色表详情请求
 type RoleDetailReq struct {
 	g.Meta `path:"/role/detail" method:"get" tags:"角色表" summary:"获取角色表详情"`

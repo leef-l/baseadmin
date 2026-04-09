@@ -8,15 +8,22 @@ import (
 	"testing"
 )
 
-func TestBaselineDashboardMenusGrantedToAdminRole(t *testing.T) {
+func TestBaselineCoreMenusGrantedToAdminRole(t *testing.T) {
 	content, err := readBaselineMigration()
 	if err != nil {
 		t.Fatalf("readBaselineMigration failed: %v", err)
 	}
 	requiredMenuRows := []string{
-		"(1000000000000000060, 0, '仪表盘'",
-		"(1000000000000000061, 1000000000000000060, '分析页'",
-		"(1000000000000000062, 1000000000000000060, '工作台'",
+		"(1000000000000000010, 0, '系统管理'",
+		"(314253730209861632, 0, '上传管理'",
+		"'system:dept:batch-delete'",
+		"'system:role:batch-delete'",
+		"'system:menu:batch-delete'",
+		"'system:user:batch-delete'",
+		"'upload:config:batch-delete'",
+		"'upload:dir:batch-delete'",
+		"'upload:dir_rule:batch-delete'",
+		"'upload:file:batch-delete'",
 	}
 	for _, row := range requiredMenuRows {
 		if !strings.Contains(content, row) {
@@ -24,13 +31,22 @@ func TestBaselineDashboardMenusGrantedToAdminRole(t *testing.T) {
 		}
 	}
 	requiredRoleMenuRows := []string{
-		"(1000000000000000002, 1000000000000000060)",
-		"(1000000000000000002, 1000000000000000061)",
-		"(1000000000000000002, 1000000000000000062)",
+		"(1000000000000000002, 1000000000000000010)",
+		"(1000000000000000002, 314253730209861632)",
 	}
 	for _, row := range requiredRoleMenuRows {
 		if !strings.Contains(content, row) {
 			t.Fatalf("baseline migration missing admin role grant: %s", row)
+		}
+	}
+	forbiddenRows := []string{
+		"'仪表盘'",
+		"'分析页'",
+		"'工作台'",
+	}
+	for _, row := range forbiddenRows {
+		if strings.Contains(content, row) {
+			t.Fatalf("baseline migration should not contain removed seed: %s", row)
 		}
 	}
 }

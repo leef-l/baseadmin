@@ -121,6 +121,7 @@ const [Form, formApi] = useVbenForm({
       component: 'Select',
       fieldName: 'storage',
       label: '存储类型',
+      rules: 'selectRequired',
       componentProps: { options: storageOptions, placeholder: '请选择存储类型', allowClear: true, class: 'w-full' },
     },
     {

@@ -43,4 +43,56 @@ func TestRoleInputValidation(t *testing.T) {
 	if err := roleSvc.Update(nil, &model.RoleUpdateInput{ID: 1, Title: " "}); err == nil || err.Error() != "角色名称不能为空" {
 		t.Fatalf("Update blank title mismatch: %v", err)
 	}
+	if err := validateRoleFields("管理员", 0, 1, 0, 0); err == nil || err.Error() != "数据范围值不合法" {
+		t.Fatalf("validateRoleFields invalid dataScope mismatch: %v", err)
+	}
+	if err := validateRoleFields("管理员", 1, 1, 2, 0); err == nil || err.Error() != "超级管理员值不合法" {
+		t.Fatalf("validateRoleFields invalid isAdmin mismatch: %v", err)
+	}
+	if _, err := roleSvc.Detail(nil, 0); err == nil || err.Error() != "角色不存在或已删除" {
+		t.Fatalf("Detail invalid id mismatch: %v", err)
+	}
+}
+
+func TestIsBuiltinAdminRoleIgnoresInvalidID(t *testing.T) {
+	roleSvc := &sRole{}
+	got, err := roleSvc.isBuiltinAdminRole(nil, 0)
+	if err != nil {
+		t.Fatalf("isBuiltinAdminRole returned err: %v", err)
+	}
+	if got {
+		t.Fatal("isBuiltinAdminRole should ignore invalid id")
+	}
+}
+
+func TestGrantAndGetRoleRelationsRejectInvalidRole(t *testing.T) {
+	roleSvc := &sRole{}
+
+	if err := roleSvc.GrantMenu(nil, &model.RoleGrantMenuInput{ID: 0}); err == nil || err.Error() != "角色不存在或已删除" {
+		t.Fatalf("GrantMenu invalid role mismatch: %v", err)
+	}
+
+	if err := roleSvc.GrantDept(nil, &model.RoleGrantDeptInput{ID: 0, DataScope: 1}); err == nil || err.Error() != "角色不存在或已删除" {
+		t.Fatalf("GrantDept invalid role mismatch: %v", err)
+	}
+
+	if _, err := roleSvc.GetMenuIDs(nil, 0); err == nil || err.Error() != "角色不存在或已删除" {
+		t.Fatalf("GetMenuIDs invalid role mismatch: %v", err)
+	}
+
+	if _, err := roleSvc.GetDeptIDs(nil, 0); err == nil || err.Error() != "角色不存在或已删除" {
+		t.Fatalf("GetDeptIDs invalid role mismatch: %v", err)
+	}
+}
+
+func TestAdminRoleMutationValidation(t *testing.T) {
+	if err := validateAdminRoleMutationAllowed(false, false); err != nil {
+		t.Fatalf("validateAdminRoleMutationAllowed should ignore non-admin role: %v", err)
+	}
+	if err := validateAdminRoleMutationAllowed(true, true); err != nil {
+		t.Fatalf("validateAdminRoleMutationAllowed should allow admin actor: %v", err)
+	}
+	if err := validateAdminRoleMutationAllowed(true, false); err == nil || err.Error() != "只有超级管理员可以操作超级管理员角色" {
+		t.Fatalf("validateAdminRoleMutationAllowed mismatch: %v", err)
+	}
 }

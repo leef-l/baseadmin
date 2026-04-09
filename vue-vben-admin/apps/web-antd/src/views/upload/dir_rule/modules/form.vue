@@ -79,6 +79,7 @@ const [Form, formApi] = useVbenForm({
       component: 'Select',
       fieldName: 'category',
       label: '类别',
+      rules: 'selectRequired',
       componentProps: { options: categoryOptions, placeholder: '请选择类别', allowClear: true, class: 'w-full' },
     },
     {

@@ -53,7 +53,7 @@ const [Form, formApi] = useVbenForm({
       component: 'InputNumber',
       fieldName: 'sort',
       label: '排序',
-      componentProps: { placeholder: '请输入排序', class: 'w-full' },
+      componentProps: { placeholder: '请输入排序', min: 0, class: 'w-full' },
     },
     {
       component: 'Switch',

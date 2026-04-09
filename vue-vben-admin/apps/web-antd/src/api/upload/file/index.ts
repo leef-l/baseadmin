@@ -39,3 +39,8 @@ export function updateFile(data: FileUpdateParams) {
 export function deleteFile(id: string) {
   return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
 }
+
+/** 批量删除文件记录 */
+export function batchDeleteFile(ids: string[]) {
+  return requestClient.delete(`${PREFIX}/batch-delete`, { data: { ids } });
+}

@@ -72,7 +72,9 @@
 - frontend：`127.0.0.1:44005`（需显式启用 `frontend` profile）
 - adminer：`127.0.0.1:44006`
 - `system` 健康检查：`GET /healthz`
+- `system` 就绪检查：`GET /readyz`
 - `upload` 健康检查：`GET /healthz`
+- `upload` 就绪检查：`GET /readyz`
 
 ## 初始化来源
 

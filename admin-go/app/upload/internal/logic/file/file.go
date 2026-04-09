@@ -20,6 +20,8 @@ import (
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/model/entity"
 	"gbaseadmin/app/upload/internal/service"
+	"gbaseadmin/utility/batchutil"
+	"gbaseadmin/utility/fieldvalid"
 	"gbaseadmin/utility/inpututil"
 	"gbaseadmin/utility/pageutil"
 	"gbaseadmin/utility/snowflake"
@@ -35,13 +37,19 @@ func New() *sFile {
 
 type sFile struct{}
 
+type fileDeleteTarget struct {
+	ID      int64  `json:"id"`
+	URL     string `json:"url"`
+	Storage int    `json:"storage"`
+}
+
 // Create 创建文件记录
 func (s *sFile) Create(ctx context.Context, in *model.FileCreateInput) error {
 	if err := inpututil.Require(in); err != nil {
 		return err
 	}
 	normalizeFileCreateInput(in)
-	if err := validateFileFields(in.Name, in.URL); err != nil {
+	if err := validateFileFields(in.Name, in.URL, in.Storage, in.IsImage, in.Size); err != nil {
 		return err
 	}
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
@@ -70,7 +78,10 @@ func (s *sFile) Update(ctx context.Context, in *model.FileUpdateInput) error {
 		return err
 	}
 	normalizeFileUpdateInput(in)
-	if err := validateFileFields(in.Name, in.URL); err != nil {
+	if err := validateFileFields(in.Name, in.URL, in.Storage, in.IsImage, in.Size); err != nil {
+		return err
+	}
+	if err := s.ensureFileExists(ctx, in.ID); err != nil {
 		return err
 	}
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
@@ -97,43 +108,32 @@ func (s *sFile) Update(ctx context.Context, in *model.FileUpdateInput) error {
 
 // Delete 删除文件记录并物理删除文件
 func (s *sFile) Delete(ctx context.Context, id snowflake.JsonInt64) error {
-	// 先查询文件信息，用于物理删除
-	var fileInfo struct {
-		Url     string `orm:"url"`
-		Storage int    `orm:"storage"`
-	}
-	err := dao.UploadFile.Ctx(ctx).Where(dao.UploadFile.Columns().Id, id).
-		Where(dao.UploadFile.Columns().DeletedAt, nil).Scan(&fileInfo)
+	targets, err := s.loadDeleteTargets(ctx, []snowflake.JsonInt64{id})
 	if err != nil {
 		return err
 	}
+	if err := precheckDeleteTargets(ctx, targets); err != nil {
+		return err
+	}
+	return s.deleteTarget(ctx, targets[0])
+}
 
-	// 软删除记录
-	_, err = dao.UploadFile.Ctx(ctx).
-		Where(dao.UploadFile.Columns().Id, id).
-		Where(dao.UploadFile.Columns().DeletedAt, nil).
-		Data(g.Map{
-			dao.UploadFile.Columns().DeletedAt: gtime.Now(),
-		}).
-		Update()
+// BatchDelete 批量删除文件记录
+func (s *sFile) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error {
+	ids = batchutil.CompactIDs(ids)
+	if len(ids) == 0 {
+		return gerror.New("请选择要删除的文件")
+	}
+	targets, err := s.loadDeleteTargets(ctx, ids)
 	if err != nil {
 		return err
 	}
-
-	// 物理删除文件
-	if fileInfo.Url != "" {
-		switch fileInfo.Storage {
-		case 1: // 本地存储: URL /upload/xxx -> 物理路径 resource/upload/xxx
-			localPath := shared.LocalStoragePhysicalPath(fileInfo.Url)
-			_ = os.Remove(localPath)
-		case 2: // 阿里云OSS
-			if delErr := deleteCloudFileOSS(ctx, fileInfo.Url); delErr != nil {
-				g.Log().Warningf(ctx, "OSS删除文件失败: url=%s, err=%v", fileInfo.Url, delErr)
-			}
-		case 3: // 腾讯云COS
-			if delErr := deleteCloudFileCOS(ctx, fileInfo.Url); delErr != nil {
-				g.Log().Warningf(ctx, "COS删除文件失败: url=%s, err=%v", fileInfo.Url, delErr)
-			}
+	if err := precheckDeleteTargets(ctx, targets); err != nil {
+		return err
+	}
+	for _, target := range targets {
+		if err := s.deleteTarget(ctx, target); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -179,6 +179,92 @@ func deleteCloudFileCOS(ctx context.Context, fileURL string) error {
 	return err
 }
 
+func deleteStoredFile(ctx context.Context, storage int, fileURL string) error {
+	if strings.TrimSpace(fileURL) == "" {
+		return nil
+	}
+	switch storage {
+	case 1:
+		localPath := shared.LocalStoragePhysicalPath(fileURL)
+		if err := os.Remove(localPath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("删除本地文件失败: %w", err)
+		}
+		return nil
+	case 2:
+		return deleteCloudFileOSS(ctx, fileURL)
+	case 3:
+		return deleteCloudFileCOS(ctx, fileURL)
+	default:
+		return nil
+	}
+}
+
+func precheckDeleteTargets(ctx context.Context, targets []fileDeleteTarget) error {
+	for _, target := range targets {
+		switch target.Storage {
+		case 2, 3:
+			if _, _, err := loadUploadConfigByURL(ctx, target.Storage, target.URL); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (s *sFile) deleteTarget(ctx context.Context, target fileDeleteTarget) error {
+	if err := deleteStoredFile(ctx, target.Storage, target.URL); err != nil {
+		return err
+	}
+	_, err := dao.UploadFile.Ctx(ctx).
+		Where(dao.UploadFile.Columns().Id, target.ID).
+		Where(dao.UploadFile.Columns().DeletedAt, nil).
+		Data(g.Map{
+			dao.UploadFile.Columns().DeletedAt: gtime.Now(),
+		}).
+		Update()
+	return err
+}
+
+func (s *sFile) loadDeleteTargets(ctx context.Context, ids []snowflake.JsonInt64) ([]fileDeleteTarget, error) {
+	ids = batchutil.CompactIDs(ids)
+	if len(ids) == 0 {
+		return nil, gerror.New("请选择要删除的文件")
+	}
+	dbIDs := batchutil.ToInt64s(ids)
+	var rows []fileDeleteTarget
+	if err := dao.UploadFile.Ctx(ctx).
+		Fields(dao.UploadFile.Columns().Id, dao.UploadFile.Columns().Url, dao.UploadFile.Columns().Storage).
+		WhereIn(dao.UploadFile.Columns().Id, dbIDs).
+		Where(dao.UploadFile.Columns().DeletedAt, nil).
+		Scan(&rows); err != nil {
+		return nil, err
+	}
+	if len(rows) != len(dbIDs) {
+		if len(dbIDs) == 1 {
+			return nil, gerror.New("文件记录不存在或已删除")
+		}
+		return nil, gerror.New("包含不存在或已删除的文件")
+	}
+	return orderDeleteTargets(rows, dbIDs), nil
+}
+
+func orderDeleteTargets(rows []fileDeleteTarget, ids []int64) []fileDeleteTarget {
+	if len(rows) == 0 || len(ids) == 0 {
+		return nil
+	}
+	rowMap := make(map[int64]fileDeleteTarget, len(rows))
+	for _, row := range rows {
+		rowMap[row.ID] = row
+	}
+	ordered := make([]fileDeleteTarget, 0, len(ids))
+	for _, id := range ids {
+		if row, ok := rowMap[id]; ok {
+			ordered = append(ordered, row)
+		}
+	}
+	return ordered
+}
+
 // getStr 安全地从 map[string]interface{} 中取字符串值
 func getStr(m map[string]interface{}, key string) string {
 	if m == nil {
@@ -204,10 +290,16 @@ func getStr(m map[string]interface{}, key string) string {
 
 // Detail 获取文件记录详情
 func (s *sFile) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.FileDetailOutput, err error) {
+	if id <= 0 {
+		return nil, gerror.New("文件记录不存在或已删除")
+	}
 	out = &model.FileDetailOutput{}
 	err = dao.UploadFile.Ctx(ctx).Where(dao.UploadFile.Columns().Id, id).Where(dao.UploadFile.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
 		return nil, err
+	}
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("文件记录不存在或已删除")
 	}
 	out.DirName = shared.LookupDirName(ctx, int64(out.DirID))
 	return
@@ -294,12 +386,21 @@ func normalizeFileListInput(in *model.FileListInput) {
 	in.Name = strings.TrimSpace(in.Name)
 }
 
-func validateFileFields(name, fileURL string) error {
+func validateFileFields(name, fileURL string, storage, isImage int, size int64) error {
 	if name == "" {
 		return gerror.New("文件名称不能为空")
 	}
 	if fileURL == "" {
 		return gerror.New("文件地址不能为空")
+	}
+	if err := fieldvalid.Enum("存储类型", storage, 1, 2, 3); err != nil {
+		return err
+	}
+	if err := fieldvalid.Binary("是否图片", isImage); err != nil {
+		return err
+	}
+	if err := fieldvalid.NonNegative64("文件大小", size); err != nil {
+		return err
 	}
 	return nil
 }
@@ -321,11 +422,29 @@ func (s *sFile) ensureDirExists(ctx context.Context, dirID snowflake.JsonInt64) 
 	return nil
 }
 
+func (s *sFile) ensureFileExists(ctx context.Context, id snowflake.JsonInt64) error {
+	if id <= 0 {
+		return gerror.New("文件记录不存在或已删除")
+	}
+	count, err := dao.UploadFile.Ctx(ctx).
+		Where(dao.UploadFile.Columns().Id, id).
+		Where(dao.UploadFile.Columns().DeletedAt, nil).
+		Count()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return gerror.New("文件记录不存在或已删除")
+	}
+	return nil
+}
+
 func loadUploadConfigByURL(ctx context.Context, storage int, fileURL string) (*entity.UploadConfig, string, error) {
 	var configs []*entity.UploadConfig
 	if err := dao.UploadConfig.Ctx(ctx).
 		Where(dao.UploadConfig.Columns().Storage, storage).
-		Where(dao.UploadConfig.Columns().DeletedAt, nil).
+		OrderAsc(dao.UploadConfig.Columns().DeletedAt).
+		OrderDesc(dao.UploadConfig.Columns().Id).
 		Scan(&configs); err != nil {
 		return nil, "", fmt.Errorf("读取上传配置失败: %w", err)
 	}
@@ -337,91 +456,21 @@ func loadUploadConfigByURL(ctx context.Context, storage int, fileURL string) (*e
 }
 
 func matchUploadConfigByURL(configs []*entity.UploadConfig, storage int, fileURL string) (*entity.UploadConfig, string) {
-	parsedURL, err := url.Parse(fileURL)
-	if err != nil {
-		return nil, ""
-	}
-	for _, config := range configs {
-		if config == nil {
-			continue
-		}
-		switch storage {
-		case 2:
-			if objectKey, ok := matchOSSObjectKeyParsed(parsedURL, config); ok {
-				return config, objectKey
-			}
-		case 3:
-			if objectKey, ok := matchCOSObjectKeyParsed(parsedURL, config); ok {
-				return config, objectKey
-			}
-		}
-	}
-	return nil, ""
+	return shared.MatchUploadConfigByURL(configs, storage, fileURL)
 }
 
 func matchOSSObjectKey(fileURL string, config *entity.UploadConfig) (string, bool) {
-	parsedURL, err := url.Parse(fileURL)
-	if err != nil {
-		return "", false
-	}
-	return matchOSSObjectKeyParsed(parsedURL, config)
+	return shared.MatchOSSObjectKey(fileURL, config)
 }
 
 func matchOSSObjectKeyParsed(parsedURL *url.URL, config *entity.UploadConfig) (string, bool) {
-	if config == nil || config.OssBucket == "" || config.OssEndpoint == "" {
-		return "", false
-	}
-	if parsedURL == nil {
-		return "", false
-	}
-	expectedHost := strings.ToLower(fmt.Sprintf("%s.%s", normalizeHostPart(config.OssBucket), normalizeHostPart(config.OssEndpoint)))
-	if strings.ToLower(parsedURL.Hostname()) != expectedHost {
-		return "", false
-	}
-	objectKey := objectKeyFromPath(parsedURL.Path)
-	if objectKey == "" {
-		return "", false
-	}
-	return objectKey, true
+	return shared.MatchOSSObjectKeyParsed(parsedURL, config)
 }
 
 func matchCOSObjectKey(fileURL string, config *entity.UploadConfig) (string, bool) {
-	parsedURL, err := url.Parse(fileURL)
-	if err != nil {
-		return "", false
-	}
-	return matchCOSObjectKeyParsed(parsedURL, config)
+	return shared.MatchCOSObjectKey(fileURL, config)
 }
 
 func matchCOSObjectKeyParsed(parsedURL *url.URL, config *entity.UploadConfig) (string, bool) {
-	if config == nil || config.CosBucket == "" || config.CosRegion == "" {
-		return "", false
-	}
-	if parsedURL == nil {
-		return "", false
-	}
-	expectedHost := strings.ToLower(fmt.Sprintf("%s.cos.%s.myqcloud.com", normalizeHostPart(config.CosBucket), normalizeHostPart(config.CosRegion)))
-	if strings.ToLower(parsedURL.Hostname()) != expectedHost {
-		return "", false
-	}
-	objectKey := objectKeyFromPath(parsedURL.Path)
-	if objectKey == "" {
-		return "", false
-	}
-	return objectKey, true
-}
-
-func normalizeHostPart(value string) string {
-	return strings.TrimSpace(value)
-}
-
-func objectKeyFromPath(path string) string {
-	objectKey := strings.TrimPrefix(path, "/")
-	if objectKey == "" {
-		return ""
-	}
-	if decoded, err := url.PathUnescape(objectKey); err == nil && decoded != "" {
-		return decoded
-	}
-	return objectKey
+	return shared.MatchCOSObjectKeyParsed(parsedURL, config)
 }

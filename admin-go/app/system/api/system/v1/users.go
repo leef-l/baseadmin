@@ -31,13 +31,13 @@ type UsersCreateRes struct {
 type UsersUpdateReq struct {
 	g.Meta   `path:"/users/update" method:"put" tags:"用户表" summary:"更新用户表"`
 	ID       snowflake.JsonInt64   `json:"id" v:"required#ID不能为空" dc:"用户表ID"`
-	Username string                `json:"username" dc:"登录用户名"`
+	Username *string               `json:"username" dc:"登录用户名"`
 	Password string                `json:"password" dc:"密码"`
-	Nickname string                `json:"nickname" dc:"昵称/显示名"`
-	Email    string                `json:"email" dc:"邮箱地址"`
-	Avatar   string                `json:"avatar" dc:"头像图片 URL"`
-	Status   int                   `json:"status" dc:"状态"`
-	DeptID   snowflake.JsonInt64   `json:"deptId" dc:"所属部门ID"`
+	Nickname *string               `json:"nickname" dc:"昵称/显示名"`
+	Email    *string               `json:"email" dc:"邮箱地址"`
+	Avatar   *string               `json:"avatar" dc:"头像图片 URL"`
+	Status   *int                  `json:"status" dc:"状态"`
+	DeptID   *snowflake.JsonInt64  `json:"deptId" dc:"所属部门ID"`
 	RoleIDs  []snowflake.JsonInt64 `json:"roleIds" dc:"角色ID列表"`
 }
 
@@ -54,6 +54,17 @@ type UsersDeleteReq struct {
 
 // UsersDeleteRes 删除用户表响应
 type UsersDeleteRes struct {
+	g.Meta `mime:"application/json"`
+}
+
+// UsersBatchDeleteReq 批量删除用户表请求
+type UsersBatchDeleteReq struct {
+	g.Meta `path:"/users/batch-delete" method:"delete" tags:"用户表" summary:"批量删除用户表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"用户表ID列表"`
+}
+
+// UsersBatchDeleteRes 批量删除用户表响应
+type UsersBatchDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
 

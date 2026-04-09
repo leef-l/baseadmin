@@ -61,6 +61,17 @@ type FileDeleteRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// FileBatchDeleteReq 批量删除文件记录请求
+type FileBatchDeleteReq struct {
+	g.Meta `path:"/file/batch-delete" method:"delete" tags:"文件记录" summary:"批量删除文件记录"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"文件记录ID列表"`
+}
+
+// FileBatchDeleteRes 批量删除文件记录响应
+type FileBatchDeleteRes struct {
+	g.Meta `mime:"application/json"`
+}
+
 // FileDetailReq 获取文件记录详情请求
 type FileDetailReq struct {
 	g.Meta `path:"/file/detail" method:"get" tags:"文件记录" summary:"获取文件记录详情"`

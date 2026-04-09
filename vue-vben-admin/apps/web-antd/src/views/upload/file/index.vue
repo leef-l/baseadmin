@@ -2,12 +2,14 @@
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
+import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
 import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { getFileList, deleteFile } from '#/api/upload/file';
+import { batchDeleteFile, deleteFile, getFileList } from '#/api/upload/file';
 import type { FileItem } from '#/api/upload/file/types';
+import { getGridSelectedIds } from '#/utils/grid-selection';
 import FormModal from './modules/form.vue';
 
 /** 标签颜色池 */
@@ -58,7 +60,8 @@ const [FormModalComp, formModalApi] = useVbenModal({
   connectedComponent: FormModal,
   destroyOnClose: true,
 });
-
+const { hasAccessByCodes } = useAccess();
+const canBatchDelete = hasAccessByCodes(['upload:file:batch-delete']);
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -102,8 +105,10 @@ const formOptions: VbenFormProps = {
 
 /** 表格列配置 */
 const gridOptions: VxeGridProps<FileItem> = {
+  checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
   columns: [
     { title: '序号', type: 'seq', width: 50 },
+    ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { field: 'dirName', title: '所属目录' },
     { field: 'name', title: '文件名称' },
     { field: 'url', title: '文件地址' },
@@ -164,6 +169,28 @@ function handleDelete(row: FileItem) {
     },
   });
 }
+
+function getSelectedIds() {
+  return getGridSelectedIds<FileItem>(gridApi.grid as any);
+}
+
+function handleBatchDelete() {
+  const ids = getSelectedIds();
+  if (ids.length === 0) {
+    message.warning('请选择要删除的文件');
+    return;
+  }
+  Modal.confirm({
+    title: '确认批量删除',
+    content: `确定要删除选中的 ${ids.length} 个文件记录吗？`,
+    okType: 'danger',
+    async onOk() {
+      await batchDeleteFile(ids);
+      message.success('批量删除成功');
+      gridApi.reload();
+    },
+  });
+}
 </script>
 
 <template>
@@ -171,7 +198,8 @@ function handleDelete(row: FileItem) {
     <FormModalComp @success="() => gridApi.reload()" />
     <Grid>
       <template #toolbar-actions>
-        <Button type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'upload:file:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'upload:file:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #storage_cell="{ row }">
         <Tag :color="getStorageColor(row.storage)">
@@ -184,8 +212,8 @@ function handleDelete(row: FileItem) {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <Button v-access:code="'upload:file:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+        <Button v-access:code="'upload:file:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
       </template>
     </Grid>
   </Page>

@@ -41,6 +41,11 @@ export function deleteDept(id: string) {
   return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
 }
 
+/** 批量删除部门表 */
+export function batchDeleteDept(ids: string[]) {
+  return requestClient.delete(`${PREFIX}/batch-delete`, { data: { ids } });
+}
+
 /** 获取部门表树形结构 */
 export async function getDeptTree(params?: DeptTreeParams) {
   const res = await requestClient.get<{ list: DeptItem[] }>(

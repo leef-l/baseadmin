@@ -3,6 +3,7 @@ import { h, onMounted } from 'vue';
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
+import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
 import { downloadFileFromBlob } from '@vben/utils';
 import { Button, message, Modal, Tag, Tooltip } from 'ant-design-vue';
@@ -71,6 +72,8 @@ const [DetailDrawerComp, detailDrawerApi] = useVbenModal({
   connectedComponent: DetailDrawer,
   destroyOnClose: true,
 });
+const { hasAccessByCodes } = useAccess();
+const canBatchDelete = hasAccessByCodes(['demo:category:batch-delete']);
 
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
@@ -125,8 +128,9 @@ const formOptions: VbenFormProps = {
 
 /** 表格列配置 */
 const gridOptions: VxeGridProps<CategoryItem> = {
+  checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
   columns: [
-    { type: 'checkbox', width: 50 },
+    ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { title: '序号', type: 'seq', width: 50 },
     { field: 'name', title: 'Name', treeNode: true },
     { field: 'icon', title: 'Icon' },

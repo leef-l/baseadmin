@@ -41,6 +41,11 @@ export function deleteDir(id: string) {
   return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
 }
 
+/** 批量删除文件目录 */
+export function batchDeleteDir(ids: string[]) {
+  return requestClient.delete(`${PREFIX}/batch-delete`, { data: { ids } });
+}
+
 /** 获取文件目录树形结构 */
 export async function getDirTree(params?: DirTreeParams) {
   const res = await requestClient.get<{ list: DirItem[] }>(`${PREFIX}/tree`, { params });
