@@ -1,3 +1,9 @@
+{{- $hasRef := false}}
+{{- range .Fields}}
+{{- if and .RefFieldName (not .IsHidden)}}
+{{- $hasRef = true}}
+{{- end}}
+{{- end}}
 package {{.PackageName}}
 
 import (
@@ -11,11 +17,12 @@ import (
 {{- end}}
 
 	"github.com/gogf/gf/v2/database/gdb"
+{{- if $hasRef}}
 	"github.com/gogf/gf/v2/frame/g"
+{{- end}}
 {{- if .HasImport}}
 	"github.com/gogf/gf/v2/net/ghttp"
 {{- end}}
-	"github.com/gogf/gf/v2/os/gtime"
 {{- if .HasPassword}}
 	"golang.org/x/crypto/bcrypt"
 {{- end}}
@@ -77,14 +84,14 @@ func (s *s{{.ModelName}}) Create(ctx context.Context, in *model.{{.ModelName}}Cr
 	}
 {{- end}}
 {{- end}}
-	_, err{{if not .HasPassword}} :={{else}} ={{end}} dao.{{.DaoName}}.Ctx(ctx).Data(do.{{.ModelName}}{
+	_, err{{if not .HasPassword}} :={{else}} ={{end}} dao.{{.DaoName}}.Ctx(ctx).Data(do.{{.DaoName}}{
 		Id:        id,
 {{- range .Fields}}
 {{- if and (not .IsID) (not .IsHidden)}}
 {{- if .IsPassword}}
-		{{.NameCamel}}: string(hashed{{.NameCamel}}),
+		{{.NameDao}}: string(hashed{{.NameCamel}}),
 {{- else}}
-		{{.NameCamel}}: in.{{.NameCamel}},
+		{{.NameDao}}: in.{{.NameCamel}},
 {{- end}}
 {{- end}}
 {{- end}}
@@ -105,10 +112,10 @@ func (s *s{{.ModelName}}) Create(ctx context.Context, in *model.{{.ModelName}}Cr
 
 // Update 更新{{.Comment}}
 func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}UpdateInput) error {
-	data := do.{{.ModelName}}{
+	data := do.{{.DaoName}}{
 {{- range .Fields}}
 {{- if and (not .IsID) (not .IsHidden) (not .IsPassword)}}
-		{{.NameCamel}}: in.{{.NameCamel}},
+		{{.NameDao}}: in.{{.NameCamel}},
 {{- end}}
 {{- end}}
 	}
@@ -119,7 +126,7 @@ func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}Up
 		if err != nil {
 			return err
 		}
-		data.{{.NameCamel}} = string(hashed)
+		data.{{.NameDao}} = string(hashed)
 	}
 {{- end}}
 {{- end}}
@@ -249,6 +256,7 @@ func (s *s{{.ModelName}}) doCollectChildIDs(ctx context.Context, parentID snowfl
 	return childIDs, nil
 }
 {{- end}}
+{{- if not .HasParentID}}
 
 // BatchDelete 批量软删除{{.Comment}}
 func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error {
@@ -256,9 +264,7 @@ func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonI
 	if len(normalizedIDs) == 0 {
 		return nil
 	}
-	_, err := dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, normalizedIDs).Data(g.Map{
-		dao.{{.DaoName}}.Columns().DeletedAt: gtime.Now(),
-	}).Update()
+	_, err := dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, normalizedIDs).Delete()
 {{- if .EnableOpLog}}
 	if err == nil {
 		go oplog.Record(ctx, "{{.ModuleName}}", "batch-delete", fmt.Sprintf("%v", normalizedIDs), "")
@@ -266,6 +272,7 @@ func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonI
 {{- end}}
 	return err
 }
+{{- end}}
 
 // Detail 获取{{.Comment}}详情
 func (s *s{{.ModelName}}) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.{{.ModelName}}DetailOutput, err error) {
@@ -346,12 +353,6 @@ func (s *s{{.ModelName}}) applyListFilter(ctx context.Context, in *model.{{.Mode
 	return m
 }
 
-{{- $hasRef := false}}
-{{- range .Fields}}
-{{- if and .RefFieldName (not .IsHidden)}}
-{{- $hasRef = true}}
-{{- end}}
-{{- end}}
 {{- if $hasRef}}
 
 // fillRefFields 批量填充关联显示字段（避免 N+1 查询）
@@ -597,13 +598,11 @@ func (s *s{{.ModelName}}) Tree(ctx context.Context, in *model.{{.ModelName}}Tree
 
 // BatchUpdate 批量编辑{{.Comment}}
 func (s *s{{.ModelName}}) BatchUpdate(ctx context.Context, in *model.{{.ModelName}}BatchUpdateInput) error {
-	data := g.Map{
-		dao.{{.DaoName}}.Columns().UpdatedAt: gtime.Now(),
-	}
+	data := do.{{.DaoName}}{}
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
 	if in.{{.NameCamel}} != nil {
-		data[dao.{{$.DaoName}}.Columns().{{.NameDao}}] = *in.{{.NameCamel}}
+		data.{{.NameDao}} = *in.{{.NameCamel}}
 	}
 {{- end}}
 {{- end}}
@@ -640,22 +639,20 @@ func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (s
 		}
 		// 逐行插入
 		id := snowflake.Generate()
-		data := g.Map{
-			dao.{{.DaoName}}.Columns().Id:        id,
-			dao.{{.DaoName}}.Columns().CreatedAt: gtime.Now(),
-			dao.{{.DaoName}}.Columns().UpdatedAt: gtime.Now(),
+		data := do.{{.DaoName}}{
+			Id: id,
 {{- if .HasCreatedBy}}
-			dao.{{.DaoName}}.Columns().CreatedBy: middleware.GetUserID(ctx),
+			CreatedBy: middleware.GetUserID(ctx),
 {{- end}}
 {{- if .HasDeptID}}
-			dao.{{.DaoName}}.Columns().DeptId:    middleware.GetDeptID(ctx),
+			DeptId: middleware.GetDeptID(ctx),
 {{- end}}
 		}
 		idx := 0
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField)}}
 		if idx < len(record) {
-			data[dao.{{$.DaoName}}.Columns().{{.NameDao}}] = record[idx]
+			data.{{.NameDao}} = record[idx]
 		}
 		idx++
 {{- end}}

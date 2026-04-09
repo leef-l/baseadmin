@@ -6,12 +6,11 @@ import (
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
-	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model"
+	"gbaseadmin/app/upload/internal/model/do"
 	"gbaseadmin/app/upload/internal/model/entity"
 	"gbaseadmin/app/upload/internal/service"
 	"gbaseadmin/utility/batchutil"
@@ -61,37 +60,33 @@ func (s *sConfig) Create(ctx context.Context, in *model.ConfigCreateInput) error
 		return err
 	}
 	id := snowflake.Generate()
-	now := gtime.Now()
 	return dao.UploadConfig.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if in.IsDefault == 1 {
 			if _, err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).
 				Where(dao.UploadConfig.Columns().DeletedAt, nil).
-				Data(g.Map{
-					dao.UploadConfig.Columns().IsDefault: 0,
-					dao.UploadConfig.Columns().UpdatedAt: now,
+				Data(do.UploadConfig{
+					IsDefault: 0,
 				}).
 				Update(); err != nil {
 				return err
 			}
 		}
-		_, err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).Data(g.Map{
-			dao.UploadConfig.Columns().Id:           id,
-			dao.UploadConfig.Columns().Name:         in.Name,
-			dao.UploadConfig.Columns().Storage:      in.Storage,
-			dao.UploadConfig.Columns().IsDefault:    in.IsDefault,
-			dao.UploadConfig.Columns().LocalPath:    in.LocalPath,
-			dao.UploadConfig.Columns().OssEndpoint:  in.OssEndpoint,
-			dao.UploadConfig.Columns().OssBucket:    in.OssBucket,
-			dao.UploadConfig.Columns().OssAccessKey: in.OssAccessKey,
-			dao.UploadConfig.Columns().OssSecretKey: in.OssSecretKey,
-			dao.UploadConfig.Columns().CosRegion:    in.CosRegion,
-			dao.UploadConfig.Columns().CosBucket:    in.CosBucket,
-			dao.UploadConfig.Columns().CosSecretId:  in.CosSecretID,
-			dao.UploadConfig.Columns().CosSecretKey: in.CosSecretKey,
-			dao.UploadConfig.Columns().MaxSize:      in.MaxSize,
-			dao.UploadConfig.Columns().Status:       in.Status,
-			dao.UploadConfig.Columns().CreatedAt:    now,
-			dao.UploadConfig.Columns().UpdatedAt:    now,
+		_, err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).Data(do.UploadConfig{
+			Id:           id,
+			Name:         in.Name,
+			Storage:      in.Storage,
+			IsDefault:    in.IsDefault,
+			LocalPath:    in.LocalPath,
+			OssEndpoint:  in.OssEndpoint,
+			OssBucket:    in.OssBucket,
+			OssAccessKey: in.OssAccessKey,
+			OssSecretKey: in.OssSecretKey,
+			CosRegion:    in.CosRegion,
+			CosBucket:    in.CosBucket,
+			CosSecretId:  in.CosSecretID,
+			CosSecretKey: in.CosSecretKey,
+			MaxSize:      in.MaxSize,
+			Status:       in.Status,
 		}).Insert()
 		return err
 	})
@@ -116,7 +111,6 @@ func (s *sConfig) Update(ctx context.Context, in *model.ConfigUpdateInput) error
 	if err := s.ensureConfigNameUnique(ctx, in.ID, in.Name); err != nil {
 		return err
 	}
-	now := gtime.Now()
 	return dao.UploadConfig.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if current.IsDefault == 1 && in.IsDefault != 1 {
 			return gerror.New("默认上传配置不能直接取消默认，请先设置其他配置为默认")
@@ -125,9 +119,8 @@ func (s *sConfig) Update(ctx context.Context, in *model.ConfigUpdateInput) error
 			if _, err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).
 				Where(dao.UploadConfig.Columns().DeletedAt, nil).
 				WhereNot(dao.UploadConfig.Columns().Id, in.ID).
-				Data(g.Map{
-					dao.UploadConfig.Columns().IsDefault: 0,
-					dao.UploadConfig.Columns().UpdatedAt: now,
+				Data(do.UploadConfig{
+					IsDefault: 0,
 				}).
 				Update(); err != nil {
 				return err
@@ -151,22 +144,21 @@ func (s *sConfig) Update(ctx context.Context, in *model.ConfigUpdateInput) error
 		); err != nil {
 			return err
 		}
-		data := g.Map{
-			dao.UploadConfig.Columns().Name:         in.Name,
-			dao.UploadConfig.Columns().Storage:      in.Storage,
-			dao.UploadConfig.Columns().IsDefault:    in.IsDefault,
-			dao.UploadConfig.Columns().LocalPath:    in.LocalPath,
-			dao.UploadConfig.Columns().OssEndpoint:  in.OssEndpoint,
-			dao.UploadConfig.Columns().OssBucket:    in.OssBucket,
-			dao.UploadConfig.Columns().OssAccessKey: ossAccessKey,
-			dao.UploadConfig.Columns().OssSecretKey: ossSecretKey,
-			dao.UploadConfig.Columns().CosRegion:    in.CosRegion,
-			dao.UploadConfig.Columns().CosBucket:    in.CosBucket,
-			dao.UploadConfig.Columns().CosSecretId:  cosSecretID,
-			dao.UploadConfig.Columns().CosSecretKey: cosSecretKey,
-			dao.UploadConfig.Columns().MaxSize:      in.MaxSize,
-			dao.UploadConfig.Columns().Status:       in.Status,
-			dao.UploadConfig.Columns().UpdatedAt:    now,
+		data := do.UploadConfig{
+			Name:         in.Name,
+			Storage:      in.Storage,
+			IsDefault:    in.IsDefault,
+			LocalPath:    in.LocalPath,
+			OssEndpoint:  in.OssEndpoint,
+			OssBucket:    in.OssBucket,
+			OssAccessKey: ossAccessKey,
+			OssSecretKey: ossSecretKey,
+			CosRegion:    in.CosRegion,
+			CosBucket:    in.CosBucket,
+			CosSecretId:  cosSecretID,
+			CosSecretKey: cosSecretKey,
+			MaxSize:      in.MaxSize,
+			Status:       in.Status,
 		}
 		_, err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).
 			Where(dao.UploadConfig.Columns().Id, in.ID).
@@ -188,11 +180,7 @@ func (s *sConfig) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	}
 	_, err = dao.UploadConfig.Ctx(ctx).
 		Where(dao.UploadConfig.Columns().Id, id).
-		Where(dao.UploadConfig.Columns().DeletedAt, nil).
-		Data(g.Map{
-			dao.UploadConfig.Columns().DeletedAt: gtime.Now(),
-		}).
-		Update()
+		Delete()
 	return err
 }
 
@@ -218,11 +206,7 @@ func (s *sConfig) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) er
 	return dao.UploadConfig.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		_, err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).
 			WhereIn(dao.UploadConfig.Columns().Id, deleteIDs).
-			Where(dao.UploadConfig.Columns().DeletedAt, nil).
-			Data(g.Map{
-				dao.UploadConfig.Columns().DeletedAt: gtime.Now(),
-			}).
-			Update()
+			Delete()
 		return err
 	})
 }

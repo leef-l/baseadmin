@@ -7,12 +7,12 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/system/internal/dao"
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
 	"gbaseadmin/app/system/internal/logic/shared"
 	"gbaseadmin/app/system/internal/model"
+	"gbaseadmin/app/system/internal/model/do"
 	"gbaseadmin/app/system/internal/service"
 	"gbaseadmin/utility/batchutil"
 	"gbaseadmin/utility/fieldvalid"
@@ -48,22 +48,20 @@ func (s *sMenu) Create(ctx context.Context, in *model.MenuCreateInput) error {
 		return err
 	}
 	id := snowflake.Generate()
-	_, err := dao.Menu.Ctx(ctx).Data(g.Map{
-		dao.Menu.Columns().Id:         id,
-		dao.Menu.Columns().ParentId:   in.ParentID,
-		dao.Menu.Columns().Title:      in.Title,
-		dao.Menu.Columns().Type:       in.Type,
-		dao.Menu.Columns().Path:       in.Path,
-		dao.Menu.Columns().Component:  in.Component,
-		dao.Menu.Columns().Permission: in.Permission,
-		dao.Menu.Columns().Icon:       in.Icon,
-		dao.Menu.Columns().Sort:       in.Sort,
-		dao.Menu.Columns().IsShow:     in.IsShow,
-		dao.Menu.Columns().IsCache:    in.IsCache,
-		dao.Menu.Columns().LinkUrl:    in.LinkURL,
-		dao.Menu.Columns().Status:     in.Status,
-		dao.Menu.Columns().CreatedAt:  gtime.Now(),
-		dao.Menu.Columns().UpdatedAt:  gtime.Now(),
+	_, err := dao.Menu.Ctx(ctx).Data(do.Menu{
+		Id:         id,
+		ParentId:   in.ParentID,
+		Title:      in.Title,
+		Type:       in.Type,
+		Path:       in.Path,
+		Component:  in.Component,
+		Permission: in.Permission,
+		Icon:       in.Icon,
+		Sort:       in.Sort,
+		IsShow:     in.IsShow,
+		IsCache:    in.IsCache,
+		LinkUrl:    in.LinkURL,
+		Status:     in.Status,
 	}).Insert()
 	if err == nil {
 		authlogic.ClearUserCaches(ctx, s.getAdminUserIDs(ctx)...)
@@ -89,20 +87,19 @@ func (s *sMenu) Update(ctx context.Context, in *model.MenuUpdateInput) error {
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err
 	}
-	data := g.Map{
-		dao.Menu.Columns().ParentId:   in.ParentID,
-		dao.Menu.Columns().Title:      in.Title,
-		dao.Menu.Columns().Type:       in.Type,
-		dao.Menu.Columns().Path:       in.Path,
-		dao.Menu.Columns().Component:  in.Component,
-		dao.Menu.Columns().Permission: in.Permission,
-		dao.Menu.Columns().Icon:       in.Icon,
-		dao.Menu.Columns().Sort:       in.Sort,
-		dao.Menu.Columns().IsShow:     in.IsShow,
-		dao.Menu.Columns().IsCache:    in.IsCache,
-		dao.Menu.Columns().LinkUrl:    in.LinkURL,
-		dao.Menu.Columns().Status:     in.Status,
-		dao.Menu.Columns().UpdatedAt:  gtime.Now(),
+	data := do.Menu{
+		ParentId:   in.ParentID,
+		Title:      in.Title,
+		Type:       in.Type,
+		Path:       in.Path,
+		Component:  in.Component,
+		Permission: in.Permission,
+		Icon:       in.Icon,
+		Sort:       in.Sort,
+		IsShow:     in.IsShow,
+		IsCache:    in.IsCache,
+		LinkUrl:    in.LinkURL,
+		Status:     in.Status,
 	}
 	_, err := dao.Menu.Ctx(ctx).
 		Where(dao.Menu.Columns().Id, in.ID).
@@ -127,11 +124,7 @@ func (s *sMenu) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	err := dao.Menu.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Model(dao.Menu.Table()).Ctx(ctx).
 			Where(dao.Menu.Columns().Id, id).
-			Where(dao.Menu.Columns().DeletedAt, nil).
-			Data(g.Map{
-				dao.Menu.Columns().DeletedAt: gtime.Now(),
-			}).
-			Update(); err != nil {
+			Delete(); err != nil {
 			return err
 		}
 		if _, err := tx.Model(dao.RoleMenu.Table()).Ctx(ctx).
@@ -173,11 +166,7 @@ func (s *sMenu) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) erro
 	err = dao.Menu.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Model(dao.Menu.Table()).Ctx(ctx).
 			WhereIn(dao.Menu.Columns().Id, deleteIDs).
-			Where(dao.Menu.Columns().DeletedAt, nil).
-			Data(g.Map{
-				dao.Menu.Columns().DeletedAt: gtime.Now(),
-			}).
-			Update(); err != nil {
+			Delete(); err != nil {
 			return err
 		}
 		if _, err := tx.Model(dao.RoleMenu.Table()).Ctx(ctx).

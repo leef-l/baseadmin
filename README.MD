@@ -176,6 +176,7 @@ docker compose --env-file .\docker\dev\.env -f .\docker\dev\docker-compose.yml l
 - 只有确认当前所有改动都属于同一批交付时，才使用 `./scripts/feature-publish.sh --all "feat(scope): summary"`
 - 如果这次功能包含数据库改动，必须先补 `admin-go/database/migrations/`，再执行提交脚本
 - 仓库启用了 `lefthook`：`pre-commit` 会跑页面规范校验，`pre-push` 会跑后端测试、codegen 测试、前端 typecheck 和 `web-antd` 单测
+- `scripts/run-go-task-with-limits.sh` 和 `scripts/run-node-task-with-limits.sh` 会在启动前先检查宿主机 CPU 使用率；默认高于 `80%` 时等待，降到 `60%` 后继续，可通过 `RESOURCE_LOAD_MAX_PERCENT` / `RESOURCE_LOAD_RESUME_PERCENT` 调整
 
 ## Vben 组件铁律
 

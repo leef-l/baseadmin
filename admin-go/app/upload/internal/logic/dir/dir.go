@@ -6,12 +6,11 @@ import (
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
-	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model"
+	"gbaseadmin/app/upload/internal/model/do"
 	"gbaseadmin/app/upload/internal/service"
 	"gbaseadmin/utility/batchutil"
 	"gbaseadmin/utility/fieldvalid"
@@ -47,15 +46,13 @@ func (s *sDir) Create(ctx context.Context, in *model.DirCreateInput) error {
 		return err
 	}
 	id := snowflake.Generate()
-	_, err := dao.UploadDir.Ctx(ctx).Data(g.Map{
-		dao.UploadDir.Columns().Id:        id,
-		dao.UploadDir.Columns().ParentId:  in.ParentID,
-		dao.UploadDir.Columns().Name:      in.Name,
-		dao.UploadDir.Columns().Path:      in.Path,
-		dao.UploadDir.Columns().Sort:      in.Sort,
-		dao.UploadDir.Columns().Status:    in.Status,
-		dao.UploadDir.Columns().CreatedAt: gtime.Now(),
-		dao.UploadDir.Columns().UpdatedAt: gtime.Now(),
+	_, err := dao.UploadDir.Ctx(ctx).Data(do.UploadDir{
+		Id:       id,
+		ParentId: in.ParentID,
+		Name:     in.Name,
+		Path:     in.Path,
+		Sort:     in.Sort,
+		Status:   in.Status,
 	}).Insert()
 	return err
 }
@@ -78,13 +75,12 @@ func (s *sDir) Update(ctx context.Context, in *model.DirUpdateInput) error {
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err
 	}
-	data := g.Map{
-		dao.UploadDir.Columns().ParentId:  in.ParentID,
-		dao.UploadDir.Columns().Name:      in.Name,
-		dao.UploadDir.Columns().Path:      in.Path,
-		dao.UploadDir.Columns().Sort:      in.Sort,
-		dao.UploadDir.Columns().Status:    in.Status,
-		dao.UploadDir.Columns().UpdatedAt: gtime.Now(),
+	data := do.UploadDir{
+		ParentId: in.ParentID,
+		Name:     in.Name,
+		Path:     in.Path,
+		Sort:     in.Sort,
+		Status:   in.Status,
 	}
 	_, err := dao.UploadDir.Ctx(ctx).
 		Where(dao.UploadDir.Columns().Id, in.ID).
@@ -104,11 +100,7 @@ func (s *sDir) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	}
 	_, err := dao.UploadDir.Ctx(ctx).
 		Where(dao.UploadDir.Columns().Id, id).
-		Where(dao.UploadDir.Columns().DeletedAt, nil).
-		Data(g.Map{
-			dao.UploadDir.Columns().DeletedAt: gtime.Now(),
-		}).
-		Update()
+		Delete()
 	return err
 }
 
@@ -137,11 +129,7 @@ func (s *sDir) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error
 	return dao.UploadDir.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		_, err := tx.Model(dao.UploadDir.Table()).Ctx(ctx).
 			WhereIn(dao.UploadDir.Columns().Id, deleteIDs).
-			Where(dao.UploadDir.Columns().DeletedAt, nil).
-			Data(g.Map{
-				dao.UploadDir.Columns().DeletedAt: gtime.Now(),
-			}).
-			Update()
+			Delete()
 		return err
 	})
 }

@@ -1,3 +1,4 @@
+
 package category
 
 import (
@@ -5,7 +6,6 @@ import (
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/demo/internal/dao"
 	"gbaseadmin/app/demo/internal/middleware"
@@ -51,9 +51,9 @@ func normalizeCategoryIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 // Create 创建分类
 func (s *sCategory) Create(ctx context.Context, in *model.CategoryCreateInput) error {
 	id := snowflake.Generate()
-	_, err := dao.DemoCategory.Ctx(ctx).Data(do.Category{
+	_, err := dao.DemoCategory.Ctx(ctx).Data(do.DemoCategory{
 		Id:        id,
-		ParentID: in.ParentID,
+		ParentId: in.ParentID,
 		Name: in.Name,
 		Icon: in.Icon,
 		Sort: in.Sort,
@@ -66,8 +66,8 @@ func (s *sCategory) Create(ctx context.Context, in *model.CategoryCreateInput) e
 
 // Update 更新分类
 func (s *sCategory) Update(ctx context.Context, in *model.CategoryUpdateInput) error {
-	data := do.Category{
-		ParentID: in.ParentID,
+	data := do.DemoCategory{
+		ParentId: in.ParentID,
 		Name: in.Name,
 		Icon: in.Icon,
 		Sort: in.Sort,
@@ -159,18 +159,6 @@ func (s *sCategory) doCollectChildIDs(ctx context.Context, parentID snowflake.Js
 		childIDs = append(childIDs, grandChildren...)
 	}
 	return childIDs, nil
-}
-
-// BatchDelete 批量软删除分类
-func (s *sCategory) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error {
-	normalizedIDs := normalizeCategoryIDs(ids)
-	if len(normalizedIDs) == 0 {
-		return nil
-	}
-	_, err := dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, normalizedIDs).Data(g.Map{
-		dao.DemoCategory.Columns().DeletedAt: gtime.Now(),
-	}).Update()
-	return err
 }
 
 // Detail 获取分类详情
@@ -356,11 +344,9 @@ func (s *sCategory) Tree(ctx context.Context, in *model.CategoryTreeInput) (tree
 
 // BatchUpdate 批量编辑分类
 func (s *sCategory) BatchUpdate(ctx context.Context, in *model.CategoryBatchUpdateInput) error {
-	data := g.Map{
-		dao.DemoCategory.Columns().UpdatedAt: gtime.Now(),
-	}
+	data := do.DemoCategory{}
 	if in.Status != nil {
-		data[dao.DemoCategory.Columns().Status] = *in.Status
+		data.Status = *in.Status
 	}
 	_, err := dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, in.IDs).Data(data).Update()
 	return err

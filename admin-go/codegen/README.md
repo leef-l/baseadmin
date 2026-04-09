@@ -7,6 +7,7 @@
 - 代码生成、DAO 生成、菜单写入、离线验证都基于 `go` / `gf` / 数据库结构完成
 - 生成前端页面时，组件名必须受 `vue-vben-admin/apps/web-antd/src/adapter/component/index.ts` 约束
 - 如果生成需求引入新组件，必须先在 adapter 完成适配，再修改模板和字段映射
+- 生成后端逻辑时，必须遵守 GoFrame ORM 约定：写库优先使用 DO 对象，`created_at` / `updated_at` / `deleted_at` 依赖框架自动维护，软删除统一走 `Delete()`
 
 ## 表名规范
 

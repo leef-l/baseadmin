@@ -15,6 +15,8 @@ Environment overrides:
   RESOURCE_CPU_QUOTA=60%
   RESOURCE_TASKS_MAX=256
   RESOURCE_NICE=10
+  RESOURCE_LOAD_MAX_PERCENT=80
+  RESOURCE_LOAD_RESUME_PERCENT=60
   PNPM_NETWORK_CONCURRENCY=3
   PNPM_CHILD_CONCURRENCY=1
   NPM_CONFIG_MAXSOCKETS=6
@@ -27,6 +29,8 @@ if [ "$#" -eq 0 ]; then
   exit 1
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 : "${RESOURCE_MEMORY_MAX:=1200M}"
 : "${RESOURCE_CPU_QUOTA:=60%}"
 : "${RESOURCE_TASKS_MAX:=256}"
@@ -35,6 +39,8 @@ fi
 : "${PNPM_CHILD_CONCURRENCY:=1}"
 : "${NPM_CONFIG_MAXSOCKETS:=6}"
 : "${FRONTEND_NODE_MAX_OLD_SPACE_SIZE:=1024}"
+
+"$SCRIPT_DIR/wait-for-cpu-idle.sh"
 
 if command -v systemd-run >/dev/null 2>&1 && [ -d /run/systemd/system ] && [ "$(id -u)" -eq 0 ]; then
   exec systemd-run \

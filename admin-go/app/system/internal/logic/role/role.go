@@ -7,12 +7,12 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/system/internal/dao"
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
 	"gbaseadmin/app/system/internal/logic/shared"
 	"gbaseadmin/app/system/internal/model"
+	"gbaseadmin/app/system/internal/model/do"
 	"gbaseadmin/app/system/internal/service"
 	"gbaseadmin/utility/batchutil"
 	"gbaseadmin/utility/fieldvalid"
@@ -51,16 +51,14 @@ func (s *sRole) Create(ctx context.Context, in *model.RoleCreateInput) error {
 		return err
 	}
 	id := snowflake.Generate()
-	_, err := dao.Role.Ctx(ctx).Data(g.Map{
-		dao.Role.Columns().Id:        id,
-		dao.Role.Columns().ParentId:  in.ParentID,
-		dao.Role.Columns().Title:     in.Title,
-		dao.Role.Columns().DataScope: in.DataScope,
-		dao.Role.Columns().Sort:      in.Sort,
-		dao.Role.Columns().Status:    in.Status,
-		dao.Role.Columns().IsAdmin:   in.IsAdmin,
-		dao.Role.Columns().CreatedAt: gtime.Now(),
-		dao.Role.Columns().UpdatedAt: gtime.Now(),
+	_, err := dao.Role.Ctx(ctx).Data(do.Role{
+		Id:        id,
+		ParentId:  in.ParentID,
+		Title:     in.Title,
+		DataScope: in.DataScope,
+		Sort:      in.Sort,
+		Status:    in.Status,
+		IsAdmin:   in.IsAdmin,
 	}).Insert()
 	return err
 }
@@ -102,14 +100,13 @@ func (s *sRole) Update(ctx context.Context, in *model.RoleUpdateInput) error {
 			return gerror.New("内置管理员角色不能取消超级管理员标记")
 		}
 	}
-	data := g.Map{
-		dao.Role.Columns().ParentId:  in.ParentID,
-		dao.Role.Columns().Title:     in.Title,
-		dao.Role.Columns().DataScope: in.DataScope,
-		dao.Role.Columns().Sort:      in.Sort,
-		dao.Role.Columns().Status:    in.Status,
-		dao.Role.Columns().IsAdmin:   in.IsAdmin,
-		dao.Role.Columns().UpdatedAt: gtime.Now(),
+	data := do.Role{
+		ParentId:  in.ParentID,
+		Title:     in.Title,
+		DataScope: in.DataScope,
+		Sort:      in.Sort,
+		Status:    in.Status,
+		IsAdmin:   in.IsAdmin,
 	}
 	err = dao.Role.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Model(dao.Role.Table()).Ctx(ctx).
@@ -162,11 +159,7 @@ func (s *sRole) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	err = dao.Role.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Model(dao.Role.Table()).Ctx(ctx).
 			Where(dao.Role.Columns().Id, id).
-			Where(dao.Role.Columns().DeletedAt, nil).
-			Data(g.Map{
-				dao.Role.Columns().DeletedAt: gtime.Now(),
-			}).
-			Update(); err != nil {
+			Delete(); err != nil {
 			return err
 		}
 		if _, err := tx.Model(dao.RoleMenu.Table()).Ctx(ctx).
@@ -235,11 +228,7 @@ func (s *sRole) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) erro
 	err = dao.Role.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Model(dao.Role.Table()).Ctx(ctx).
 			WhereIn(dao.Role.Columns().Id, deleteIDs).
-			Where(dao.Role.Columns().DeletedAt, nil).
-			Data(g.Map{
-				dao.Role.Columns().DeletedAt: gtime.Now(),
-			}).
-			Update(); err != nil {
+			Delete(); err != nil {
 			return err
 		}
 		if _, err := tx.Model(dao.RoleMenu.Table()).Ctx(ctx).
@@ -488,10 +477,8 @@ func (s *sRole) GrantDept(ctx context.Context, in *model.RoleGrantDeptInput) err
 	err = dao.Role.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Model(dao.Role.Table()).Ctx(ctx).
 			Where(dao.Role.Columns().Id, in.ID).
-			Where(dao.Role.Columns().DeletedAt, nil).
-			Data(g.Map{
-				dao.Role.Columns().DataScope: in.DataScope,
-				dao.Role.Columns().UpdatedAt: gtime.Now(),
+			Data(do.Role{
+				DataScope: in.DataScope,
 			}).
 			Update(); err != nil {
 			return err

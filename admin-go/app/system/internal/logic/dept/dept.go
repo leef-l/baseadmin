@@ -6,13 +6,12 @@ import (
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
-	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/system/internal/dao"
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
 	"gbaseadmin/app/system/internal/logic/shared"
 	"gbaseadmin/app/system/internal/model"
+	"gbaseadmin/app/system/internal/model/do"
 	"gbaseadmin/app/system/internal/service"
 	"gbaseadmin/utility/batchutil"
 	"gbaseadmin/utility/fieldvalid"
@@ -51,16 +50,14 @@ func (s *sDept) Create(ctx context.Context, in *model.DeptCreateInput) error {
 		return err
 	}
 	id := snowflake.Generate()
-	_, err := dao.Dept.Ctx(ctx).Data(g.Map{
-		dao.Dept.Columns().Id:        id,
-		dao.Dept.Columns().ParentId:  in.ParentID,
-		dao.Dept.Columns().Title:     in.Title,
-		dao.Dept.Columns().Username:  in.Username,
-		dao.Dept.Columns().Email:     in.Email,
-		dao.Dept.Columns().Sort:      in.Sort,
-		dao.Dept.Columns().Status:    in.Status,
-		dao.Dept.Columns().CreatedAt: gtime.Now(),
-		dao.Dept.Columns().UpdatedAt: gtime.Now(),
+	_, err := dao.Dept.Ctx(ctx).Data(do.Dept{
+		Id:       id,
+		ParentId: in.ParentID,
+		Title:    in.Title,
+		Username: in.Username,
+		Email:    in.Email,
+		Sort:     in.Sort,
+		Status:   in.Status,
 	}).Insert()
 	return err
 }
@@ -89,14 +86,13 @@ func (s *sDept) Update(ctx context.Context, in *model.DeptUpdateInput) error {
 	if err := s.ensureParentAccessible(ctx, in.ParentID); err != nil {
 		return err
 	}
-	data := g.Map{
-		dao.Dept.Columns().ParentId:  in.ParentID,
-		dao.Dept.Columns().Title:     in.Title,
-		dao.Dept.Columns().Username:  in.Username,
-		dao.Dept.Columns().Email:     in.Email,
-		dao.Dept.Columns().Sort:      in.Sort,
-		dao.Dept.Columns().Status:    in.Status,
-		dao.Dept.Columns().UpdatedAt: gtime.Now(),
+	data := do.Dept{
+		ParentId: in.ParentID,
+		Title:    in.Title,
+		Username: in.Username,
+		Email:    in.Email,
+		Sort:     in.Sort,
+		Status:   in.Status,
 	}
 	_, err := dao.Dept.Ctx(ctx).
 		Where(dao.Dept.Columns().Id, in.ID).
@@ -122,11 +118,7 @@ func (s *sDept) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	}
 	_, err := dao.Dept.Ctx(ctx).
 		Where(dao.Dept.Columns().Id, id).
-		Where(dao.Dept.Columns().DeletedAt, nil).
-		Data(g.Map{
-			dao.Dept.Columns().DeletedAt: gtime.Now(),
-		}).
-		Update()
+		Delete()
 	return err
 }
 
@@ -158,11 +150,7 @@ func (s *sDept) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) erro
 	err = dao.Dept.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		_, err := tx.Model(dao.Dept.Table()).Ctx(ctx).
 			WhereIn(dao.Dept.Columns().Id, deleteIDs).
-			Where(dao.Dept.Columns().DeletedAt, nil).
-			Data(g.Map{
-				dao.Dept.Columns().DeletedAt: gtime.Now(),
-			}).
-			Update()
+			Delete()
 		return err
 	})
 	return err

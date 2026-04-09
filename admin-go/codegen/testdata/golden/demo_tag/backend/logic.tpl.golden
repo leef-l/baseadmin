@@ -1,3 +1,4 @@
+
 package tag
 
 import (
@@ -7,9 +8,7 @@ import (
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
-	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
-	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/demo/internal/dao"
 	"gbaseadmin/app/demo/internal/middleware"
@@ -55,7 +54,7 @@ func normalizeTagIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 // Create 创建标签
 func (s *sTag) Create(ctx context.Context, in *model.TagCreateInput) error {
 	id := snowflake.Generate()
-	_, err := dao.DemoTag.Ctx(ctx).Data(do.Tag{
+	_, err := dao.DemoTag.Ctx(ctx).Data(do.DemoTag{
 		Id:        id,
 		Name: in.Name,
 		Color: in.Color,
@@ -69,7 +68,7 @@ func (s *sTag) Create(ctx context.Context, in *model.TagCreateInput) error {
 
 // Update 更新标签
 func (s *sTag) Update(ctx context.Context, in *model.TagUpdateInput) error {
-	data := do.Tag{
+	data := do.DemoTag{
 		Name: in.Name,
 		Color: in.Color,
 		Sort: in.Sort,
@@ -91,9 +90,7 @@ func (s *sTag) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error
 	if len(normalizedIDs) == 0 {
 		return nil
 	}
-	_, err := dao.DemoTag.Ctx(ctx).WhereIn(dao.DemoTag.Columns().Id, normalizedIDs).Data(g.Map{
-		dao.DemoTag.Columns().DeletedAt: gtime.Now(),
-	}).Update()
+	_, err := dao.DemoTag.Ctx(ctx).WhereIn(dao.DemoTag.Columns().Id, normalizedIDs).Delete()
 	return err
 }
 
@@ -189,11 +186,9 @@ func (s *sTag) Export(ctx context.Context, in *model.TagListInput) (list []*mode
 
 // BatchUpdate 批量编辑标签
 func (s *sTag) BatchUpdate(ctx context.Context, in *model.TagBatchUpdateInput) error {
-	data := g.Map{
-		dao.DemoTag.Columns().UpdatedAt: gtime.Now(),
-	}
+	data := do.DemoTag{}
 	if in.Status != nil {
-		data[dao.DemoTag.Columns().Status] = *in.Status
+		data.Status = *in.Status
 	}
 	_, err := dao.DemoTag.Ctx(ctx).WhereIn(dao.DemoTag.Columns().Id, in.IDs).Data(data).Update()
 	return err
@@ -226,28 +221,26 @@ func (s *sTag) Import(ctx context.Context, file *ghttp.UploadFile) (success int,
 		}
 		// 逐行插入
 		id := snowflake.Generate()
-		data := g.Map{
-			dao.DemoTag.Columns().Id:        id,
-			dao.DemoTag.Columns().CreatedAt: gtime.Now(),
-			dao.DemoTag.Columns().UpdatedAt: gtime.Now(),
-			dao.DemoTag.Columns().CreatedBy: middleware.GetUserID(ctx),
-			dao.DemoTag.Columns().DeptId:    middleware.GetDeptID(ctx),
+		data := do.DemoTag{
+			Id: id,
+			CreatedBy: middleware.GetUserID(ctx),
+			DeptId: middleware.GetDeptID(ctx),
 		}
 		idx := 0
 		if idx < len(record) {
-			data[dao.DemoTag.Columns().Name] = record[idx]
+			data.Name = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoTag.Columns().Color] = record[idx]
+			data.Color = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoTag.Columns().Sort] = record[idx]
+			data.Sort = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoTag.Columns().Status] = record[idx]
+			data.Status = record[idx]
 		}
 		idx++
 		if _, insertErr := dao.DemoTag.Ctx(ctx).Data(data).Insert(); insertErr != nil {

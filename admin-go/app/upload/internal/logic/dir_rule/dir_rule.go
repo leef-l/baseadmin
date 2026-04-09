@@ -6,12 +6,11 @@ import (
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
-	"github.com/gogf/gf/v2/frame/g"
-	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model"
+	"gbaseadmin/app/upload/internal/model/do"
 	"gbaseadmin/app/upload/internal/service"
 	"gbaseadmin/utility/batchutil"
 	"gbaseadmin/utility/fieldvalid"
@@ -43,14 +42,12 @@ func (s *sDirRule) Create(ctx context.Context, in *model.DirRuleCreateInput) err
 		return err
 	}
 	id := snowflake.Generate()
-	_, err := dao.UploadDirRule.Ctx(ctx).Data(g.Map{
-		dao.UploadDirRule.Columns().Id:        id,
-		dao.UploadDirRule.Columns().DirId:     in.DirID,
-		dao.UploadDirRule.Columns().Category:  in.Category,
-		dao.UploadDirRule.Columns().SavePath:  in.SavePath,
-		dao.UploadDirRule.Columns().Status:    in.Status,
-		dao.UploadDirRule.Columns().CreatedAt: gtime.Now(),
-		dao.UploadDirRule.Columns().UpdatedAt: gtime.Now(),
+	_, err := dao.UploadDirRule.Ctx(ctx).Data(do.UploadDirRule{
+		Id:       id,
+		DirId:    in.DirID,
+		Category: in.Category,
+		SavePath: in.SavePath,
+		Status:   in.Status,
 	}).Insert()
 	return err
 }
@@ -70,12 +67,11 @@ func (s *sDirRule) Update(ctx context.Context, in *model.DirRuleUpdateInput) err
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
 		return err
 	}
-	data := g.Map{
-		dao.UploadDirRule.Columns().DirId:     in.DirID,
-		dao.UploadDirRule.Columns().Category:  in.Category,
-		dao.UploadDirRule.Columns().SavePath:  in.SavePath,
-		dao.UploadDirRule.Columns().Status:    in.Status,
-		dao.UploadDirRule.Columns().UpdatedAt: gtime.Now(),
+	data := do.UploadDirRule{
+		DirId:    in.DirID,
+		Category: in.Category,
+		SavePath: in.SavePath,
+		Status:   in.Status,
 	}
 	_, err := dao.UploadDirRule.Ctx(ctx).
 		Where(dao.UploadDirRule.Columns().Id, in.ID).
@@ -92,11 +88,7 @@ func (s *sDirRule) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	}
 	_, err := dao.UploadDirRule.Ctx(ctx).
 		Where(dao.UploadDirRule.Columns().Id, id).
-		Where(dao.UploadDirRule.Columns().DeletedAt, nil).
-		Data(g.Map{
-			dao.UploadDirRule.Columns().DeletedAt: gtime.Now(),
-		}).
-		Update()
+		Delete()
 	return err
 }
 
@@ -120,11 +112,7 @@ func (s *sDirRule) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) e
 	return dao.UploadDirRule.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		_, err := tx.Model(dao.UploadDirRule.Table()).Ctx(ctx).
 			WhereIn(dao.UploadDirRule.Columns().Id, deleteIDs).
-			Where(dao.UploadDirRule.Columns().DeletedAt, nil).
-			Data(g.Map{
-				dao.UploadDirRule.Columns().DeletedAt: gtime.Now(),
-			}).
-			Update()
+			Delete()
 		return err
 	})
 }

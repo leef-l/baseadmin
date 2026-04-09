@@ -1,3 +1,4 @@
+
 package article
 
 import (
@@ -9,7 +10,6 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
-	"github.com/gogf/gf/v2/os/gtime"
 	"golang.org/x/crypto/bcrypt"
 
 	"gbaseadmin/app/demo/internal/dao"
@@ -60,17 +60,17 @@ func (s *sArticle) Create(ctx context.Context, in *model.ArticleCreateInput) err
 	if err != nil {
 		return err
 	}
-	_, err = dao.DemoArticle.Ctx(ctx).Data(do.Article{
+	_, err = dao.DemoArticle.Ctx(ctx).Data(do.DemoArticle{
 		Id:        id,
-		CategoryID: in.CategoryID,
-		UserID: in.UserID,
+		CategoryId: in.CategoryID,
+		UserId: in.UserID,
 		Title: in.Title,
 		OrderNo: in.OrderNo,
 		Cover: in.Cover,
 		AttachmentFile: in.AttachmentFile,
 		BodyContent: in.BodyContent,
-		ExtraJSON: in.ExtraJSON,
-		LinkURL: in.LinkURL,
+		ExtraJson: in.ExtraJSON,
+		LinkUrl: in.LinkURL,
 		Status: in.Status,
 		Type: in.Type,
 		IsTop: in.IsTop,
@@ -93,16 +93,16 @@ func (s *sArticle) Create(ctx context.Context, in *model.ArticleCreateInput) err
 
 // Update 更新文章
 func (s *sArticle) Update(ctx context.Context, in *model.ArticleUpdateInput) error {
-	data := do.Article{
-		CategoryID: in.CategoryID,
-		UserID: in.UserID,
+	data := do.DemoArticle{
+		CategoryId: in.CategoryID,
+		UserId: in.UserID,
 		Title: in.Title,
 		OrderNo: in.OrderNo,
 		Cover: in.Cover,
 		AttachmentFile: in.AttachmentFile,
 		BodyContent: in.BodyContent,
-		ExtraJSON: in.ExtraJSON,
-		LinkURL: in.LinkURL,
+		ExtraJson: in.ExtraJSON,
+		LinkUrl: in.LinkURL,
 		Status: in.Status,
 		Type: in.Type,
 		IsTop: in.IsTop,
@@ -154,9 +154,7 @@ func (s *sArticle) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) e
 	if len(normalizedIDs) == 0 {
 		return nil
 	}
-	_, err := dao.DemoArticle.Ctx(ctx).WhereIn(dao.DemoArticle.Columns().Id, normalizedIDs).Data(g.Map{
-		dao.DemoArticle.Columns().DeletedAt: gtime.Now(),
-	}).Update()
+	_, err := dao.DemoArticle.Ctx(ctx).WhereIn(dao.DemoArticle.Columns().Id, normalizedIDs).Delete()
 	return err
 }
 
@@ -380,17 +378,15 @@ func (s *sArticle) Export(ctx context.Context, in *model.ArticleListInput) (list
 
 // BatchUpdate 批量编辑文章
 func (s *sArticle) BatchUpdate(ctx context.Context, in *model.ArticleBatchUpdateInput) error {
-	data := g.Map{
-		dao.DemoArticle.Columns().UpdatedAt: gtime.Now(),
-	}
+	data := do.DemoArticle{}
 	if in.Status != nil {
-		data[dao.DemoArticle.Columns().Status] = *in.Status
+		data.Status = *in.Status
 	}
 	if in.Type != nil {
-		data[dao.DemoArticle.Columns().Type] = *in.Type
+		data.Type = *in.Type
 	}
 	if in.IsTop != nil {
-		data[dao.DemoArticle.Columns().IsTop] = *in.IsTop
+		data.IsTop = *in.IsTop
 	}
 	_, err := dao.DemoArticle.Ctx(ctx).WhereIn(dao.DemoArticle.Columns().Id, in.IDs).Data(data).Update()
 	return err
@@ -423,92 +419,90 @@ func (s *sArticle) Import(ctx context.Context, file *ghttp.UploadFile) (success 
 		}
 		// 逐行插入
 		id := snowflake.Generate()
-		data := g.Map{
-			dao.DemoArticle.Columns().Id:        id,
-			dao.DemoArticle.Columns().CreatedAt: gtime.Now(),
-			dao.DemoArticle.Columns().UpdatedAt: gtime.Now(),
-			dao.DemoArticle.Columns().CreatedBy: middleware.GetUserID(ctx),
-			dao.DemoArticle.Columns().DeptId:    middleware.GetDeptID(ctx),
+		data := do.DemoArticle{
+			Id: id,
+			CreatedBy: middleware.GetUserID(ctx),
+			DeptId: middleware.GetDeptID(ctx),
 		}
 		idx := 0
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().CategoryId] = record[idx]
+			data.CategoryId = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().UserId] = record[idx]
+			data.UserId = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().Title] = record[idx]
+			data.Title = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().OrderNo] = record[idx]
+			data.OrderNo = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().Cover] = record[idx]
+			data.Cover = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().AttachmentFile] = record[idx]
+			data.AttachmentFile = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().BodyContent] = record[idx]
+			data.BodyContent = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().ExtraJson] = record[idx]
+			data.ExtraJson = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().LinkUrl] = record[idx]
+			data.LinkUrl = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().Status] = record[idx]
+			data.Status = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().Type] = record[idx]
+			data.Type = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().IsTop] = record[idx]
+			data.IsTop = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().Price] = record[idx]
+			data.Price = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().Sort] = record[idx]
+			data.Sort = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().Icon] = record[idx]
+			data.Icon = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().Email] = record[idx]
+			data.Email = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().Phone] = record[idx]
+			data.Phone = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().Remark] = record[idx]
+			data.Remark = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().Level] = record[idx]
+			data.Level = record[idx]
 		}
 		idx++
 		if idx < len(record) {
-			data[dao.DemoArticle.Columns().ExtraField] = record[idx]
+			data.ExtraField = record[idx]
 		}
 		idx++
 		if _, insertErr := dao.DemoArticle.Ctx(ctx).Data(data).Insert(); insertErr != nil {
