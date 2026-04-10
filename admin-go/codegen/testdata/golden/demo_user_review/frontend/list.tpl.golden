@@ -1,0 +1,472 @@
+<script setup lang="ts">
+import { h, onMounted, ref } from 'vue';
+import type { VbenFormProps } from '#/adapter/form';
+import type { VxeGridProps } from '#/adapter/vxe-table';
+
+import { useAccess } from '@vben/access';
+import { Page, useVbenModal } from '@vben/common-ui';
+import { downloadFileFromBlob } from '@vben/utils';
+import { Button, message, Modal, Tag, Tooltip } from 'ant-design-vue';
+import { QuestionCircleOutlined } from '@ant-design/icons-vue';
+
+import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { getUserReviewList, deleteUserReview, batchDeleteUserReview, exportUserReview, importUserReview, downloadImportTemplateUserReview, batchUpdateUserReview } from '#/api/demo/user_review';
+import { getUsersList } from '#/api/system/users';
+import type { UserReviewItem } from '#/api/demo/user_review/types';
+import FormModal from './modules/form.vue';
+import DetailDrawer from './modules/detail-drawer.vue';
+
+/** 标签颜色池 */
+const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
+
+type EnumValue = number | string;
+
+function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | undefined) {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  return map[value] ?? String(value);
+}
+
+const sortableFieldMap: Record<string, string> = {
+  createdAt: 'created_at',
+  reviewType: 'review_type',
+  content: 'content',
+  score: 'score',
+  isPassed: 'is_passed',
+  sort: 'sort',
+  status: 'status',
+};
+
+function resolveSortField(field?: string) {
+  if (!field) {
+    return '';
+  }
+  return sortableFieldMap[field] ?? '';
+}
+
+/** ReviewType选项 */
+const reviewTypeOptions = [
+  { label: '内容', value: 1 },
+  { label: '行为', value: 2 },
+  { label: '申诉', value: 3 },
+];
+
+/** ReviewType映射 */
+const reviewTypeMap: Record<EnumValue, string> = {
+  1: '内容',
+  2: '行为',
+  3: '申诉',
+};
+
+/** ReviewType颜色 */
+function getReviewTypeColor(val: EnumValue | null | undefined): string {
+  const keys: EnumValue[] = [1, 2, 3];
+  if (val === null || val === undefined || val === '') {
+    return TAG_COLORS[0] ?? 'default';
+  }
+  const idx = keys.indexOf(val);
+  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
+}
+
+/** IsPassed选项 */
+const isPassedOptions = [
+  { label: '否', value: 0 },
+  { label: '是', value: 1 },
+];
+
+/** IsPassed映射 */
+const isPassedMap: Record<EnumValue, string> = {
+  0: '否',
+  1: '是',
+};
+
+/** IsPassed颜色 */
+function getIsPassedColor(val: EnumValue | null | undefined): string {
+  const keys: EnumValue[] = [0, 1];
+  if (val === null || val === undefined || val === '') {
+    return TAG_COLORS[0] ?? 'default';
+  }
+  const idx = keys.indexOf(val);
+  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
+}
+
+/** Status选项 */
+const statusOptions = [
+  { label: '禁用', value: 0 },
+  { label: '启用', value: 1 },
+];
+
+/** Status映射 */
+const statusMap: Record<EnumValue, string> = {
+  0: '禁用',
+  1: '启用',
+};
+
+/** Status颜色 */
+function getStatusColor(val: EnumValue | null | undefined): string {
+  const keys: EnumValue[] = [0, 1];
+  if (val === null || val === undefined || val === '') {
+    return TAG_COLORS[0] ?? 'default';
+  }
+  const idx = keys.indexOf(val);
+  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
+}
+/** 渲染带 Tooltip 的列标题 */
+function tooltipHeader(label: string, tip: string) {
+  return () => h('span', {}, [
+    label + ' ',
+    h(Tooltip, { title: tip }, {
+      default: () => h(QuestionCircleOutlined, { style: { color: '#999', marginLeft: '4px' } }),
+    }),
+  ]);
+}
+
+/** 表单弹窗 */
+const [FormModalComp, formModalApi] = useVbenModal({
+  connectedComponent: FormModal,
+  destroyOnClose: true,
+});
+
+/** 详情抽屉 */
+const [DetailDrawerComp, detailDrawerApi] = useVbenModal({
+  connectedComponent: DetailDrawer,
+  destroyOnClose: true,
+});
+const { hasAccessByCodes } = useAccess();
+const canBatchDelete = hasAccessByCodes(['demo:user_review:batch-delete']);
+
+/** 搜索表单配置 */
+const formOptions: VbenFormProps = {
+  collapsed: false,
+  showCollapseButton: true,
+  submitOnChange: false,
+  submitOnEnter: true,
+  schema: [
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: [],
+        placeholder: '请选择UserID',
+        class: 'w-full',
+      },
+      fieldName: 'userId',
+      label: 'UserID',
+    },
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: reviewTypeOptions,
+        placeholder: '请选择ReviewType',
+        class: 'w-full',
+      },
+      fieldName: 'reviewType',
+      label: 'ReviewType',
+    },
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: isPassedOptions,
+        placeholder: '请选择IsPassed',
+        class: 'w-full',
+      },
+      fieldName: 'isPassed',
+      label: 'IsPassed',
+    },
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: statusOptions,
+        placeholder: '请选择Status',
+        class: 'w-full',
+      },
+      fieldName: 'status',
+      label: 'Status',
+    },
+    {
+      component: 'Input',
+      componentProps: { placeholder: '请输入Content', allowClear: true },
+      fieldName: 'content',
+      label: 'Content',
+    },
+    {
+      component: 'RangePicker',
+      fieldName: 'timeRange',
+      label: '创建时间',
+      componentProps: {
+        showTime: true,
+        format: 'YYYY-MM-DD HH:mm:ss',
+        valueFormat: 'YYYY-MM-DD HH:mm:ss',
+        class: 'w-full',
+      },
+    },
+  ],
+};
+
+/** 表格列配置 */
+const gridOptions: VxeGridProps<UserReviewItem> = {
+  checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
+  columns: [
+    ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
+    { title: '序号', type: 'seq', width: 50 },
+    { field: 'usersUsername', title: 'UserID' },
+    { field: 'reviewType', title: 'ReviewType', width: 120, slots: { default: 'reviewType_cell' } },
+    { field: 'content', title: 'Content' },
+    { field: 'score', title: 'Score' },
+    { field: 'isPassed', title: 'IsPassed', width: 120, slots: { default: 'isPassed_cell' } },
+    { field: 'sort', title: 'Sort', slots: { header: tooltipHeader('Sort', '升序') } },
+    { field: 'status', title: 'Status', width: 120, slots: { default: 'status_cell' } },
+    { field: 'createdAt', title: '创建时间', width: 180, formatter: 'formatDateTime', sortable: true },
+    { title: '操作', width: 240, fixed: 'right', slots: { default: 'action' } },
+  ],
+  height: 'auto',
+  pagerConfig: {},
+  proxyConfig: {
+    ajax: {
+      query: async ({ page, sorts }, formValues) => {
+        const params: Record<string, any> = {
+          pageNum: page.currentPage,
+          pageSize: page.pageSize,
+          ...formValues,
+        };
+        if (params.timeRange && params.timeRange.length === 2) {
+          params.startTime = params.timeRange[0];
+          params.endTime = params.timeRange[1];
+        }
+        delete params.timeRange;
+        if (sorts && sorts.length > 0) {
+          const sort = sorts[0];
+          if (sort && sort.field && sort.order) {
+            params.orderBy = resolveSortField(String(sort.field));
+            params.orderDir = sort.order;
+          }
+        }
+        const res = await getUserReviewList(params as any);
+        return { items: res?.list ?? [], total: res?.total ?? 0 };
+      },
+    },
+  },
+  sortConfig: {
+    remote: true,
+    trigger: 'cell',
+    defaultSort: { field: 'sort', order: 'asc' },
+  },
+  toolbarConfig: {
+    custom: true,
+    refresh: true,
+    search: true,
+  },
+};
+
+const [Grid, gridApi] = useVbenVxeGrid({
+  formOptions,
+  gridOptions,
+});
+
+const importInputRef = ref<HTMLInputElement | null>(null);
+
+async function initSearchOptions() {
+  try {
+    const userIdRes = await getUsersList({ pageNum: 1, pageSize: 1000 });
+    gridApi.formApi.updateSchema([
+      {
+        fieldName: 'userId',
+        componentProps: {
+          options: (userIdRes?.list ?? []).map((item: any) => ({
+            label: item.username || item.id,
+            value: item.id,
+          })),
+        },
+      },
+    ]);
+  } catch {
+    // ignore
+  }
+}
+
+onMounted(() => {
+  void initSearchOptions();
+});
+
+/** 新建 */
+function handleCreate() {
+  formModalApi.setData(null).open();
+}
+
+/** 查看 */
+function handleView(row: UserReviewItem) {
+  detailDrawerApi.setData({ id: row.id }).open();
+}
+
+/** 编辑 */
+function handleEdit(row: UserReviewItem) {
+  formModalApi.setData({ id: row.id }).open();
+}
+
+/** 删除 */
+function handleDelete(row: UserReviewItem) {
+  Modal.confirm({
+    title: '确认删除',
+    content: '确定要删除该用户审核吗？',
+    okType: 'danger',
+    async onOk() {
+      await deleteUserReview(row.id);
+      message.success('删除成功');
+      gridApi.reload();
+    },
+  });
+}
+
+/** 批量删除 */
+function handleBatchDelete() {
+  const rows = gridApi.grid.getCheckboxRecords();
+  if (rows.length === 0) {
+    message.warning('请先选择要删除的数据');
+    return;
+  }
+  Modal.confirm({
+    title: '确认批量删除',
+    content: `确定要删除选中的 ${rows.length} 条用户审核吗？`,
+    okType: 'danger',
+    async onOk() {
+      await batchDeleteUserReview(rows.map((r: UserReviewItem) => r.id));
+      message.success('批量删除成功');
+      gridApi.reload();
+    },
+  });
+}
+
+/** 导出 */
+async function handleExport() {
+  try {
+    const formValues = await gridApi.formApi.getValues();
+    const params: Record<string, any> = { ...formValues };
+    const sorts = gridApi.grid?.getSortColumns?.() ?? [];
+    if (params.timeRange && params.timeRange.length === 2) {
+      params.startTime = params.timeRange[0];
+      params.endTime = params.timeRange[1];
+    }
+    delete params.timeRange;
+    if (sorts.length > 0) {
+      const sort = sorts[0];
+      if (sort?.field && sort?.order) {
+        params.orderBy = resolveSortField(String(sort.field));
+        params.orderDir = sort.order;
+      }
+    }
+    const blob = await exportUserReview(params);
+    downloadFileFromBlob({ fileName: '用户审核.csv', source: blob as Blob });
+    message.success('导出成功');
+  } catch {
+    message.error('导出失败');
+  }
+}
+
+function handleImportTrigger() {
+  const input = importInputRef.value;
+  if (!input) {
+    return;
+  }
+  input.value = '';
+  input.click();
+}
+
+/** 导入 */
+async function handleImportChange(event: Event) {
+  const input = event.target as HTMLInputElement | null;
+  const file = input?.files?.[0];
+  if (!file) {
+    return;
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await importUserReview(formData);
+    message.success(`导入完成：成功 ${res?.success ?? 0} 条，失败 ${res?.fail ?? 0} 条`);
+    gridApi.reload();
+  } catch {
+    message.error('导入失败');
+  } finally {
+    if (input) {
+      input.value = '';
+    }
+  }
+}
+
+/** 下载导入模板 */
+async function handleDownloadTemplate() {
+  try {
+    const blob = await downloadImportTemplateUserReview();
+    downloadFileFromBlob({ fileName: '用户审核导入模板.csv', source: blob as Blob });
+  } catch {
+    message.error('下载模板失败');
+  }
+}
+
+/** 批量修改状态 */
+function handleBatchUpdateStatus() {
+  const rows = gridApi.grid.getCheckboxRecords();
+  if (rows.length === 0) {
+    message.warning('请先选择要修改的数据');
+    return;
+  }
+  Modal.confirm({
+    title: '批量修改状态',
+    content: `确定要将选中的 ${rows.length} 条数据的状态切换吗？`,
+    async onOk() {
+      const newStatus = rows[0]?.status === 1 ? 0 : 1;
+      await batchUpdateUserReview({ ids: rows.map((r: UserReviewItem) => r.id), status: newStatus });
+      message.success('批量修改成功');
+      gridApi.reload();
+    },
+  });
+}
+</script>
+
+<template>
+  <Page auto-content-height>
+    <FormModalComp @success="() => gridApi.reload()" />
+    <DetailDrawerComp />
+    <input
+      ref="importInputRef"
+      type="file"
+      accept=".csv"
+      class="hidden"
+      @change="handleImportChange"
+    />
+    <Grid>
+      <template #toolbar-actions>
+        <Button v-auth="['demo:user_review:create']" type="primary" @click="handleCreate">新建</Button>
+        <Button v-auth="['demo:user_review:batch-delete']" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
+        <Button v-auth="['demo:user_review:export']" class="ml-2" @click="handleExport">导出</Button>
+        <Button v-auth="['demo:user_review:import']" class="ml-2" @click="handleImportTrigger">导入</Button>
+        <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-auth="['demo:user_review:batch-update']" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
+      </template>
+      <template #reviewType_cell="{ row }">
+        <Tag :color="getReviewTypeColor(row.reviewType)">
+          {{ getEnumLabel(reviewTypeMap, row.reviewType) }}
+        </Tag>
+      </template>
+      <template #isPassed_cell="{ row }">
+        <Tag :color="getIsPassedColor(row.isPassed)">
+          {{ getEnumLabel(isPassedMap, row.isPassed) }}
+        </Tag>
+      </template>
+      <template #status_cell="{ row }">
+        <Tag :color="getStatusColor(row.status)">
+          {{ getEnumLabel(statusMap, row.status) }}
+        </Tag>
+      </template>
+      <template #action="{ row }">
+        <Button v-auth="['demo:user_review:detail']" type="link" size="small" @click="handleView(row)">查看</Button>
+        <Button v-auth="['demo:user_review:update']" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+        <Button v-auth="['demo:user_review:delete']" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+      </template>
+    </Grid>
+  </Page>
+</template>

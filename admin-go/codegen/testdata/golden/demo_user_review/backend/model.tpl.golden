@@ -1,0 +1,86 @@
+package model
+
+import (
+	"github.com/gogf/gf/v2/os/gtime"
+
+	"gbaseadmin/utility/snowflake"
+)
+
+// UserReview DTO 模型
+
+// UserReviewCreateInput 创建用户审核输入
+type UserReviewCreateInput struct {
+	UserID snowflake.JsonInt64 `json:"userId"`
+	ReviewType int `json:"reviewType"`
+	Content string `json:"content"`
+	Score int `json:"score"`
+	IsPassed int `json:"isPassed"`
+	Sort int `json:"sort"`
+	Status int `json:"status"`
+}
+
+// UserReviewUpdateInput 更新用户审核输入
+type UserReviewUpdateInput struct {
+	ID snowflake.JsonInt64 `json:"id"`
+	UserID snowflake.JsonInt64 `json:"userId"`
+	ReviewType int `json:"reviewType"`
+	Content string `json:"content"`
+	Score int `json:"score"`
+	IsPassed int `json:"isPassed"`
+	Sort int `json:"sort"`
+	Status int `json:"status"`
+}
+
+// UserReviewDetailOutput 用户审核详情输出
+type UserReviewDetailOutput struct {
+	ID snowflake.JsonInt64 `json:"id"`
+	UserID snowflake.JsonInt64 `json:"userId"`
+	UsersUsername string `json:"usersUsername"`
+	ReviewType int `json:"reviewType"`
+	Content string `json:"content"`
+	Score int `json:"score"`
+	IsPassed int `json:"isPassed"`
+	Sort int `json:"sort"`
+	Status int `json:"status"`
+	CreatedAt *gtime.Time `json:"createdAt"`
+	UpdatedAt *gtime.Time `json:"updatedAt"`
+}
+
+// UserReviewListOutput 用户审核列表输出
+type UserReviewListOutput struct {
+	ID snowflake.JsonInt64 `json:"id"`
+	UserID snowflake.JsonInt64 `json:"userId"`
+	UsersUsername string `json:"usersUsername"`
+	ReviewType int `json:"reviewType"`
+	Content string `json:"content"`
+	Score int `json:"score"`
+	IsPassed int `json:"isPassed"`
+	Sort int `json:"sort"`
+	Status int `json:"status"`
+	CreatedAt *gtime.Time `json:"createdAt"`
+	UpdatedAt *gtime.Time `json:"updatedAt"`
+}
+
+// UserReviewListInput 用户审核列表查询输入
+type UserReviewListInput struct {
+	PageNum   int    `json:"pageNum"`
+	PageSize  int    `json:"pageSize"`
+	OrderBy   string `json:"orderBy"`
+	OrderDir  string `json:"orderDir"`
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"endTime"`
+	UserID *snowflake.JsonInt64 `json:"userId"`
+	ReviewType *int `json:"reviewType"`
+	IsPassed *int `json:"isPassed"`
+	Status *int `json:"status"`
+	Content string `json:"content"`
+}
+
+// UserReviewBatchUpdateInput 批量编辑用户审核输入
+type UserReviewBatchUpdateInput struct {
+	IDs    []snowflake.JsonInt64 `json:"ids"`
+	ReviewType *int `json:"reviewType"`
+	IsPassed *int `json:"isPassed"`
+	Status *int `json:"status"`
+}
+

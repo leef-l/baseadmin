@@ -1,0 +1,179 @@
+<script setup lang="ts">
+import { h, ref } from 'vue';
+import { useVbenModal } from '@vben/common-ui';
+import { useVbenForm } from '#/adapter/form';
+import { message, Tooltip } from 'ant-design-vue';
+import { QuestionCircleOutlined } from '@ant-design/icons-vue';
+import {
+  getUserReviewDetail,
+  createUserReview,
+  updateUserReview,
+} from '#/api/demo/user_review';
+import type {
+  UserReviewCreateParams,
+  UserReviewUpdateParams
+} from '#/api/demo/user_review/types';
+import { getUsersList } from '#/api/system/users';
+
+/** ReviewType选项 */
+const reviewTypeOptions = [
+  { label: '内容', value: 1 },
+  { label: '行为', value: 2 },
+  { label: '申诉', value: 3 },
+];
+const userIdOptions = ref<{ label: string; value: string | number }[]>([]);
+/** 渲染带 Tooltip 的表单 label */
+function tooltipLabel(label: string, tip: string) {
+  return () => h('span', {}, [
+    label + ' ',
+    h(Tooltip, { title: tip }, {
+      default: () => h(QuestionCircleOutlined, { style: { color: '#999', marginLeft: '4px' } }),
+    }),
+  ]);
+}
+
+const emit = defineEmits<{ success: [] }>();
+const isEdit = ref(false);
+const editId = ref('');
+const openToken = ref(0);
+
+/** 表单配置 */
+const [Form, formApi] = useVbenForm({
+  showDefaultActions: false,
+  schema: [
+    {
+      component: 'Select',
+      fieldName: 'userId',
+      label: 'UserID',
+      rules: 'selectRequired',
+      componentProps: { options: [], placeholder: '请选择UserID', allowClear: true, class: 'w-full' },
+    },
+    {
+      component: 'RadioGroup',
+      fieldName: 'reviewType',
+      label: 'ReviewType',
+      componentProps: { options: reviewTypeOptions },
+    },
+    {
+      component: 'Input',
+      fieldName: 'content',
+      label: 'Content',
+      componentProps: { placeholder: '请输入Content', maxlength: 500 },
+    },
+    {
+      component: 'InputNumber',
+      fieldName: 'score',
+      label: 'Score',
+      componentProps: { placeholder: '请输入Score', class: 'w-full' },
+    },
+    {
+      component: 'Switch',
+      fieldName: 'isPassed',
+      label: 'IsPassed',
+      componentProps: { checkedValue: 1, unCheckedValue: 0 },
+      defaultValue: 0,
+    },
+    {
+      component: 'InputNumber',
+      fieldName: 'sort',
+      label: tooltipLabel('Sort', '升序'),
+      componentProps: { placeholder: '请输入Sort', class: 'w-full' },
+    },
+    {
+      component: 'Switch',
+      fieldName: 'status',
+      label: 'Status',
+      componentProps: { checkedValue: 1, unCheckedValue: 0 },
+      defaultValue: 1,
+    },
+  ],
+});
+
+/** Modal 配置 */
+const [Modal, modalApi] = useVbenModal({
+  fullscreenButton: false,
+  onCancel() {
+    modalApi.close();
+  },
+  onConfirm: async () => {
+    const values = await formApi.validateAndSubmitForm() as
+      | UserReviewCreateParams
+      | undefined;
+    if (!values) return;
+    modalApi.lock();
+    try {
+      if (isEdit.value) {
+        await updateUserReview({ id: editId.value, ...values } as UserReviewUpdateParams);
+        message.success('更新成功');
+      } else {
+        await createUserReview(values);
+        message.success('创建成功');
+      }
+      emit('success');
+      modalApi.close();
+    } finally {
+      modalApi.lock(false);
+    }
+  },
+  async onOpenChange(isOpen: boolean) {
+    if (!isOpen) {
+      openToken.value += 1;
+      return;
+    }
+
+    const currentOpenToken = ++openToken.value;
+    formApi.resetForm();
+    const data = modalApi.getData<{ id?: string }>();
+    // 加载UserID选项
+    try {
+      const usersRes = await getUsersList({ pageNum: 1, pageSize: 1000 });
+      if (currentOpenToken !== openToken.value) {
+        return;
+      }
+      userIdOptions.value = (usersRes?.list ?? []).map((item: any) => ({
+        label: item.username || item.id,
+        value: item.id,
+      }));
+      formApi.updateSchema([
+        {
+          fieldName: 'userId',
+          componentProps: { options: userIdOptions.value },
+        },
+      ]);
+    } catch {
+      // ignore
+    }
+    if (currentOpenToken !== openToken.value) {
+      return;
+    }
+    if (data?.id) {
+      isEdit.value = true;
+      editId.value = data.id;
+      modalApi.setState({ title: '编辑用户审核' });
+      try {
+        const detail = await getUserReviewDetail(data.id);
+        if (currentOpenToken !== openToken.value) {
+          return;
+        }
+        if (detail) {
+          formApi.setValues(detail);
+        }
+      } catch {
+        if (currentOpenToken === openToken.value) {
+          message.error('获取详情失败');
+        }
+      }
+    } else {
+      isEdit.value = false;
+      editId.value = '';
+      modalApi.setState({ title: '新建用户审核' });
+    }
+  },
+});
+</script>
+
+<template>
+  <Modal class="w-[600px]">
+    <Form />
+  </Modal>
+</template>

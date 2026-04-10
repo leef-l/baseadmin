@@ -1,0 +1,162 @@
+package user_review
+
+import (
+	"context"
+	"encoding/csv"
+	"fmt"
+
+	"github.com/gogf/gf/v2/frame/g"
+
+	v1 "gbaseadmin/app/demo/api/demo/v1"
+	"gbaseadmin/app/demo/internal/model"
+	"gbaseadmin/app/demo/internal/service"
+)
+
+var UserReview = cUserReview{}
+
+type cUserReview struct{}
+
+// Create 创建用户审核
+func (c *cUserReview) Create(ctx context.Context, req *v1.UserReviewCreateReq) (res *v1.UserReviewCreateRes, err error) {
+	err = service.UserReview().Create(ctx, &model.UserReviewCreateInput{
+		UserID: req.UserID,
+		ReviewType: req.ReviewType,
+		Content: req.Content,
+		Score: req.Score,
+		IsPassed: req.IsPassed,
+		Sort: req.Sort,
+		Status: req.Status,
+	})
+	return
+}
+
+// Update 更新用户审核
+func (c *cUserReview) Update(ctx context.Context, req *v1.UserReviewUpdateReq) (res *v1.UserReviewUpdateRes, err error) {
+	err = service.UserReview().Update(ctx, &model.UserReviewUpdateInput{
+		ID: req.ID,
+		UserID: req.UserID,
+		ReviewType: req.ReviewType,
+		Content: req.Content,
+		Score: req.Score,
+		IsPassed: req.IsPassed,
+		Sort: req.Sort,
+		Status: req.Status,
+	})
+	return
+}
+
+// Delete 删除用户审核
+func (c *cUserReview) Delete(ctx context.Context, req *v1.UserReviewDeleteReq) (res *v1.UserReviewDeleteRes, err error) {
+	err = service.UserReview().Delete(ctx, req.ID)
+	return
+}
+
+// BatchDelete 批量删除用户审核
+func (c *cUserReview) BatchDelete(ctx context.Context, req *v1.UserReviewBatchDeleteReq) (res *v1.UserReviewBatchDeleteRes, err error) {
+	err = service.UserReview().BatchDelete(ctx, req.IDs)
+	return
+}
+
+// BatchUpdate 批量编辑用户审核
+func (c *cUserReview) BatchUpdate(ctx context.Context, req *v1.UserReviewBatchUpdateReq) (res *v1.UserReviewBatchUpdateRes, err error) {
+	err = service.UserReview().BatchUpdate(ctx, &model.UserReviewBatchUpdateInput{
+		IDs: req.IDs,
+		ReviewType: req.ReviewType,
+		IsPassed: req.IsPassed,
+		Status: req.Status,
+	})
+	return
+}
+
+// Detail 获取用户审核详情
+func (c *cUserReview) Detail(ctx context.Context, req *v1.UserReviewDetailReq) (res *v1.UserReviewDetailRes, err error) {
+	res = &v1.UserReviewDetailRes{}
+	res.UserReviewDetailOutput, err = service.UserReview().Detail(ctx, req.ID)
+	return
+}
+
+// List 获取用户审核列表
+func (c *cUserReview) List(ctx context.Context, req *v1.UserReviewListReq) (res *v1.UserReviewListRes, err error) {
+	res = &v1.UserReviewListRes{}
+	res.List, res.Total, err = service.UserReview().List(ctx, &model.UserReviewListInput{
+		PageNum:   req.PageNum,
+		PageSize:  req.PageSize,
+		OrderBy:   req.OrderBy,
+		OrderDir:  req.OrderDir,
+		StartTime: req.StartTime,
+		EndTime:   req.EndTime,
+		UserID: req.UserID,
+		ReviewType: req.ReviewType,
+		IsPassed: req.IsPassed,
+		Status: req.Status,
+		Content: req.Content,
+	})
+	return
+}
+// Export 导出用户审核
+func (c *cUserReview) Export(ctx context.Context, req *v1.UserReviewExportReq) (res *v1.UserReviewExportRes, err error) {
+	list, err := service.UserReview().Export(ctx, &model.UserReviewListInput{
+		OrderBy:   req.OrderBy,
+		OrderDir:  req.OrderDir,
+		StartTime: req.StartTime,
+		EndTime:   req.EndTime,
+		UserID: req.UserID,
+		ReviewType: req.ReviewType,
+		IsPassed: req.IsPassed,
+		Status: req.Status,
+		Content: req.Content,
+	})
+	if err != nil {
+		return
+	}
+	// CSV 导出（使用 csv.Writer 防止注入和格式问题）
+	r := g.RequestFromCtx(ctx)
+	r.Response.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	r.Response.Header().Set("Content-Disposition", `attachment; filename="user_review.csv"`)
+	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
+	w := csv.NewWriter(r.Response.Writer)
+	// 表头
+	_ = w.Write([]string{"UserID", "ReviewType", "Content", "Score", "IsPassed", "Sort", "Status", "创建时间"})
+	// 数据行
+	for _, item := range list {
+		_ = w.Write([]string{
+			item.UsersUsername,
+			fmt.Sprintf("%v", item.ReviewType),
+			item.Content,
+			fmt.Sprintf("%v", item.Score),
+			fmt.Sprintf("%v", item.IsPassed),
+			fmt.Sprintf("%v", item.Sort),
+			fmt.Sprintf("%v", item.Status),
+			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
+		})
+	}
+	w.Flush()
+	return
+}
+
+// Import 导入用户审核
+func (c *cUserReview) Import(ctx context.Context, req *v1.UserReviewImportReq) (res *v1.UserReviewImportRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	file := r.GetUploadFile("file")
+	if file == nil {
+		return nil, fmt.Errorf("请上传文件")
+	}
+	success, fail, err := service.UserReview().Import(ctx, file)
+	if err != nil {
+		return nil, err
+	}
+	res = &v1.UserReviewImportRes{Success: success, Fail: fail}
+	return
+}
+
+// ImportTemplate 下载用户审核导入模板
+func (c *cUserReview) ImportTemplate(ctx context.Context, req *v1.UserReviewImportTemplateReq) (res *v1.UserReviewImportTemplateRes, err error) {
+	r := g.RequestFromCtx(ctx)
+	r.Response.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	r.Response.Header().Set("Content-Disposition", `attachment; filename="user_review_template.csv"`)
+	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
+	w := csv.NewWriter(r.Response.Writer)
+	_ = w.Write([]string{"UserID", "ReviewType", "Content", "Score", "IsPassed", "Sort", "Status"})
+	w.Flush()
+	return
+}

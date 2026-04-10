@@ -1,0 +1,21 @@
+package consts
+
+// UserReviewReviewType ReviewType
+const (
+	UserReviewReviewTypeContent = 1 // 内容
+	UserReviewReviewTypeBehavior = 2 // 行为
+	UserReviewReviewTypeAppeal = 3 // 申诉
+)
+
+// UserReviewIsPassed IsPassed
+const (
+	UserReviewIsPassedNo = 0 // 否
+	UserReviewIsPassedYes = 1 // 是
+)
+
+// UserReviewStatus Status
+const (
+	UserReviewStatusDisabled = 0 // 禁用
+	UserReviewStatusEnabled = 1 // 启用
+)
+

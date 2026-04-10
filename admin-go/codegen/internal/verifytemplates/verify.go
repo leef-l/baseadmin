@@ -36,6 +36,7 @@ func Cases() []TemplateCase {
 		{Key: "demo_category", Name: "demo_category (树形+排序+Switch枚举+Tooltip)", Meta: buildCategoryMeta()},
 		{Key: "demo_article", Name: "demo_article (外键+所有组件+金额+密码+字典+搜索+验证)", Meta: buildArticleMeta()},
 		{Key: "demo_tag", Name: "demo_tag (最简表+Import+BatchEdit)", Meta: buildTagMeta()},
+		{Key: "demo_user_review", Name: "demo_user_review (多段模块名 user_review+跨应用外键)", Meta: buildUserReviewMeta()},
 	}
 }
 
@@ -691,6 +692,70 @@ func buildTagMeta() *parser.TableMeta {
 		}),
 		f("color", "Color", "Color", "color", "string", "string", func(f *parser.FieldMeta) { f.Component = "Input"; f.MaxLength = 20 }),
 		f("sort", "Sort", "Sort", "sort", "int", "number", func(f *parser.FieldMeta) { f.Component = "InputNumber" }),
+		f("status", "Status", "Status", "status", "int", "number", func(f *parser.FieldMeta) {
+			f.IsEnum = true
+			f.Component = "Switch"
+			f.DefaultValue = "1"
+			f.EnumValues = []parser.EnumValue{{Value: "0", Label: "禁用", NameIdent: "Disabled"}, {Value: "1", Label: "启用", NameIdent: "Enabled"}}
+		}),
+		hiddenField("created_by", "CreatedBy", "CreatedBy", "createdBy", "JsonInt64", "string"),
+		hiddenField("dept_id", "DeptID", "DeptId", "deptID", "JsonInt64", "string"),
+		hiddenTimeField("created_at", "CreatedAt"), hiddenTimeField("updated_at", "UpdatedAt"), hiddenTimeField("deleted_at", "DeletedAt"),
+	}
+	return finalizeVerifyMeta(m)
+}
+
+// --- 表4: demo_user_review（多段模块名 user_review + 跨应用外键）---
+// 唯一核心验证点：表名第一个下划线之后保留下划线，moduleName=user_review，
+// 包路径 app/demo/internal/logic/user_review/，前端 views/demo/user_review/。
+func buildUserReviewMeta() *parser.TableMeta {
+	m := &parser.TableMeta{
+		TableName: "demo_user_review", AppName: "demo", AppNameCamel: "Demo",
+		ModelName: "UserReview", DaoName: "DemoUserReview", ModuleName: "user_review", PackageName: "user_review",
+		Comment: "用户审核",
+	}
+	m.Fields = []parser.FieldMeta{
+		f("id", "ID", "Id", "id", "JsonInt64", "string", func(f *parser.FieldMeta) { f.IsID = true; f.IsHidden = true }),
+		// 跨应用外键：system_users.username
+		f("user_id", "UserID", "UserId", "userId", "JsonInt64", "string", func(f *parser.FieldMeta) {
+			f.IsForeignKey = true
+			f.Component = "Select"
+			f.IsRequired = true
+			f.ValidationRules = []string{"required"}
+			f.RefTable = "users"
+			f.RefTableDB = "system_users"
+			f.RefTableApp = "system"
+			f.RefTableCamel = "Users"
+			f.RefTableLower = "users"
+			f.RefDisplayField = "username"
+			f.RefDisplayCamel = "Username"
+			f.RefDisplayLower = "username"
+			f.RefFieldName = "UsersUsername"
+			f.RefFieldJSON = "usersUsername"
+			f.RefIsTree = false
+			f.RefHasDeletedAt = true
+		}),
+		f("review_type", "ReviewType", "ReviewType", "reviewType", "int", "number", func(f *parser.FieldMeta) {
+			f.IsEnum = true
+			f.Component = "Radio"
+			f.DefaultValue = "1"
+			f.EnumValues = []parser.EnumValue{{Value: "1", Label: "内容", NameIdent: "Content"}, {Value: "2", Label: "行为", NameIdent: "Behavior"}, {Value: "3", Label: "申诉", NameIdent: "Appeal"}}
+		}),
+		f("content", "Content", "Content", "content", "string", "string", func(f *parser.FieldMeta) {
+			f.IsSearchable = true
+			f.MaxLength = 500
+			f.Component = "Input"
+			f.ValidationRules = []string{"max-length:500"}
+			f.UpdateValidationRules = []string{"max-length:500"}
+		}),
+		f("score", "Score", "Score", "score", "int", "number", func(f *parser.FieldMeta) { f.Component = "InputNumber" }),
+		f("is_passed", "IsPassed", "IsPassed", "isPassed", "int", "number", func(f *parser.FieldMeta) {
+			f.IsEnum = true
+			f.Component = "Switch"
+			f.DefaultValue = "0"
+			f.EnumValues = []parser.EnumValue{{Value: "0", Label: "否", NameIdent: "No"}, {Value: "1", Label: "是", NameIdent: "Yes"}}
+		}),
+		f("sort", "Sort", "Sort", "sort", "int", "number", func(f *parser.FieldMeta) { f.TooltipText = "升序"; f.Component = "InputNumber" }),
 		f("status", "Status", "Status", "status", "int", "number", func(f *parser.FieldMeta) {
 			f.IsEnum = true
 			f.Component = "Switch"

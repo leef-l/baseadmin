@@ -6,6 +6,7 @@
 -- 1. demo_category: 树形表 + 简单字段（验证树形、排序、Tooltip）
 -- 2. demo_article: 复杂表 + 外键 + 所有组件类型（验证外键、枚举、金额、搜索等）
 -- 3. demo_tag: 最简表（验证无外键、无树形、无特殊字段的基础 CRUD）
+-- 4. demo_user_review: 多段模块名（user_review）+ 跨应用外键（验证 moduleName 保留下划线）
 
 -- ========== 树形分类表 ==========
 CREATE TABLE IF NOT EXISTS `demo_category` (
@@ -94,6 +95,35 @@ CREATE TABLE IF NOT EXISTS `demo_tag` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='标签';
 
+-- ========== 多段模块名表（user_review → 包名 user_review）==========
+-- 唯一核心验证点：表名里第一个下划线之后保留下划线，moduleName=user_review，
+-- ModelName=UserReview，包路径是 app/demo/internal/logic/user_review/。
+CREATE TABLE IF NOT EXISTS `demo_user_review` (
+  `id` BIGINT UNSIGNED NOT NULL COMMENT 'ID',
+  -- 跨应用外键：验证多段表名下的 ref 解析
+  `user_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '审核人|ref:system_users.username',
+  -- 枚举 3 值 → Radio
+  `review_type` TINYINT NOT NULL DEFAULT 1 COMMENT '类型:1=内容,2=行为,3=申诉',
+  -- 搜索字段
+  `content` VARCHAR(500) DEFAULT '' COMMENT '审核内容',
+  -- 数值
+  `score` INT NOT NULL DEFAULT 0 COMMENT '评分',
+  -- 枚举 2 值 → Switch
+  `is_passed` TINYINT NOT NULL DEFAULT 0 COMMENT '是否通过:0=否,1=是',
+  -- 排序 + Tooltip
+  `sort` INT NOT NULL DEFAULT 0 COMMENT '排序（升序）',
+  -- 枚举 Switch
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:0=禁用,1=启用',
+  -- 公共字段
+  `created_by` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `created_at` DATETIME,
+  `updated_at` DATETIME,
+  `deleted_at` DATETIME,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户审核';
+
 -- ========== 被引用的跨应用表（system_users 已存在）==========
 -- demo_article.user_id → system_users（跨应用外键）
 -- demo_article.category_id → demo_category（同应用树形外键）
+-- demo_user_review.user_id → system_users（多段模块名 + 跨应用外键）

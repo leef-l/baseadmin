@@ -1,0 +1,74 @@
+import { requestClient } from '#/api/request';
+
+import type {
+  UserReviewItem,
+  UserReviewListParams,
+  UserReviewCreateParams,
+  UserReviewUpdateParams,
+} from './types';
+
+/** API 前缀 */
+const PREFIX = '/demo/user_review';
+
+/** 获取用户审核列表 */
+export function getUserReviewList(params: UserReviewListParams) {
+  return requestClient.get<{ list: UserReviewItem[]; total: number }>(
+    `${PREFIX}/list`,
+    { params },
+  );
+}
+
+/** 获取用户审核详情 */
+export function getUserReviewDetail(id: string) {
+  return requestClient.get<UserReviewItem>(`${PREFIX}/detail`, {
+    params: { id },
+  });
+}
+
+/** 创建用户审核 */
+export function createUserReview(data: UserReviewCreateParams) {
+  return requestClient.post(`${PREFIX}/create`, data);
+}
+
+/** 更新用户审核 */
+export function updateUserReview(data: UserReviewUpdateParams) {
+  return requestClient.put(`${PREFIX}/update`, data);
+}
+
+/** 删除用户审核 */
+export function deleteUserReview(id: string) {
+  return requestClient.delete(`${PREFIX}/delete`, { data: { id } });
+}
+
+/** 批量删除用户审核 */
+export function batchDeleteUserReview(ids: string[]) {
+  return requestClient.delete(`${PREFIX}/batch-delete`, { data: { ids } });
+}
+
+/** 导出用户审核 */
+export function exportUserReview(params?: Partial<UserReviewListParams>) {
+  return requestClient.get(`${PREFIX}/export`, {
+    params,
+    responseType: 'blob',
+  });
+}
+
+/** 导入用户审核 */
+export function importUserReview(data: FormData) {
+  return requestClient.post<{ success: number; fail: number }>(
+    `${PREFIX}/import`,
+    data,
+  );
+}
+
+/** 下载用户审核导入模板 */
+export function downloadImportTemplateUserReview() {
+  return requestClient.get(`${PREFIX}/import-template`, {
+    responseType: 'blob',
+  });
+}
+
+/** 批量编辑用户审核 */
+export function batchUpdateUserReview(data: { ids: string[]; reviewType?: number; isPassed?: number; status?: number; }) {
+  return requestClient.put(`${PREFIX}/batch-update`, data);
+}

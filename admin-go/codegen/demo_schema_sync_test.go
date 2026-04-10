@@ -46,6 +46,18 @@ func TestE2EVerifySQLCoversDemoSchemaCoreFields(t *testing.T) {
 			fields:    []string{"id", "name", "color", "sort", "status", "created_by", "dept_id", "created_at", "updated_at", "deleted_at"},
 			snippets:  []string{"COMMENT='标签'"},
 		},
+		{
+			demoTable: "demo_user_review",
+			e2eTable:  "verifydemo_user_review",
+			fields: []string{
+				"id", "user_id", "review_type", "content", "score", "is_passed",
+				"sort", "status", "created_by", "dept_id", "created_at", "updated_at", "deleted_at",
+			},
+			snippets: []string{
+				"|ref:system_users.username",
+				"COMMENT='用户审核'",
+			},
+		},
 	}
 
 	for _, tc := range tablePairs {

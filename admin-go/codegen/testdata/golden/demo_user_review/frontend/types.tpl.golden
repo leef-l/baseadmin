@@ -1,0 +1,54 @@
+/** 用户审核类型定义 */
+
+/** 用户审核项 */
+export interface UserReviewItem {
+  id: string;
+  userId: string;
+  usersUsername?: string;
+  reviewType?: number;
+  content?: string;
+  score?: number;
+  isPassed?: number;
+  sort?: number;
+  status?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** 用户审核列表查询参数 */
+export interface UserReviewListParams {
+  pageNum: number;
+  pageSize: number;
+  orderBy?: string;
+  orderDir?: string;
+  startTime?: string;
+  endTime?: string;
+  userId?: string;
+  reviewType?: number;
+  isPassed?: number;
+  status?: number;
+  content?: string;
+}
+
+/** 用户审核创建参数 */
+export interface UserReviewCreateParams {
+  userId: string;
+  reviewType?: number;
+  content?: string;
+  score?: number;
+  isPassed?: number;
+  sort?: number;
+  status?: number;
+}
+
+/** 用户审核更新参数 */
+export interface UserReviewUpdateParams {
+  id: string;
+  userId: string;
+  reviewType?: number;
+  content?: string;
+  score?: number;
+  isPassed?: number;
+  sort?: number;
+  status?: number;
+}

@@ -75,3 +75,20 @@ CREATE TABLE IF NOT EXISTS `verifydemo_tag` (
   `deleted_at` DATETIME DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='标签';
+
+CREATE TABLE IF NOT EXISTS `verifydemo_user_review` (
+  `id` BIGINT UNSIGNED NOT NULL COMMENT 'ID',
+  `user_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '审核人|ref:system_users.username',
+  `review_type` TINYINT NOT NULL DEFAULT 1 COMMENT '类型:1=内容,2=行为,3=申诉',
+  `content` VARCHAR(500) DEFAULT '' COMMENT '审核内容',
+  `score` INT NOT NULL DEFAULT 0 COMMENT '评分',
+  `is_passed` TINYINT NOT NULL DEFAULT 0 COMMENT '是否通过:0=否,1=是',
+  `sort` INT NOT NULL DEFAULT 0 COMMENT '排序（升序）',
+  `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:0=禁用,1=启用',
+  `created_by` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `created_at` DATETIME DEFAULT NULL,
+  `updated_at` DATETIME DEFAULT NULL,
+  `deleted_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户审核';
