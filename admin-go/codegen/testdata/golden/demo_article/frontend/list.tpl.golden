@@ -21,6 +21,15 @@ import DetailDrawer from './modules/detail-drawer.vue';
 /** 标签颜色池 */
 const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
 
+type EnumValue = number | string;
+
+function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | undefined) {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  return map[value] ?? String(value);
+}
+
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
   title: 'title',
@@ -61,15 +70,18 @@ const statusOptions = [
 ];
 
 /** Status映射 */
-const statusMap: Record<number | string, string> = {
+const statusMap: Record<EnumValue, string> = {
   0: '草稿',
   1: '已发布',
   2: '已下架',
 };
 
 /** Status颜色 */
-function getStatusColor(val: number | string): string {
-  const keys = [0, 1, 2];
+function getStatusColor(val: EnumValue | null | undefined): string {
+  const keys: EnumValue[] = [0, 1, 2];
+  if (val === null || val === undefined || val === '') {
+    return TAG_COLORS[0] ?? 'default';
+  }
   const idx = keys.indexOf(val);
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
@@ -83,7 +95,7 @@ const typeOptions = [
 ];
 
 /** Type映射 */
-const typeMap: Record<number | string, string> = {
+const typeMap: Record<EnumValue, string> = {
   1: '普通',
   2: '置顶',
   3: '推荐',
@@ -91,8 +103,11 @@ const typeMap: Record<number | string, string> = {
 };
 
 /** Type颜色 */
-function getTypeColor(val: number | string): string {
-  const keys = [1, 2, 3, 4];
+function getTypeColor(val: EnumValue | null | undefined): string {
+  const keys: EnumValue[] = [1, 2, 3, 4];
+  if (val === null || val === undefined || val === '') {
+    return TAG_COLORS[0] ?? 'default';
+  }
   const idx = keys.indexOf(val);
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
@@ -104,14 +119,17 @@ const isTopOptions = [
 ];
 
 /** IsTop映射 */
-const isTopMap: Record<number | string, string> = {
+const isTopMap: Record<EnumValue, string> = {
   0: '否',
   1: '是',
 };
 
 /** IsTop颜色 */
-function getIsTopColor(val: number | string): string {
-  const keys = [0, 1];
+function getIsTopColor(val: EnumValue | null | undefined): string {
+  const keys: EnumValue[] = [0, 1];
+  if (val === null || val === undefined || val === '') {
+    return TAG_COLORS[0] ?? 'default';
+  }
   const idx = keys.indexOf(val);
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
@@ -588,17 +606,17 @@ function handleBatchUpdateStatus() {
       </template>
       <template #status_cell="{ row }">
         <Tag :color="getStatusColor(row.status)">
-          {{ statusMap[row.status] || row.status }}
+          {{ getEnumLabel(statusMap, row.status) }}
         </Tag>
       </template>
       <template #type_cell="{ row }">
         <Tag :color="getTypeColor(row.type)">
-          {{ typeMap[row.type] || row.type }}
+          {{ getEnumLabel(typeMap, row.type) }}
         </Tag>
       </template>
       <template #isTop_cell="{ row }">
         <Tag :color="getIsTopColor(row.isTop)">
-          {{ isTopMap[row.isTop] || row.isTop }}
+          {{ getEnumLabel(isTopMap, row.isTop) }}
         </Tag>
       </template>
       <template #action="{ row }">

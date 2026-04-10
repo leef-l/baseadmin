@@ -12,6 +12,32 @@ fail() {
   exit 1
 }
 
+if command -v rg >/dev/null 2>&1; then
+  SEARCH_BIN="rg"
+else
+  SEARCH_BIN="grep"
+fi
+
+search_fixed() {
+  local needle="$1"
+  local file="$2"
+  if [ "$SEARCH_BIN" = "rg" ]; then
+    rg -n -F -- "$needle" "$file" >/dev/null
+  else
+    grep -n -F -- "$needle" "$file" >/dev/null
+  fi
+}
+
+search_regex() {
+  local pattern="$1"
+  local file="$2"
+  if [ "$SEARCH_BIN" = "rg" ]; then
+    rg -n -- "$pattern" "$file" >/dev/null
+  else
+    grep -n -E -- "$pattern" "$file" >/dev/null
+  fi
+}
+
 [ -f "$SCOPE_FILE" ] || fail "missing scope contract: $SCOPE_FILE"
 [ -f "$MIGRATION_FILE" ] || fail "missing baseline migration: $MIGRATION_FILE"
 [ -f "$CODEGEN_CONFIG" ] || fail "missing codegen config: $CODEGEN_CONFIG"
@@ -28,7 +54,7 @@ mapfile -t forbidden_paths < <(node -e "const fs=require('fs'); const data=JSON.
 [ "${#top_level_paths[@]}" -gt 0 ] || fail "scope contract has no top-level menu paths"
 
 for path in "${forbidden_paths[@]}"; do
-  if rg -n -F "$path" "$MIGRATION_FILE" >/dev/null; then
+  if search_fixed "$path" "$MIGRATION_FILE"; then
     fail "baseline migration contains forbidden menu path: $path"
   fi
 done
@@ -59,7 +85,7 @@ for path in "${actual_top_level_paths[@]}"; do
 done
 
 for app in "${allowed_apps[@]}"; do
-  rg -n "^[[:space:]]+$app:" "$CODEGEN_CONFIG" >/dev/null || fail "codegen allowed app missing from menu_apps: $app"
+  search_regex "^[[:space:]]+$app:" "$CODEGEN_CONFIG" || fail "codegen allowed app missing from menu_apps: $app"
 done
 
 mapfile -t config_allowed_apps < <(awk '

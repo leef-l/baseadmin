@@ -127,6 +127,7 @@ func main() {
 
 		// 设置操作日志开关
 		meta.EnableOpLog = cfg.OperationLog
+		meta.AllowMissingDictModule = cfg.AllowMissingDictModule
 
 		fmt.Printf("[codegen] 应用: %s, 模块: %s, DAO: %s\n", meta.AppName, meta.ModuleName, meta.DaoName)
 

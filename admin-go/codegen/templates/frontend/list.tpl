@@ -25,7 +25,13 @@ import { get{{.ModelName}}Tree, delete{{.ModelName}}, batchDelete{{.ModelName}},
 import { get{{.ModelName}}List, delete{{.ModelName}}, batchDelete{{.ModelName}}, export{{.ModelName}}{{if .HasImport}}, import{{.ModelName}}, downloadImportTemplate{{.ModelName}}{{end}}{{if .HasBatchEdit}}, batchUpdate{{.ModelName}}{{end}} } from '#/api/{{.AppName}}/{{.ModuleName}}';
 {{- end}}
 {{- if .HasDict}}
+{{- if .AllowMissingDictModule}}
+async function getDictByType(_dictType: string): Promise<Array<{ label: string; value: string | number }>> {
+  return [];
+}
+{{- else}}
 import { getDictByType } from '#/api/system/dict';
+{{- end}}
 {{- end}}
 {{- range .SearchFields}}
 {{- if and .IsForeignKey .RefTable}}
@@ -42,6 +48,15 @@ import DetailDrawer from './modules/detail-drawer.vue';
 {{if .HasEnum}}
 /** 标签颜色池 */
 const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
+
+type EnumValue = number | string;
+
+function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | undefined) {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  return map[value] ?? String(value);
+}
 {{- end}}
 
 const sortableFieldMap: Record<string, string> = {
@@ -70,15 +85,18 @@ const {{.NameLower}}Options = [
 ];
 
 /** {{.Label}}映射 */
-const {{.NameLower}}Map: Record<number | string, string> = {
+const {{.NameLower}}Map: Record<EnumValue, string> = {
 {{- range .EnumValues}}
   {{if IsNumeric .Value}}{{.Value}}{{else}}'{{.Value}}'{{end}}: '{{.Label}}',
 {{- end}}
 };
 
 /** {{.Label}}颜色 */
-function get{{.NameCamel}}Color(val: number | string): string {
-  const keys = [{{range $i, $v := .EnumValues}}{{if $i}}, {{end}}{{if IsNumeric $v.Value}}{{$v.Value}}{{else}}'{{$v.Value}}'{{end}}{{end}}];
+function get{{.NameCamel}}Color(val: EnumValue | null | undefined): string {
+  const keys: EnumValue[] = [{{range $i, $v := .EnumValues}}{{if $i}}, {{end}}{{if IsNumeric $v.Value}}{{$v.Value}}{{else}}'{{$v.Value}}'{{end}}{{end}}];
+  if (val === null || val === undefined || val === '') {
+    return TAG_COLORS[0] ?? 'default';
+  }
   const idx = keys.indexOf(val);
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
@@ -581,7 +599,7 @@ function handleBatchUpdateStatus() {
 {{- if and (not .IsHidden) (not .IsID) (not .IsParentID) (not .IsTimeField) (not .IsMultiFK) (.IsEnum)}}
       <template #{{.NameLower}}_cell="{ row }">
         <Tag :color="get{{.NameCamel}}Color(row.{{.NameLower}})">
-          {{"{{"}} {{.NameLower}}Map[row.{{.NameLower}}] || row.{{.NameLower}} {{"}}"}}
+          {{"{{"}} getEnumLabel({{.NameLower}}Map, row.{{.NameLower}}) {{"}}"}}
         </Tag>
       </template>
 {{- else if and (not .IsHidden) (not .IsID) (not .IsParentID) (not .IsTimeField) (not .IsMultiFK) (eq .Component "ImageUpload")}}

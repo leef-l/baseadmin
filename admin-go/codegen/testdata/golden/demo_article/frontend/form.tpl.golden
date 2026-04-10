@@ -10,7 +10,12 @@ import {
   updateArticle,
 } from '#/api/demo/article';
 import { getDictByType } from '#/api/system/dict';
+import type {
+  ArticleCreateParams,
+  ArticleUpdateParams
+} from '#/api/demo/article/types';
 import { getCategoryTree } from '#/api/demo/category';
+import type { CategoryItem } from '#/api/demo/category/types';
 import { getUsersList } from '#/api/system/users';
 
 /** Status选项 */
@@ -27,8 +32,8 @@ const typeOptions = [
   { label: '推荐', value: 3 },
   { label: '热门', value: 4 },
 ];
-const categoryIdOptions = ref<{ label: string; value: string }[]>([]);
-const userIdOptions = ref<{ label: string; value: string }[]>([]);
+const categoryIdOptions = ref<CategoryItem[]>([]);
+const userIdOptions = ref<{ label: string; value: string | number }[]>([]);
 const levelDictOptions = ref<{ label: string; value: string | number }[]>([]);
 /** 渲染带 Tooltip 的表单 label */
 function tooltipLabel(label: string, tip: string) {
@@ -145,7 +150,7 @@ const [Form, formApi] = useVbenForm({
       label: 'PayPassword',
       dependencies: {
         triggerFields: ['payPassword'],
-        rules: () => (isEdit.value ? undefined : 'required'),
+        rules: () => (isEdit.value ? null : 'required'),
         componentProps: () => ({
           placeholder: isEdit.value ? '不填则不修改' : '请输入PayPassword',
         }),
@@ -215,12 +220,14 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.close();
   },
   onConfirm: async () => {
-    const values = await formApi.validateAndSubmitForm();
+    const values = await formApi.validateAndSubmitForm() as
+      | ArticleCreateParams
+      | undefined;
     if (!values) return;
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateArticle({ id: editId.value, ...values });
+        await updateArticle({ id: editId.value, ...values } as ArticleUpdateParams);
         message.success('更新成功');
       } else {
         await createArticle(values);
@@ -240,7 +247,7 @@ const [Modal, modalApi] = useVbenModal({
 
     const currentOpenToken = ++openToken.value;
     formApi.resetForm();
-    const data = modalApi.getData<{ id?: string } | null>();
+    const data = modalApi.getData<{ id?: string }>();
     // 加载CategoryID树形数据
     try {
       const categoryRes = await getCategoryTree();

@@ -8,6 +8,10 @@ import {
   createTag,
   updateTag,
 } from '#/api/demo/tag';
+import type {
+  TagCreateParams,
+  TagUpdateParams
+} from '#/api/demo/tag/types';
 
 const emit = defineEmits<{ success: [] }>();
 const isEdit = ref(false);
@@ -54,12 +58,14 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.close();
   },
   onConfirm: async () => {
-    const values = await formApi.validateAndSubmitForm();
+    const values = await formApi.validateAndSubmitForm() as
+      | TagCreateParams
+      | undefined;
     if (!values) return;
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateTag({ id: editId.value, ...values });
+        await updateTag({ id: editId.value, ...values } as TagUpdateParams);
         message.success('更新成功');
       } else {
         await createTag(values);
@@ -79,7 +85,7 @@ const [Modal, modalApi] = useVbenModal({
 
     const currentOpenToken = ++openToken.value;
     formApi.resetForm();
-    const data = modalApi.getData<{ id?: string } | null>();
+    const data = modalApi.getData<{ id?: string }>();
     if (currentOpenToken !== openToken.value) {
       return;
     }

@@ -41,14 +41,15 @@ type MenuModuleConfig struct {
 }
 
 type Config struct {
-	Database     DatabaseConfig              `yaml:"database"`
-	Backend      BackendConfig               `yaml:"backend"`
-	Frontend     FrontendConfig              `yaml:"frontend"`
-	AllowedApps  []string                    `yaml:"allowed_apps"`
-	SkipFields   []string                    `yaml:"skip_fields"`
-	MenuApps     map[string]MenuAppConfig    `yaml:"menu_apps"`
-	MenuModules  map[string]MenuModuleConfig `yaml:"menu_modules"`  // key: "appName/moduleName"
-	OperationLog bool                        `yaml:"operation_log"` // 全局操作日志开关
+	Database               DatabaseConfig              `yaml:"database"`
+	Backend                BackendConfig               `yaml:"backend"`
+	Frontend               FrontendConfig              `yaml:"frontend"`
+	AllowedApps            []string                    `yaml:"allowed_apps"`
+	SkipFields             []string                    `yaml:"skip_fields"`
+	MenuApps               map[string]MenuAppConfig    `yaml:"menu_apps"`
+	MenuModules            map[string]MenuModuleConfig `yaml:"menu_modules"` // key: "appName/moduleName"
+	AllowMissingDictModule bool                        `yaml:"allow_missing_dict_module"`
+	OperationLog           bool                        `yaml:"operation_log"` // 全局操作日志开关
 }
 
 func LoadConfig(path string) (*Config, error) {

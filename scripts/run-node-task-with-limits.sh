@@ -8,7 +8,9 @@ Usage:
 
 Purpose:
   Run npm/pnpm build tasks with conservative CPU and memory limits so a small
-  server is less likely to be overwhelmed.
+  server is less likely to be overwhelmed. If CPU usage reaches the pause
+  threshold while the task is running, the task is paused and resumed
+  automatically after the host recovers.
 
 Environment overrides:
   RESOURCE_MEMORY_MAX=1200M
@@ -16,7 +18,7 @@ Environment overrides:
   RESOURCE_TASKS_MAX=256
   RESOURCE_NICE=10
   RESOURCE_LOAD_MAX_PERCENT=80
-  RESOURCE_LOAD_RESUME_PERCENT=60
+  RESOURCE_LOAD_RESUME_PERCENT=50
   PNPM_NETWORK_CONCURRENCY=3
   PNPM_CHILD_CONCURRENCY=1
   NPM_CONFIG_MAXSOCKETS=6
@@ -35,45 +37,30 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${RESOURCE_CPU_QUOTA:=60%}"
 : "${RESOURCE_TASKS_MAX:=256}"
 : "${RESOURCE_NICE:=10}"
+: "${LOAD_GUARD_LOG_PREFIX:=node-guard}"
 : "${PNPM_NETWORK_CONCURRENCY:=3}"
 : "${PNPM_CHILD_CONCURRENCY:=1}"
 : "${NPM_CONFIG_MAXSOCKETS:=6}"
 : "${FRONTEND_NODE_MAX_OLD_SPACE_SIZE:=1024}"
 
-"$SCRIPT_DIR/wait-for-cpu-idle.sh"
+# 传给通用负载守卫，避免日志前缀在 exec 后退回默认值。
+export RESOURCE_LOAD_MAX_PERCENT RESOURCE_LOAD_RESUME_PERCENT LOAD_GUARD_LOG_PREFIX
 
-if command -v systemd-run >/dev/null 2>&1 && [ -d /run/systemd/system ] && [ "$(id -u)" -eq 0 ]; then
-  exec systemd-run \
-    --pipe \
-    --quiet \
-    --wait \
-    --collect \
-    --same-dir \
-    --nice="${RESOURCE_NICE}" \
-    --property="MemoryMax=${RESOURCE_MEMORY_MAX}" \
-    --property="CPUQuota=${RESOURCE_CPU_QUOTA}" \
-    --property="TasksMax=${RESOURCE_TASKS_MAX}" \
-    --setenv="PATH=${PATH}" \
-    --setenv="PNPM_NETWORK_CONCURRENCY=${PNPM_NETWORK_CONCURRENCY}" \
-    --setenv="PNPM_CHILD_CONCURRENCY=${PNPM_CHILD_CONCURRENCY}" \
-    --setenv="npm_config_maxsockets=${NPM_CONFIG_MAXSOCKETS}" \
-    --setenv="npm_config_node_options=--max-old-space-size=${FRONTEND_NODE_MAX_OLD_SPACE_SIZE}" \
-    --setenv="FRONTEND_NODE_MAX_OLD_SPACE_SIZE=${FRONTEND_NODE_MAX_OLD_SPACE_SIZE}" \
-    "$@"
-fi
-
-if command -v ionice >/dev/null 2>&1; then
-  set -- ionice -c3 "$@"
-fi
-
-if command -v nice >/dev/null 2>&1; then
-  set -- nice -n "${RESOURCE_NICE}" "$@"
-fi
-
-export PNPM_NETWORK_CONCURRENCY
-export PNPM_CHILD_CONCURRENCY
-export FRONTEND_NODE_MAX_OLD_SPACE_SIZE
-export npm_config_maxsockets="${NPM_CONFIG_MAXSOCKETS}"
-export npm_config_node_options="--max-old-space-size=${FRONTEND_NODE_MAX_OLD_SPACE_SIZE}"
-
-exec "$@"
+exec "$SCRIPT_DIR/run-task-with-load-guard.sh" \
+  --nice "${RESOURCE_NICE}" \
+  --systemd-unit-prefix node-task \
+  --systemd-prop "MemoryMax=${RESOURCE_MEMORY_MAX}" \
+  --systemd-prop "CPUQuota=${RESOURCE_CPU_QUOTA}" \
+  --systemd-prop "TasksMax=${RESOURCE_TASKS_MAX}" \
+  --systemd-env "PATH=${PATH}" \
+  --systemd-env "PNPM_NETWORK_CONCURRENCY=${PNPM_NETWORK_CONCURRENCY}" \
+  --systemd-env "PNPM_CHILD_CONCURRENCY=${PNPM_CHILD_CONCURRENCY}" \
+  --systemd-env "npm_config_maxsockets=${NPM_CONFIG_MAXSOCKETS}" \
+  --systemd-env "npm_config_node_options=--max-old-space-size=${FRONTEND_NODE_MAX_OLD_SPACE_SIZE}" \
+  --systemd-env "FRONTEND_NODE_MAX_OLD_SPACE_SIZE=${FRONTEND_NODE_MAX_OLD_SPACE_SIZE}" \
+  --env "PNPM_NETWORK_CONCURRENCY=${PNPM_NETWORK_CONCURRENCY}" \
+  --env "PNPM_CHILD_CONCURRENCY=${PNPM_CHILD_CONCURRENCY}" \
+  --env "npm_config_maxsockets=${NPM_CONFIG_MAXSOCKETS}" \
+  --env "npm_config_node_options=--max-old-space-size=${FRONTEND_NODE_MAX_OLD_SPACE_SIZE}" \
+  --env "FRONTEND_NODE_MAX_OLD_SPACE_SIZE=${FRONTEND_NODE_MAX_OLD_SPACE_SIZE}" \
+  -- "$@"

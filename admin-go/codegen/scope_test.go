@@ -66,3 +66,46 @@ func TestValidateMetaScopeRejectsDictFields(t *testing.T) {
 		t.Fatalf("validateMetaScope dict error mismatch: %v", err)
 	}
 }
+
+func TestValidateMetaScopeAllowsDictFieldsWhenConfigured(t *testing.T) {
+	cfg := &Config{
+		AllowedApps:            []string{"demo"},
+		AllowMissingDictModule: true,
+	}
+	meta := &parser.TableMeta{
+		AppName: "demo",
+		Fields: []parser.FieldMeta{
+			{Name: "level", DictType: "article_level"},
+		},
+	}
+	if err := validateMetaScope(cfg, meta); err != nil {
+		t.Fatalf("validateMetaScope should allow dict fields when explicitly enabled: %v", err)
+	}
+}
+
+func TestValidateMetaScopeAllowsDictFieldsWhenFrontendDictModuleExists(t *testing.T) {
+	root := t.TempDir()
+	dictAPIPath := filepath.Join(root, "api", "system", "dict", "index.ts")
+	if err := os.MkdirAll(filepath.Dir(dictAPIPath), 0o755); err != nil {
+		t.Fatalf("mkdir dict api dir: %v", err)
+	}
+	if err := os.WriteFile(dictAPIPath, []byte("export async function getDictByType() { return []; }\n"), 0o644); err != nil {
+		t.Fatalf("write dict api file: %v", err)
+	}
+
+	cfg := &Config{
+		AllowedApps: []string{"demo"},
+		Frontend: FrontendConfig{
+			Output: root,
+		},
+	}
+	meta := &parser.TableMeta{
+		AppName: "demo",
+		Fields: []parser.FieldMeta{
+			{Name: "level", DictType: "article_level"},
+		},
+	}
+	if err := validateMetaScope(cfg, meta); err != nil {
+		t.Fatalf("validateMetaScope should allow dict fields when frontend dict module exists: %v", err)
+	}
+}

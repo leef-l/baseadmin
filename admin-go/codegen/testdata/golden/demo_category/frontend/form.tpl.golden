@@ -10,8 +10,11 @@ import {
   updateCategory,
   getCategoryTree,
 } from '#/api/demo/category';
-import type { CategoryItem } from '#/api/demo/category/types';
-
+import type {
+  CategoryCreateParams,
+  CategoryUpdateParams,
+  CategoryItem
+} from '#/api/demo/category/types';
 const treeData = ref<CategoryItem[]>([]);
 /** 渲染带 Tooltip 的表单 label */
 function tooltipLabel(label: string, tip: string) {
@@ -81,12 +84,14 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.close();
   },
   onConfirm: async () => {
-    const values = await formApi.validateAndSubmitForm();
+    const values = await formApi.validateAndSubmitForm() as
+      | CategoryCreateParams
+      | undefined;
     if (!values) return;
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateCategory({ id: editId.value, ...values });
+        await updateCategory({ id: editId.value, ...values } as CategoryUpdateParams);
         message.success('更新成功');
       } else {
         await createCategory(values);
@@ -106,7 +111,7 @@ const [Modal, modalApi] = useVbenModal({
 
     const currentOpenToken = ++openToken.value;
     formApi.resetForm();
-    const data = modalApi.getData<{ id?: string } | null>();
+    const data = modalApi.getData<{ id?: string }>();
     // 加载树形数据
     try {
       const res = await getCategoryTree();

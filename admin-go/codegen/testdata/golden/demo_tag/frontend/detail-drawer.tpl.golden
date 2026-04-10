@@ -8,15 +8,27 @@ import type { TagItem } from '#/api/demo/tag/types';
 /** 标签颜色池 */
 const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
 
+type EnumValue = number | string;
+
+function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | undefined) {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  return map[value] ?? String(value);
+}
+
 /** Status映射 */
-const statusMap: Record<number | string, string> = {
+const statusMap: Record<EnumValue, string> = {
   0: '禁用',
   1: '启用',
 };
 
 /** Status颜色 */
-function getStatusColor(val: number | string): string {
-  const keys = [0, 1];
+function getStatusColor(val: EnumValue | null | undefined): string {
+  const keys: EnumValue[] = [0, 1];
+  if (val === null || val === undefined || val === '') {
+    return TAG_COLORS[0] ?? 'default';
+  }
   const idx = keys.indexOf(val);
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
@@ -69,7 +81,7 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="Color">{{ displayValue(detail.color) }}</DescriptionsItem>
       <DescriptionsItem label="Sort">{{ displayValue(detail.sort) }}</DescriptionsItem>
       <DescriptionsItem label="Status">
-        <Tag :color="getStatusColor(detail.status)">{{ statusMap[detail.status] || detail.status }}</Tag>
+        <Tag :color="getStatusColor(detail.status)">{{ getEnumLabel(statusMap, detail.status) }}</Tag>
       </DescriptionsItem>
       <DescriptionsItem label="创建时间">{{ displayValue(detail.createdAt) }}</DescriptionsItem>
       <DescriptionsItem label="更新时间">{{ displayValue(detail.updatedAt) }}</DescriptionsItem>

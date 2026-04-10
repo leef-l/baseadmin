@@ -73,13 +73,15 @@ admin-go/app/*/internal/model/entity/
    - sort 排序字段
    - 自定义时间字段（*_at）
    - 验证规则（email/phone/url/max-length）
-8. 整体功能完成后必须立即提交到 GitHub：禁止把“已完成但未提交”当作稳定状态。默认使用仓库脚本 `./scripts/feature-publish.sh "type(scope): summary"` 基于已暂存内容提交并推送；只有明确确认全部改动都属于同一批交付时，才使用 `--all`
+8. 整体功能完成后必须立即提交到 GitHub：禁止把“已完成但未提交”当作可交付状态。默认使用仓库脚本 `./scripts/feature-publish.sh "type(scope): summary"` 基于已暂存内容提交并推送；只有明确确认全部改动都属于同一批交付时，才使用 `--all`
 9. 数据库铁律与提交流程同时生效：只要整体功能包含数据库变更，必须先补齐 `golang-migrate` 迁移文件，再执行功能提交流程；禁止跳过迁移直接提交业务代码
 10. Docker 三文件联动：任何 Docker 改动都不能只改一份 compose，必须同步更新开发版、国内镜像开发版、生产版；如果某一份故意不同，必须在变更处写清原因
 11. 管理端前端必须服从本仓库 `vue-vben-admin` 组件规则：`admin-go/codegen/` 生成的表单、列表、详情页面，只能使用 `vue-vben-admin/apps/web-antd/src/adapter/component/index.ts` 已注册、已适配的组件名与交互模式。禁止为了“先跑起来”直接在模板里拼裸 DOM 组件方案、第三方临时组件方案或绕过 adapter 的写法
 12. 缺组件先适配再生成：如果业务需要的组件在 `adapter/component/index.ts` 不存在，必须先补适配组件，再修改 `codegen` 映射和模板；禁止直接在生成模板里写一个仓库未注册的组件名
 13. vben 页面风格统一：生成页必须优先对齐 `vue-vben-admin/apps/web-antd/src/views/system/*`、`vue-vben-admin/apps/web-antd/src/views/upload/*` 的现有写法，包括 `useVbenModal` / `useVbenForm` / `useVbenVxeGrid` 的使用顺序、打开关闭时序、导入导出方式和表单 schema 组织方式
 14. 页面风格必须可校验：业务页风格检查统一使用 `./scripts/verify-vben-pages.sh`。修改 `vue-vben-admin/apps/web-antd/src/views/` 后，至少保证这份脚本规则仍成立；如果规则需要扩展，必须先更新脚本再改页面
+15. 服务器负载铁律：在服务器上执行任何命令前，先检查当前负载；只要服务器负载超过 `80`，必须立即停止，不得继续追加任何操作；只有等待负载回落到 `50` 以下，才允许继续执行
+16. 批量任务必须限流：任何批量、循环、构建、迁移、脚本回填、代码生成、压测或高频重复执行任务，都必须分批推进并持续检查负载；即使是 `500` 次级别的优化执行，也必须遵守上一条，禁止一次性持续打满服务器
 
 ## 常用命令
 

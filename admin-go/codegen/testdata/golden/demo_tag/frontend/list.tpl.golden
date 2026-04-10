@@ -17,6 +17,15 @@ import DetailDrawer from './modules/detail-drawer.vue';
 /** 标签颜色池 */
 const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
 
+type EnumValue = number | string;
+
+function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | undefined) {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  return map[value] ?? String(value);
+}
+
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
   name: 'name',
@@ -39,14 +48,17 @@ const statusOptions = [
 ];
 
 /** Status映射 */
-const statusMap: Record<number | string, string> = {
+const statusMap: Record<EnumValue, string> = {
   0: '禁用',
   1: '启用',
 };
 
 /** Status颜色 */
-function getStatusColor(val: number | string): string {
-  const keys = [0, 1];
+function getStatusColor(val: EnumValue | null | undefined): string {
+  const keys: EnumValue[] = [0, 1];
+  if (val === null || val === undefined || val === '') {
+    return TAG_COLORS[0] ?? 'default';
+  }
   const idx = keys.indexOf(val);
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
@@ -326,7 +338,7 @@ function handleBatchUpdateStatus() {
       </template>
       <template #status_cell="{ row }">
         <Tag :color="getStatusColor(row.status)">
-          {{ statusMap[row.status] || row.status }}
+          {{ getEnumLabel(statusMap, row.status) }}
         </Tag>
       </template>
       <template #action="{ row }">

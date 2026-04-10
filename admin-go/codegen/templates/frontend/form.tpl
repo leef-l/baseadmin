@@ -19,17 +19,29 @@ import {
   get{{.ModelName}}Tree,{{end}}
 } from '#/api/{{.AppName}}/{{.ModuleName}}';
 {{- if .HasDict}}
+{{- if .AllowMissingDictModule}}
+async function getDictByType(_dictType: string): Promise<Array<{ label: string; value: string | number }>> {
+  return [];
+}
+{{- else}}
 import { getDictByType } from '#/api/system/dict';
 {{- end}}
+{{- end}}
+import type {
+  {{.ModelName}}CreateParams,
+  {{.ModelName}}UpdateParams{{if or .HasParentID .HasTreeSelect}},
+  {{.ModelName}}Item{{end}}
+} from '#/api/{{.AppName}}/{{.ModuleName}}/types';
 {{- if or .HasParentID .HasTreeSelect}}
-import type { {{.ModelName}}Item } from '#/api/{{.AppName}}/{{.ModuleName}}/types';
-
 const treeData = ref<{{.ModelName}}Item[]>([]);
 {{- end}}
 {{- range .Fields}}
 {{- if and .IsForeignKey (not .IsHidden) .RefTable}}
 {{- if .RefIsTree}}
 import { get{{.RefTableCamel}}Tree } from '#/api/{{.RefTableApp}}/{{.RefTable}}';
+{{- if or (ne .RefTableApp $.AppName) (ne .RefTable $.ModuleName)}}
+import type { {{.RefTableCamel}}Item } from '#/api/{{.RefTableApp}}/{{.RefTable}}/types';
+{{- end}}
 {{- else}}
 import { get{{.RefTableCamel}}List } from '#/api/{{.RefTableApp}}/{{.RefTable}}';
 {{- end}}
@@ -48,7 +60,7 @@ const {{.NameLower}}Options = [
 {{- end}}
 {{- range .Fields}}
 {{- if and .IsForeignKey (not .IsHidden) .RefTable}}
-const {{.NameLower}}Options = ref<{ label: string; value: string }[]>([]);
+const {{.NameLower}}Options = ref<{{if .RefIsTree}}{{if and (eq .RefTableApp $.AppName) (eq .RefTable $.ModuleName)}}{{$.ModelName}}Item{{else}}{{.RefTableCamel}}Item{{end}}[]{{else}}{ label: string; value: string | number }[]{{end}}>([]);
 {{- end}}
 {{- end}}
 {{- range .Fields}}
@@ -86,7 +98,7 @@ const [Form, formApi] = useVbenForm({
       label: {{if .TooltipText}}tooltipLabel('{{.ShortLabel}}', '{{.TooltipText}}'){{else}}'{{.Label}}'{{end}},
       dependencies: {
         triggerFields: ['{{.NameLower}}'],
-        rules: () => (isEdit.value ? undefined : 'required'),
+        rules: () => (isEdit.value ? null : 'required'),
         componentProps: () => ({
           placeholder: isEdit.value ? '不填则不修改' : '请输入{{.Label}}',
         }),
@@ -341,12 +353,14 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.close();
   },
   onConfirm: async () => {
-    const values = await formApi.validateAndSubmitForm();
+    const values = await formApi.validateAndSubmitForm() as
+      | {{.ModelName}}CreateParams
+      | undefined;
     if (!values) return;
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await update{{.ModelName}}({ id: editId.value, ...values });
+        await update{{.ModelName}}({ id: editId.value, ...values } as {{.ModelName}}UpdateParams);
         message.success('更新成功');
       } else {
         await create{{.ModelName}}(values);
@@ -366,7 +380,7 @@ const [Modal, modalApi] = useVbenModal({
 
     const currentOpenToken = ++openToken.value;
     formApi.resetForm();
-    const data = modalApi.getData<{ id?: string } | null>();
+    const data = modalApi.getData<{ id?: string }>();
 {{- if .HasParentID}}
     // 加载树形数据
     try {

@@ -218,6 +218,8 @@ skip_fields:                  # 这些字段在表单中隐藏，不生成前端
   - created_by
   - dept_id
 
+allow_missing_dict_module: false # true 时，带 dict 字段的前端页面会内联空字典兜底，不再强依赖 system/dict API
+
 menu_apps:                    # 菜单应用目录配置（新增应用在此添加即可）
   system:
     title: 系统管理
@@ -232,6 +234,12 @@ menu_modules:                 # 模块级菜单配置（可选）
   upload/dir_rule:
     icon: PartitionOutlined
 ```
+
+补充说明：
+
+- 默认仍要求仓库里存在 `#/api/system/dict`；这是正常业务场景。
+- 只有在当前精简仓库明确不保留字典模块、但又需要验证带 `dict:` 字段的 codegen 输出时，才把 `allow_missing_dict_module` 设为 `true`。
+- 打开该开关后，生成的前端页面会内联一个返回空数组的 `getDictByType()` 兜底实现，保证模板可生成、可编译，但不会自动提供真实字典数据。
 
 ### 环境变量支持
 

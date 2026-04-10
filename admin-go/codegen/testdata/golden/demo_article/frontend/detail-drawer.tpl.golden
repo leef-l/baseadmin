@@ -8,22 +8,34 @@ import type { ArticleItem } from '#/api/demo/article/types';
 /** 标签颜色池 */
 const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
 
+type EnumValue = number | string;
+
+function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | undefined) {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  return map[value] ?? String(value);
+}
+
 /** Status映射 */
-const statusMap: Record<number | string, string> = {
+const statusMap: Record<EnumValue, string> = {
   0: '草稿',
   1: '已发布',
   2: '已下架',
 };
 
 /** Status颜色 */
-function getStatusColor(val: number | string): string {
-  const keys = [0, 1, 2];
+function getStatusColor(val: EnumValue | null | undefined): string {
+  const keys: EnumValue[] = [0, 1, 2];
+  if (val === null || val === undefined || val === '') {
+    return TAG_COLORS[0] ?? 'default';
+  }
   const idx = keys.indexOf(val);
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
 
 /** Type映射 */
-const typeMap: Record<number | string, string> = {
+const typeMap: Record<EnumValue, string> = {
   1: '普通',
   2: '置顶',
   3: '推荐',
@@ -31,21 +43,27 @@ const typeMap: Record<number | string, string> = {
 };
 
 /** Type颜色 */
-function getTypeColor(val: number | string): string {
-  const keys = [1, 2, 3, 4];
+function getTypeColor(val: EnumValue | null | undefined): string {
+  const keys: EnumValue[] = [1, 2, 3, 4];
+  if (val === null || val === undefined || val === '') {
+    return TAG_COLORS[0] ?? 'default';
+  }
   const idx = keys.indexOf(val);
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
 
 /** IsTop映射 */
-const isTopMap: Record<number | string, string> = {
+const isTopMap: Record<EnumValue, string> = {
   0: '否',
   1: '是',
 };
 
 /** IsTop颜色 */
-function getIsTopColor(val: number | string): string {
-  const keys = [0, 1];
+function getIsTopColor(val: EnumValue | null | undefined): string {
+  const keys: EnumValue[] = [0, 1];
+  if (val === null || val === undefined || val === '') {
+    return TAG_COLORS[0] ?? 'default';
+  }
   const idx = keys.indexOf(val);
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
@@ -110,20 +128,20 @@ const [Modal, modalApi] = useVbenModal({
         <div v-html="detail.bodyContent" style="max-height: 300px; overflow: auto;" />
       </DescriptionsItem>
       <DescriptionsItem label="ExtraJSON">
-        <pre style="max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 12px;">{{ (() => { try { return JSON.stringify(JSON.parse(detail.extraJSON), null, 2) } catch { return detail.extraJSON } })() }}</pre>
+        <pre style="max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 12px;">{{ (() => { const value = detail.extraJSON; if (!value) return '-'; try { return JSON.stringify(JSON.parse(value), null, 2) } catch { return value } })() }}</pre>
       </DescriptionsItem>
       <DescriptionsItem label="LinkURL">
         <a v-if="detail.linkURL" :href="detail.linkURL" target="_blank" rel="noreferrer noopener">{{ detail.linkURL }}</a>
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="Status">
-        <Tag :color="getStatusColor(detail.status)">{{ statusMap[detail.status] || detail.status }}</Tag>
+        <Tag :color="getStatusColor(detail.status)">{{ getEnumLabel(statusMap, detail.status) }}</Tag>
       </DescriptionsItem>
       <DescriptionsItem label="Type">
-        <Tag :color="getTypeColor(detail.type)">{{ typeMap[detail.type] || detail.type }}</Tag>
+        <Tag :color="getTypeColor(detail.type)">{{ getEnumLabel(typeMap, detail.type) }}</Tag>
       </DescriptionsItem>
       <DescriptionsItem label="IsTop">
-        <Tag :color="getIsTopColor(detail.isTop)">{{ isTopMap[detail.isTop] || detail.isTop }}</Tag>
+        <Tag :color="getIsTopColor(detail.isTop)">{{ getEnumLabel(isTopMap, detail.isTop) }}</Tag>
       </DescriptionsItem>
       <DescriptionsItem label="Price">{{ detail.price != null ? (detail.price / 100).toFixed(2) : '-' }}</DescriptionsItem>
       <DescriptionsItem label="Sort">{{ displayValue(detail.sort) }}</DescriptionsItem>

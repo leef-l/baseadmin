@@ -95,35 +95,36 @@ type FieldMeta struct {
 
 // TableMeta 表元数据
 type TableMeta struct {
-	TableName           string
-	AppName             string // 应用名，如 system、demo
-	AppNameCamel        string // 应用名 CamelCase，如 System、Demo
-	ModelName           string // CamelCase（模块名），如 Dept（用于 service/model/controller 命名）
-	DaoName             string // CamelCase（完整表名），如 DemoDemo（用于 dao 引用，gf gen dao 生成的名称）
-	ModuleName          string // 小写，如 dept
-	PackageName         string // 包名，如 dept
-	Comment             string
-	Fields              []FieldMeta
-	HasParentID         bool   // 有 parent_id 字段
-	HasStatus           bool   // 有 status 字段
-	HasSort             bool   // 有 sort 字段
-	HasPassword         bool   // 有 password 字段
-	HasTooltip          bool   // 有字段需要 Tooltip 提示
-	HasRichText         bool   // 有 RichText 或 JsonEditor 字段（用于弹窗加宽）
-	HasMoney            bool   // 有金额字段（用于列表格式化）
-	HasSearchable       bool   // 有可搜索的文本字段
-	HasTreeSelect       bool   // 有 TreeSelectSingle/TreeSelectMulti 字段（不含外键 TreeSelect）
-	HasCreatedBy        bool   // 有 created_by 字段（用于数据权限注入）
-	HasDeptID           bool   // 有 dept_id 字段（用于数据权限注入）
-	HasDict             bool   // 有字典字段（需要导入字典 API）
-	HasBatchEdit        bool   // 有可批量编辑的枚举字段（status 等）
-	HasImport           bool   // 是否生成导入功能（默认 true，除树形表外）
-	HasEnum             bool   // 有非隐藏的枚举字段（用于前端 Tag 导入判断）
-	HasImage            bool   // 有图片上传字段（用于前端列表图片 slot）
-	HasForeignKey       bool   // 有非隐藏的外键字段（用于前端 form 外键选项加载）
-	HasKeywordSearch    bool   // 是否启用全局关键词搜索
-	ParentDisplayField  string // parent_id 关联的显示字段 camelCase（如 title/name），用于前端 TreeSelect fieldNames
-	EnableOpLog         bool   // 是否生成操作日志（由配置控制）
-	SearchFields        []FieldMeta
-	KeywordSearchFields []FieldMeta
+	TableName              string
+	AppName                string // 应用名，如 system、demo
+	AppNameCamel           string // 应用名 CamelCase，如 System、Demo
+	ModelName              string // CamelCase（模块名），如 Dept（用于 service/model/controller 命名）
+	DaoName                string // CamelCase（完整表名），如 DemoDemo（用于 dao 引用，gf gen dao 生成的名称）
+	ModuleName             string // 小写，如 dept
+	PackageName            string // 包名，如 dept
+	Comment                string
+	Fields                 []FieldMeta
+	HasParentID            bool   // 有 parent_id 字段
+	HasStatus              bool   // 有 status 字段
+	HasSort                bool   // 有 sort 字段
+	HasPassword            bool   // 有 password 字段
+	HasTooltip             bool   // 有字段需要 Tooltip 提示
+	HasRichText            bool   // 有 RichText 或 JsonEditor 字段（用于弹窗加宽）
+	HasMoney               bool   // 有金额字段（用于列表格式化）
+	HasSearchable          bool   // 有可搜索的文本字段
+	HasTreeSelect          bool   // 有 TreeSelectSingle/TreeSelectMulti 字段（不含外键 TreeSelect）
+	HasCreatedBy           bool   // 有 created_by 字段（用于数据权限注入）
+	HasDeptID              bool   // 有 dept_id 字段（用于数据权限注入）
+	HasDict                bool   // 有字典字段（需要导入字典 API）
+	HasBatchEdit           bool   // 有可批量编辑的枚举字段（status 等）
+	HasImport              bool   // 是否生成导入功能（默认 true，除树形表外）
+	HasEnum                bool   // 有非隐藏的枚举字段（用于前端 Tag 导入判断）
+	HasImage               bool   // 有图片上传字段（用于前端列表图片 slot）
+	HasForeignKey          bool   // 有非隐藏的外键字段（用于前端 form 外键选项加载）
+	HasKeywordSearch       bool   // 是否启用全局关键词搜索
+	ParentDisplayField     string // parent_id 关联的显示字段 camelCase（如 title/name），用于前端 TreeSelect fieldNames
+	EnableOpLog            bool   // 是否生成操作日志（由配置控制）
+	AllowMissingDictModule bool   // 允许当前仓库缺少 dict API 模块时以前端兜底方式继续生成
+	SearchFields           []FieldMeta
+	KeywordSearchFields    []FieldMeta
 }

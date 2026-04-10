@@ -8,19 +8,31 @@ import type { {{.ModelName}}Item } from '#/api/{{.AppName}}/{{.ModuleName}}/type
 
 /** 标签颜色池 */
 const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
+
+type EnumValue = number | string;
+
+function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | undefined) {
+  if (value === null || value === undefined || value === '') {
+    return '-';
+  }
+  return map[value] ?? String(value);
+}
 {{- end}}
 {{range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
 /** {{.Label}}映射 */
-const {{.NameLower}}Map: Record<number | string, string> = {
+const {{.NameLower}}Map: Record<EnumValue, string> = {
 {{- range .EnumValues}}
   {{if IsNumeric .Value}}{{.Value}}{{else}}'{{.Value}}'{{end}}: '{{.Label}}',
 {{- end}}
 };
 
 /** {{.Label}}颜色 */
-function get{{.NameCamel}}Color(val: number | string): string {
-  const keys = [{{range $i, $v := .EnumValues}}{{if $i}}, {{end}}{{if IsNumeric $v.Value}}{{$v.Value}}{{else}}'{{$v.Value}}'{{end}}{{end}}];
+function get{{.NameCamel}}Color(val: EnumValue | null | undefined): string {
+  const keys: EnumValue[] = [{{range $i, $v := .EnumValues}}{{if $i}}, {{end}}{{if IsNumeric $v.Value}}{{$v.Value}}{{else}}'{{$v.Value}}'{{end}}{{end}}];
+  if (val === null || val === undefined || val === '') {
+    return TAG_COLORS[0] ?? 'default';
+  }
   const idx = keys.indexOf(val);
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
@@ -76,7 +88,7 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="{{.ShortLabel}}">{{"{{"}} detail.{{.RefFieldJSON}} || '-' {{"}}"}}</DescriptionsItem>
 {{- else if .IsEnum}}
       <DescriptionsItem label="{{.ShortLabel}}">
-        <Tag :color="get{{.NameCamel}}Color(detail.{{.NameLower}})">{{"{{"}} {{.NameLower}}Map[detail.{{.NameLower}}] || detail.{{.NameLower}} {{"}}"}}</Tag>
+        <Tag :color="get{{.NameCamel}}Color(detail.{{.NameLower}})">{{"{{"}} getEnumLabel({{.NameLower}}Map, detail.{{.NameLower}}) {{"}}"}}</Tag>
       </DescriptionsItem>
 {{- else if .IsMoney}}
       <DescriptionsItem label="{{.ShortLabel}}">{{"{{"}} detail.{{.NameLower}} != null ? (detail.{{.NameLower}} / 100).toFixed(2) : '-' {{"}}"}}</DescriptionsItem>
@@ -101,7 +113,7 @@ const [Modal, modalApi] = useVbenModal({
       </DescriptionsItem>
 {{- else if eq .Component "JsonEditor"}}
       <DescriptionsItem label="{{.ShortLabel}}">
-        <pre style="max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 12px;">{{"{{"}} (() => { try { return JSON.stringify(JSON.parse(detail.{{.NameLower}}), null, 2) } catch { return detail.{{.NameLower}} } })() {{"}}"}}</pre>
+        <pre style="max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 12px;">{{"{{"}} (() => { const value = detail.{{.NameLower}}; if (!value) return '-'; try { return JSON.stringify(JSON.parse(value), null, 2) } catch { return value } })() {{"}}"}}</pre>
       </DescriptionsItem>
 {{- else}}
       <DescriptionsItem label="{{.ShortLabel}}">{{"{{"}} displayValue(detail.{{.NameLower}}) {{"}}"}}</DescriptionsItem>
