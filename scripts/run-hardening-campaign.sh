@@ -21,8 +21,8 @@ Environment overrides:
   HARDENING_SKIP_FRONTEND=0
   HARDENING_SKIP_VERIFYE2E=0
   HARDENING_SKIP_DEMO_VERIFY=0
-  HARDENING_DOC_PATH=docs/持续优化执行说明.md
-  HARDENING_AUDIT_DOC_PATH=docs/优化审计记录.md
+  HARDENING_DOC_PATH=docs/流程日志/持续优化执行说明.md
+  HARDENING_AUDIT_DOC_PATH=docs/流程日志/优化审计记录.md
 EOF
 }
 
@@ -74,8 +74,8 @@ fi
 : "${HARDENING_SKIP_FRONTEND:=0}"
 : "${HARDENING_SKIP_VERIFYE2E:=0}"
 : "${HARDENING_SKIP_DEMO_VERIFY:=0}"
-: "${HARDENING_DOC_PATH:=docs/持续优化执行说明.md}"
-: "${HARDENING_AUDIT_DOC_PATH:=docs/优化审计记录.md}"
+: "${HARDENING_DOC_PATH:=docs/流程日志/持续优化执行说明.md}"
+: "${HARDENING_AUDIT_DOC_PATH:=docs/流程日志/优化审计记录.md}"
 
 wait_for_safe_load() {
   RESOURCE_LOAD_MAX_PERCENT="${RESOURCE_LOAD_MAX_PERCENT:-80}" \

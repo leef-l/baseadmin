@@ -14,16 +14,15 @@
 - `web-antd` 页面：`views/system/{dept,menu,role,users}`、`views/upload/{config,dir,dir_rule,file}`
 - 上传复用组件：`components/file-manager`、`components/upload`、`components/tinymce`、`components/json-editor`
 
-详细说明统一放在 `docs/` 目录：
+详细说明统一放在 `docs/` 目录，新人从代码库导读开始读：
 
+- ★ [代码库导读](docs/代码库导读.md) — 首选入口，真源表 + 架构 + 维护红线
 - [文档索引](docs/README.md)
-- [代码库导读](docs/代码库导读.md)
 - [System 应用说明](admin-go/app/system/README.MD)
 - [Upload 应用说明](admin-go/app/upload/README.MD)
 - [代码生成器说明](admin-go/codegen/README.md)
-- [Git 提交流程铁律](docs/Git提交流程铁律.md)
-- [基础框架说明](docs/基础框架说明.md)
 - [Docker 开发说明](docs/Docker开发说明.md)
+- [Git 提交流程铁律](docs/Git提交流程铁律.md)
 
 Docker 开发入口已迁移到根目录：
 
@@ -39,129 +38,21 @@ Docker 铁律：
 
 ## Dev 启动方式
 
-### 启动前提
-
-- 从仓库根目录执行命令
-- 具备 Docker / Docker Compose 环境
-- 默认配置文件是 `docker/dev/.env`
-- 每次执行脚本都会同步覆盖 `admin-go/.env`
-
-### Windows
-
-开发环境：
+最短启动路径（从仓库根目录执行）：
 
 ```powershell
+# Windows
 .\docker\dev\compose.ps1 up -d --build
 ```
 
-国内镜像：
-
-```powershell
-.\docker\dev\compose.ps1 -China up -d --build
-```
-
-停止并删除容器/卷：
-
-```powershell
-.\docker\dev\compose.ps1 down -v
-```
-
-### Linux / macOS
-
-开发环境：
-
 ```bash
+# Linux / macOS
 ./docker/dev/compose.sh up -d --build
 ```
 
-显式启动前端（低资源机器不要默认启动）：
+默认只拉起后端、数据库和 adminer；前端需要显式启用 `frontend` profile。默认开发账号 `admin / admin123`，常用端口 MySQL `44001`、Redis `44002`、system `44003`、upload `44004`、frontend `44005`、adminer `44006`。
 
-```bash
-./docker/dev/compose.sh --profile frontend up -d --build frontend
-```
-
-前端启动脚本会先校验宿主机可用内存，默认要求至少 `2048MB`；不足时会直接拒绝启动。确需强制启动时可临时设置 `ALLOW_LOW_MEMORY_FRONTEND=1`，也可通过 `FRONTEND_MIN_HOST_MEM_MB` 调整阈值。
-
-国内镜像：
-
-```bash
-./docker/dev/compose.sh -China up -d --build
-```
-
-国内镜像显式启动前端：
-
-```bash
-./docker/dev/compose.sh -China --profile frontend up -d --build frontend
-```
-
-停止并删除容器/卷：
-
-```bash
-./docker/dev/compose.sh down -v
-```
-
-### 脚本会自动做什么
-
-- 读取 `docker/dev/.env`
-- 同步覆盖到 `admin-go/.env`
-- 自动选择 `docker/dev/docker-compose.yml` 或 `docker/dev/docker-compose.cn.yml`
-- 默认执行 `docker compose up -d --build`，仅启动后端、数据库和 adminer
-- `frontend` 改为显式启用 profile，避免低配机器在启动时触发 `pnpm install`
-- 检测到 `frontend` 启动请求时，会先做宿主机内存门槛校验，避免误把低配机器拖死
-
-### 默认开发账号和连接
-
-- 登录账号：`admin`
-- 登录密码：`admin123`
-- MySQL：`127.0.0.1:44001`
-- Redis：`127.0.0.1:44002`
-
-### 初始化数据
-
-- 初始化现在统一走 `admin-go/database/migrations/`
-- Docker 与部署启动前都会先执行 `golang-migrate up`
-- `DB_MIGRATE_AUTO=0/false/no/off` 可显式关闭容器启动迁移；`auto` 下默认仅 `system` 自动执行
-- 默认初始化账号为 `admin` / `admin123`
-
-### 默认开发端口
-
-- MySQL：`44001`
-- Redis：`44002`
-- system：`44003`
-- upload：`44004`
-- frontend：`44005`（容器内 `5666`，需显式启用 `frontend` profile）
-- adminer：`44006`
-
-### 健康检查
-
-- `system`：`GET /healthz`、`GET /readyz`
-- `upload`：`GET /healthz`、`GET /readyz`
-
-### 本地直跑（非 Docker）
-
-- 后端读取 `admin-go/.env`
-- 前端读取 `vue-vben-admin/apps/web-antd/.env.development`
-
-```bash
-cd admin-go
-go run ./app/system/main.go
-go run ./app/upload/main.go
-
-cd ../vue-vben-admin
-pnpm dev:antd
-```
-
-- 后端通常分两个终端分别启动 `system` 和 `upload`
-- `web-antd` 直跑时仍使用 `/api` 作为 baseURL
-- `/api/system` 默认代理到 `127.0.0.1:44003`
-- `/api/upload` 默认代理到 `127.0.0.1:44004`
-
-### 常用排查命令
-
-```powershell
-docker compose --env-file .\docker\dev\.env -f .\docker\dev\docker-compose.yml ps
-docker compose --env-file .\docker\dev\.env -f .\docker\dev\docker-compose.yml logs --tail=100
-```
+env 同步、国内镜像、profile、代理、初始化迁移等完整细节见 [Docker 开发说明](docs/Docker开发说明.md)。本地直跑（非 Docker）、常用排查命令同样集中在该文档。
 
 ## Git 提交铁律
 
@@ -188,6 +79,6 @@ docker compose --env-file .\docker\dev\.env -f .\docker\dev\docker-compose.yml l
 
 更多说明见：
 
+- [代码库导读](docs/代码库导读.md)
 - [Git 提交流程铁律](docs/Git提交流程铁律.md)
 - [Docker 开发说明](docs/Docker开发说明.md)
-- [基础框架说明](docs/基础框架说明.md)
