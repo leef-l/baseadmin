@@ -1,7 +1,7 @@
 gfcli:
   gen:
     dao:
-      - link: "mysql:sql_baseadmin_easytestdev_online:4365d2c5953988@tcp(127.0.0.1:10020)/sql_baseadmin_easytestdev_online?charset=utf8mb4"
+      - link: "mysql:sql_baseadmin_easytestdev_online:4365d2c5953988@tcp(127.0.0.1:3306)/sql_baseadmin_easytestdev_online?charset=utf8mb4"
         tables: "dept,role,menu,users,role_dept,role_menu,user_role,user_dept"
         descriptionTag: true
         noModelComment: false

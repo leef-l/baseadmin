@@ -12,14 +12,14 @@ logger:
 # https://goframe.org/docs/core/gdb-config-file
 database:
   default:
-    link: "mysql:sql_baseadmin_easytestdev_online:4365d2c5953988@tcp(127.0.0.1:10020)/sql_baseadmin_easytestdev_online"
+    link: "mysql:sql_baseadmin_easytestdev_online:4365d2c5953988@tcp(127.0.0.1:3306)/sql_baseadmin_easytestdev_online"
     debug: true
     charset: "utf8mb4"
 
 # https://goframe.org/docs/components/os-gredis-config
 redis:
   default:
-    address: "127.0.0.1:10021"
+    address: "127.0.0.1:6379"
     pass: "gbaseadmin123"
     db: 0
 

@@ -214,11 +214,12 @@ jobs:
           DEPLOY_DIR=/www/wwwroot/baseadmin.easytestdev.online
           SERVICE_NAME=baseadmin-$APP
           LEGACY_SERVICE_NAME=gba-$APP
+          APP_BIN=$DEPLOY_DIR/$APP/$APP
+          APP_BIN_NEW=$DEPLOY_DIR/$APP/$APP.new
 
           echo "[$APP] Preparing service..."
           mkdir -p $DEPLOY_DIR/$APP
-          cp /tmp/gba_stage/$APP/$APP $DEPLOY_DIR/$APP/$APP
-          chmod +x $DEPLOY_DIR/$APP/$APP
+          install -m 0755 /tmp/gba_stage/$APP/$APP $APP_BIN_NEW
 
           if [ ! -d $DEPLOY_DIR/$APP/manifest ]; then
               cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
@@ -267,6 +268,21 @@ jobs:
               if ! pgrep -x "$APP" >/dev/null 2>&1; then break; fi
               sleep 1
           done
+
+          if pgrep -x "$APP" >/dev/null 2>&1; then
+              pkill -TERM -x "$APP" 2>/dev/null || true
+              sleep 2
+          fi
+          if pgrep -x "$APP" >/dev/null 2>&1; then
+              pkill -KILL -x "$APP" 2>/dev/null || true
+              sleep 1
+          fi
+          if pgrep -x "$APP" >/dev/null 2>&1; then
+              echo "[$APP] Process still running after stop" >&2
+              exit 1
+          fi
+
+          mv -f $APP_BIN_NEW $APP_BIN
 
           echo "[$APP] Starting service..."
           systemctl enable $SERVICE_NAME
@@ -342,11 +358,12 @@ jobs:
           DEPLOY_DIR=/www/wwwroot/baseadmin.easytestdev.online
           SERVICE_NAME=baseadmin-$APP
           LEGACY_SERVICE_NAME=gba-$APP
+          APP_BIN=$DEPLOY_DIR/$APP/$APP
+          APP_BIN_NEW=$DEPLOY_DIR/$APP/$APP.new
 
           echo "[$APP] Preparing service..."
           mkdir -p $DEPLOY_DIR/$APP
-          cp /tmp/gba_stage/$APP/$APP $DEPLOY_DIR/$APP/$APP
-          chmod +x $DEPLOY_DIR/$APP/$APP
+          install -m 0755 /tmp/gba_stage/$APP/$APP $APP_BIN_NEW
 
           if [ ! -d $DEPLOY_DIR/$APP/manifest ]; then
               cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
@@ -395,6 +412,21 @@ jobs:
               if ! pgrep -x "$APP" >/dev/null 2>&1; then break; fi
               sleep 1
           done
+
+          if pgrep -x "$APP" >/dev/null 2>&1; then
+              pkill -TERM -x "$APP" 2>/dev/null || true
+              sleep 2
+          fi
+          if pgrep -x "$APP" >/dev/null 2>&1; then
+              pkill -KILL -x "$APP" 2>/dev/null || true
+              sleep 1
+          fi
+          if pgrep -x "$APP" >/dev/null 2>&1; then
+              echo "[$APP] Process still running after stop" >&2
+              exit 1
+          fi
+
+          mv -f $APP_BIN_NEW $APP_BIN
 
           echo "[$APP] Starting service..."
           systemctl enable $SERVICE_NAME
@@ -528,18 +560,32 @@ jobs:
           ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
 
       - name: Check service status
+        env:
+          SYSTEM_DEPLOY_RESULT: ${{ needs.deploy-system.result }}
+          UPLOAD_DEPLOY_RESULT: ${{ needs.deploy-upload.result }}
         run: |
-          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} bash <<'EOF'
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} 'bash -s' <<'EOF'
           set -e
           echo "===== Service Status ====="
           for app in system upload; do
               status=$(systemctl is-active baseadmin-$app 2>/dev/null || echo "unknown")
               echo "baseadmin-$app: $status"
           done
-          echo "===== Health Checks ====="
-          curl --silent --show-error --fail http://127.0.0.1:10022/readyz >/dev/null && echo "system ready: ok"
-          curl --silent --show-error --fail http://127.0.0.1:10023/readyz >/dev/null && echo "upload ready: ok"
           EOF
+
+          if [ "$SYSTEM_DEPLOY_RESULT" = "success" ]; then
+            ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "curl --silent --show-error --fail http://127.0.0.1:10022/readyz >/dev/null"
+            echo "system ready: ok"
+          else
+            echo "system ready check skipped ($SYSTEM_DEPLOY_RESULT)"
+          fi
+
+          if [ "$UPLOAD_DEPLOY_RESULT" = "success" ]; then
+            ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} "curl --silent --show-error --fail http://127.0.0.1:10023/readyz >/dev/null"
+            echo "upload ready: ok"
+          else
+            echo "upload ready check skipped ($UPLOAD_DEPLOY_RESULT)"
+          fi
 
       - name: Summary
         run: |
