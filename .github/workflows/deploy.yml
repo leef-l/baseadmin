@@ -220,8 +220,16 @@ jobs:
           cp /tmp/gba_stage/$APP/$APP $DEPLOY_DIR/$APP/$APP
           chmod +x $DEPLOY_DIR/$APP/$APP
 
-          if [ ! -f $DEPLOY_DIR/$APP/manifest/config/config.yaml ]; then
+          if [ ! -d $DEPLOY_DIR/$APP/manifest ]; then
               cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
+          fi
+          mkdir -p $DEPLOY_DIR/$APP/manifest/config
+          if [ ! -f $DEPLOY_DIR/$APP/manifest/config/config.yaml ]; then
+              if [ -f /tmp/gba_stage/$APP/manifest/config/config.yaml ]; then
+                  cp /tmp/gba_stage/$APP/manifest/config/config.yaml $DEPLOY_DIR/$APP/manifest/config/config.yaml
+              elif [ -f /tmp/gba_stage/$APP/manifest/config/config.yaml.example ]; then
+                  cp /tmp/gba_stage/$APP/manifest/config/config.yaml.example $DEPLOY_DIR/$APP/manifest/config/config.yaml
+              fi
           fi
 
           printf '%s\n' \
@@ -340,8 +348,16 @@ jobs:
           cp /tmp/gba_stage/$APP/$APP $DEPLOY_DIR/$APP/$APP
           chmod +x $DEPLOY_DIR/$APP/$APP
 
-          if [ ! -f $DEPLOY_DIR/$APP/manifest/config/config.yaml ]; then
+          if [ ! -d $DEPLOY_DIR/$APP/manifest ]; then
               cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
+          fi
+          mkdir -p $DEPLOY_DIR/$APP/manifest/config
+          if [ ! -f $DEPLOY_DIR/$APP/manifest/config/config.yaml ]; then
+              if [ -f /tmp/gba_stage/$APP/manifest/config/config.yaml ]; then
+                  cp /tmp/gba_stage/$APP/manifest/config/config.yaml $DEPLOY_DIR/$APP/manifest/config/config.yaml
+              elif [ -f /tmp/gba_stage/$APP/manifest/config/config.yaml.example ]; then
+                  cp /tmp/gba_stage/$APP/manifest/config/config.yaml.example $DEPLOY_DIR/$APP/manifest/config/config.yaml
+              fi
           fi
 
           printf '%s\n' \
