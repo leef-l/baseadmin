@@ -2,6 +2,8 @@ package smokeuser
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"slices"
 	"strings"
 	"unicode"
@@ -229,7 +231,7 @@ func ensureRoleTx(ctx context.Context, tx gdb.TX, deptID int64, menuIDs []int64)
 		Where(dao.Role.Columns().Title, smokeRoleTitle).
 		Limit(1).
 		Scan(&row)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return state, err
 	}
 
@@ -318,7 +320,7 @@ func ensureUserTx(
 		Where(dao.Users.Columns().Username, opts.Username).
 		Limit(1).
 		Scan(&row)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return state, err
 	}
 
