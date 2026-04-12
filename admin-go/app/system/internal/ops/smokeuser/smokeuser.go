@@ -2,7 +2,6 @@ package smokeuser
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"strings"
 	"unicode"
