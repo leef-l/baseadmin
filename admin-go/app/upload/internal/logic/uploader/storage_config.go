@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"gbaseadmin/app/upload/internal/dao"
+	"gbaseadmin/app/upload/internal/model/entity"
 )
 
 type uploadStorageConfig struct {
@@ -21,7 +22,7 @@ func loadUploadStorageConfig(ctx context.Context) (uploadStorageConfig, error) {
 		LocalPath:   defaultLocalStoragePath,
 	}
 
-	var record map[string]interface{}
+	var record *entity.UploadConfig
 	err := dao.UploadConfig.Ctx(ctx).
 		Where("is_default", 1).
 		Where("status", 1).
@@ -32,27 +33,27 @@ func loadUploadStorageConfig(ctx context.Context) (uploadStorageConfig, error) {
 		return cfg, err
 	}
 
-	if v := getInt64(record, "max_size"); v > 0 {
-		cfg.MaxSize = v * 1024 * 1024
+	if record.MaxSize > 0 {
+		cfg.MaxSize = int64(record.MaxSize) * 1024 * 1024
 	}
-	if v := getInt64(record, "storage"); v > 0 {
-		cfg.StorageType = int(v)
+	if record.Storage > 0 {
+		cfg.StorageType = record.Storage
 	}
-	if v := getString(record, "local_path"); v != "" {
-		cfg.LocalPath = v
+	if record.LocalPath != "" {
+		cfg.LocalPath = record.LocalPath
 	}
 	cfg.LocalPath = normalizeLocalStoragePath(cfg.LocalPath)
 	cfg.OSS = ossConfig{
-		Endpoint:  getString(record, "oss_endpoint"),
-		Bucket:    getString(record, "oss_bucket"),
-		AccessKey: getString(record, "oss_access_key"),
-		SecretKey: getString(record, "oss_secret_key"),
+		Endpoint:  record.OssEndpoint,
+		Bucket:    record.OssBucket,
+		AccessKey: record.OssAccessKey,
+		SecretKey: record.OssSecretKey,
 	}
 	cfg.COS = cosConfig{
-		Region:    getString(record, "cos_region"),
-		Bucket:    getString(record, "cos_bucket"),
-		SecretId:  getString(record, "cos_secret_id"),
-		SecretKey: getString(record, "cos_secret_key"),
+		Region:    record.CosRegion,
+		Bucket:    record.CosBucket,
+		SecretId:  record.CosSecretId,
+		SecretKey: record.CosSecretKey,
 	}
 	return cfg, nil
 }
