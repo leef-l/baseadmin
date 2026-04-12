@@ -15,11 +15,12 @@ type cDirRule struct{}
 // Create 创建文件目录规则
 func (c *cDirRule) Create(ctx context.Context, req *v1.DirRuleCreateReq) (res *v1.DirRuleCreateRes, err error) {
 	err = service.DirRule().Create(ctx, &model.DirRuleCreateInput{
-		DirID:    req.DirID,
-		Category: req.Category,
-		FileType: req.FileType,
-		SavePath: req.SavePath,
-		Status:   req.Status,
+		DirID:        req.DirID,
+		Category:     req.Category,
+		FileType:     req.FileType,
+		StorageTypes: req.StorageTypes,
+		SavePath:     req.SavePath,
+		Status:       req.Status,
 	})
 	return
 }
@@ -27,12 +28,13 @@ func (c *cDirRule) Create(ctx context.Context, req *v1.DirRuleCreateReq) (res *v
 // Update 更新文件目录规则
 func (c *cDirRule) Update(ctx context.Context, req *v1.DirRuleUpdateReq) (res *v1.DirRuleUpdateRes, err error) {
 	err = service.DirRule().Update(ctx, &model.DirRuleUpdateInput{
-		ID:       req.ID,
-		DirID:    req.DirID,
-		Category: req.Category,
-		FileType: req.FileType,
-		SavePath: req.SavePath,
-		Status:   req.Status,
+		ID:           req.ID,
+		DirID:        req.DirID,
+		Category:     req.Category,
+		FileType:     req.FileType,
+		StorageTypes: req.StorageTypes,
+		SavePath:     req.SavePath,
+		Status:       req.Status,
 	})
 	return
 }

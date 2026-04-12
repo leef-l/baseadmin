@@ -10,6 +10,7 @@ import (
 type UploaderUploadReq struct {
 	g.Meta `path:"/uploader/upload" method:"post" mime:"multipart/form-data" tags:"文件上传" summary:"上传文件"`
 	DirId  string `json:"dirId" dc:"目录ID"`
+	Source string `json:"source" dc:"上传来源标识，通常为当前页面路由"`
 }
 
 // UploaderUploadRes 上传文件响应

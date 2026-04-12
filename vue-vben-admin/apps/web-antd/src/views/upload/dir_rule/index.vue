@@ -29,8 +29,20 @@ const categoryMap: Record<number, string> = {
   3: '接口',
 };
 
+const storageTypeMap: Record<number, string> = {
+  1: '本地',
+  2: 'OSS',
+  3: 'COS',
+};
+
 /** 类别颜色 */
 function getCategoryColor(val: number): string {
+  const keys = [1, 2, 3];
+  const idx = keys.indexOf(val);
+  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
+}
+
+function getStorageTypeColor(val: number): string {
   const keys = [1, 2, 3];
   const idx = keys.indexOf(val);
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
@@ -47,6 +59,16 @@ const statusMap: Record<number, string> = {
   0: '禁用',
   1: '启用',
 };
+
+function getStorageTypes(value?: string): number[] {
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(/[,\s，；;]+/g)
+    .map((item) => Number(item.trim()))
+    .filter((item) => item === 1 || item === 2 || item === 3);
+}
 
 /** 状态颜色 */
 function getStatusColor(val: number): string {
@@ -73,7 +95,7 @@ const formOptions: VbenFormProps = {
       component: 'Input',
       componentProps: {
         allowClear: true,
-        placeholder: '请输入保存目录或文件类型',
+        placeholder: '请输入保存目录、匹配条件或适用存储',
       },
       fieldName: 'keyword',
       label: '关键词',
@@ -111,7 +133,8 @@ const gridOptions: VxeGridProps<DirRuleItem> = {
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { field: 'dirName', title: '所属目录' },
     { field: 'category', title: '类别', width: 120, slots: { default: 'category_cell' } },
-    { field: 'fileType', title: '文件类型', width: 180 },
+    { field: 'fileType', title: '匹配条件', width: 220 },
+    { field: 'storageTypes', title: '适用存储', width: 180, slots: { default: 'storage_types_cell' } },
     { field: 'savePath', title: '保存目录' },
     { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' } },
     { field: 'createdAt', title: '创建时间', width: 180, formatter: 'formatDateTime' },
@@ -202,6 +225,18 @@ function handleBatchDelete() {
         <Tag :color="getCategoryColor(row.category ?? 1)">
           {{ categoryMap[row.category ?? 1] || row.category }}
         </Tag>
+      </template>
+      <template #storage_types_cell="{ row }">
+        <template v-if="getStorageTypes(row.storageTypes).length > 0">
+          <Tag
+            v-for="storageType in getStorageTypes(row.storageTypes)"
+            :key="storageType"
+            :color="getStorageTypeColor(storageType)"
+          >
+            {{ storageTypeMap[storageType] || storageType }}
+          </Tag>
+        </template>
+        <span v-else>-</span>
       </template>
       <template #status_cell="{ row }">
         <Tag :color="getStatusColor(row.status ?? 0)">

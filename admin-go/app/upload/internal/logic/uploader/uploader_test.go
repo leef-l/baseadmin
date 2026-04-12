@@ -76,8 +76,11 @@ func TestNormalizeLocalStoragePath(t *testing.T) {
 }
 
 func TestBuildLocalFileURL(t *testing.T) {
-	if got := buildLocalFileURL("2026-04-08", "demo.png"); got != "/upload/2026-04-08/demo.png" {
+	if got := buildLocalFileURL(defaultLocalStoragePath, "2026-04-08", "demo.png"); got != "/upload/2026-04-08/demo.png" {
 		t.Fatalf("buildLocalFileURL mismatch: %q", got)
+	}
+	if got := buildLocalFileURL(defaultLocalStoragePath, "../cert", "demo.pem"); got != "/resource/cert/demo.pem" {
+		t.Fatalf("buildLocalFileURL parent mismatch: %q", got)
 	}
 }
 
@@ -120,6 +123,7 @@ func TestLocalStorageProviderRollbackRemovesFile(t *testing.T) {
 	}
 
 	result, err := localStorageProvider{}.Store(context.Background(), storeRequest{
+		FileURL:       "/upload/2026-04-10/demo.txt",
 		RelativeDir:   "2026-04-10",
 		LocalFilePath: path,
 		UniqueName:    "demo.txt",

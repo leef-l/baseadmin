@@ -1,5 +1,8 @@
 /** 文件目录规则类型定义 */
 
+export type DirRuleStorageType = 1 | 2 | 3;
+export type DirRuleStorageTypesValue = DirRuleStorageType[] | string;
+
 /** 文件目录规则项 */
 export interface DirRuleItem {
   id: string;
@@ -7,6 +10,7 @@ export interface DirRuleItem {
   dirName?: string;
   category?: number;
   fileType?: string;
+  storageTypes?: string;
   savePath?: string;
   status?: number;
   createdAt?: string;
@@ -27,6 +31,7 @@ export interface DirRuleCreateParams {
   dirID: string;
   category?: number;
   fileType?: string;
+  storageTypes?: DirRuleStorageTypesValue;
   savePath?: string;
   status?: number;
 }
@@ -37,6 +42,7 @@ export interface DirRuleUpdateParams {
   dirID: string;
   category?: number;
   fileType?: string;
+  storageTypes?: DirRuleStorageTypesValue;
   savePath?: string;
   status?: number;
 }

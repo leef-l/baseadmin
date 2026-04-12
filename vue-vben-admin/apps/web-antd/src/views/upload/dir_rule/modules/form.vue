@@ -12,6 +12,8 @@ import { getDirTree } from '#/api/upload/dir';
 import type { DirItem } from '#/api/upload/dir/types';
 import type {
   DirRuleCreateParams,
+  DirRuleItem,
+  DirRuleStorageType,
   DirRuleUpdateParams,
 } from '#/api/upload/dir_rule/types';
 
@@ -22,15 +24,25 @@ const categoryOptions = [
   { label: '接口', value: 3 },
 ];
 
+const storageTypeOptions = [
+  { label: '本地', value: 1 },
+  { label: 'OSS', value: 2 },
+  { label: 'COS', value: 3 },
+];
+
 const emit = defineEmits<{ success: [] }>();
 const isEdit = ref(false);
 const editId = ref('');
 const openToken = ref(0);
 
+type DirRuleFormValues = DirRuleCreateParams & {
+  storageTypes?: DirRuleStorageType[] | string;
+};
+
 const fileTypeDeps = {
   triggerFields: ['category'],
   show(values: Record<string, any>) {
-    return values.category === 2;
+    return values.category === 2 || values.category === 3;
   },
 };
 
@@ -75,6 +87,40 @@ function applyDirOptions(options: { label: string; value: string }[]) {
   ]);
 }
 
+function normalizeStorageTypes(value: unknown): DirRuleStorageType[] {
+  const rawValues = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(/[,\s，；;]+/g)
+      : [];
+  const normalized: DirRuleStorageType[] = [];
+  const seen = new Set<DirRuleStorageType>();
+  for (const item of rawValues) {
+    const parsed = Number(String(item).trim());
+    if (parsed !== 1 && parsed !== 2 && parsed !== 3) {
+      continue;
+    }
+    const storageType = parsed as DirRuleStorageType;
+    if (seen.has(storageType)) {
+      continue;
+    }
+    seen.add(storageType);
+    normalized.push(storageType);
+  }
+  return normalized.length > 0 ? normalized : [1, 2, 3];
+}
+
+function normalizeDetailValues(detail: DirRuleItem) {
+  return {
+    ...detail,
+    storageTypes: normalizeStorageTypes(detail.storageTypes),
+  };
+}
+
+function stringifyStorageTypes(value: unknown): string {
+  return normalizeStorageTypes(value).join(',');
+}
+
 /** 表单配置 */
 const [Form, formApi] = useVbenForm({
   showDefaultActions: false,
@@ -96,9 +142,27 @@ const [Form, formApi] = useVbenForm({
     {
       component: 'Input',
       fieldName: 'fileType',
-      label: '文件类型',
+      label: '匹配条件',
       dependencies: fileTypeDeps,
-      componentProps: { placeholder: '请输入文件类型，多个用逗号分隔，如 txt,doc,pdf', maxlength: 255 },
+      componentProps: {
+        placeholder: '类型规则填扩展名；接口规则填页面路由，多个用逗号分隔，如 txt,doc 或 /system/users,/upload/file/*',
+        maxlength: 255,
+      },
+    },
+    {
+      component: 'Select',
+      fieldName: 'storageTypes',
+      label: '适用存储',
+      rules: 'selectRequired',
+      defaultValue: [1, 2, 3],
+      componentProps: {
+        options: storageTypeOptions,
+        mode: 'multiple',
+        placeholder: '请选择适用存储，可多选',
+        allowClear: true,
+        maxTagCount: 'responsive',
+        class: 'w-full',
+      },
     },
     {
       component: 'Input',
@@ -124,12 +188,13 @@ const [Modal, modalApi] = useVbenModal({
   },
   onConfirm: async () => {
     const values = await formApi.validateAndSubmitForm() as
-      | DirRuleCreateParams
+      | DirRuleFormValues
       | undefined;
     if (!values) return;
     const submitValues = {
       ...values,
       fileType: values.category === 2 ? values.fileType?.trim() : '',
+      storageTypes: stringifyStorageTypes(values.storageTypes),
     };
     modalApi.lock();
     try {
@@ -170,7 +235,7 @@ const [Modal, modalApi] = useVbenModal({
           return;
         }
         if (detail) {
-          formApi.setValues(detail);
+          formApi.setValues(normalizeDetailValues(detail));
         }
       } catch {
         if (currentOpenToken === openToken.value) {

@@ -77,9 +77,16 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 	// 生成唯一文件名和对象路径
 	now := time.Now()
 	uniqueName := buildUniqueName(now, randomSuffix(10000), fileMeta.Ext)
+	source := strings.TrimSpace(r.Get("source").String())
+	if source == "" {
+		source = strings.TrimSpace(r.Header.Get("X-Upload-Source"))
+	}
+	if source == "" {
+		source = strings.TrimSpace(r.Header.Get("Referer"))
+	}
 
 	// 始终先保存到本地临时目录，云存储场景下上传后再清理
-	relativeDir, savePath, err := resolveUploadSavePath(ctx, cfg, dirId, fileMeta.Ext, now)
+	relativeDir, savePath, err := resolveUploadSavePath(ctx, cfg, dirId, fileMeta.Ext, source, now)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +102,10 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 	}
 
 	objectKey := buildObjectKey(relativeDir, uniqueName)
+	fileURL := buildLocalFileURL(cfg.LocalPath, relativeDir, uniqueName)
 	storeResult, err := newStorageProvider(cfg).Store(ctx, storeRequest{
+		BaseLocalPath: cfg.LocalPath,
+		FileURL:       fileURL,
 		RelativeDir:   relativeDir,
 		LocalFilePath: fullPath,
 		ObjectKey:     objectKey,
@@ -248,7 +258,9 @@ func normalizeExt(ext string) string {
 
 func normalizeLocalStoragePath(path string) string { return shared.NormalizeLocalStoragePath(path) }
 
-func buildLocalFileURL(parts ...string) string { return shared.BuildLocalFileURL(parts...) }
+func buildLocalFileURL(baseLocalPath, relativeDir, fileName string) string {
+	return shared.BuildLocalFileURLWithBase(baseLocalPath, relativeDir, fileName)
+}
 
 func localStoragePhysicalPath(fileURL string) string { return shared.LocalStoragePhysicalPath(fileURL) }
 

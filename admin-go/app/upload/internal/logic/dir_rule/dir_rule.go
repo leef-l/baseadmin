@@ -2,6 +2,7 @@ package dir_rule
 
 import (
 	"context"
+	"path"
 	"strings"
 	"unicode"
 
@@ -36,7 +37,7 @@ func (s *sDirRule) Create(ctx context.Context, in *model.DirRuleCreateInput) err
 		return err
 	}
 	normalizeDirRuleCreateInput(in)
-	if err := validateDirRuleFields(in.DirID, in.Category, in.Status, in.FileType); err != nil {
+	if err := validateDirRuleFields(in.DirID, in.Category, in.Status, in.FileType, in.StorageTypes, in.SavePath); err != nil {
 		return err
 	}
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
@@ -44,12 +45,13 @@ func (s *sDirRule) Create(ctx context.Context, in *model.DirRuleCreateInput) err
 	}
 	id := snowflake.Generate()
 	_, err := dao.UploadDirRule.Ctx(ctx).Data(do.UploadDirRule{
-		Id:       id,
-		DirId:    in.DirID,
-		Category: in.Category,
-		FileType: in.FileType,
-		SavePath: in.SavePath,
-		Status:   in.Status,
+		Id:           id,
+		DirId:        in.DirID,
+		Category:     in.Category,
+		FileType:     in.FileType,
+		StorageTypes: in.StorageTypes,
+		SavePath:     in.SavePath,
+		Status:       in.Status,
 	}).Insert()
 	return err
 }
@@ -60,7 +62,7 @@ func (s *sDirRule) Update(ctx context.Context, in *model.DirRuleUpdateInput) err
 		return err
 	}
 	normalizeDirRuleUpdateInput(in)
-	if err := validateDirRuleFields(in.DirID, in.Category, in.Status, in.FileType); err != nil {
+	if err := validateDirRuleFields(in.DirID, in.Category, in.Status, in.FileType, in.StorageTypes, in.SavePath); err != nil {
 		return err
 	}
 	if err := s.ensureDirRuleExists(ctx, in.ID); err != nil {
@@ -70,11 +72,12 @@ func (s *sDirRule) Update(ctx context.Context, in *model.DirRuleUpdateInput) err
 		return err
 	}
 	data := do.UploadDirRule{
-		DirId:    in.DirID,
-		Category: in.Category,
-		FileType: in.FileType,
-		SavePath: in.SavePath,
-		Status:   in.Status,
+		DirId:        in.DirID,
+		Category:     in.Category,
+		FileType:     in.FileType,
+		StorageTypes: in.StorageTypes,
+		SavePath:     in.SavePath,
+		Status:       in.Status,
 	}
 	_, err := dao.UploadDirRule.Ctx(ctx).
 		Where(dao.UploadDirRule.Columns().Id, in.ID).
@@ -146,7 +149,8 @@ func (s *sDirRule) List(ctx context.Context, in *model.DirRuleListInput) (list [
 	m := dao.UploadDirRule.Ctx(ctx).Where(dao.UploadDirRule.Columns().DeletedAt, nil)
 	if in.Keyword != "" {
 		m = m.WhereLike(dao.UploadDirRule.Columns().SavePath, "%"+in.Keyword+"%").
-			WhereOrLike(dao.UploadDirRule.Columns().FileType, "%"+in.Keyword+"%")
+			WhereOrLike(dao.UploadDirRule.Columns().FileType, "%"+in.Keyword+"%").
+			WhereOrLike(dao.UploadDirRule.Columns().StorageTypes, "%"+in.Keyword+"%")
 	}
 	if in.Category > 0 {
 		m = m.Where(dao.UploadDirRule.Columns().Category, in.Category)
@@ -225,10 +229,8 @@ func normalizeDirRuleCreateInput(in *model.DirRuleCreateInput) {
 	if in == nil {
 		return
 	}
-	in.FileType = normalizeDirRuleFileType(in.FileType)
-	if in.Category != 2 {
-		in.FileType = ""
-	}
+	in.FileType = normalizeDirRuleMatchValue(in.Category, in.FileType)
+	in.StorageTypes = normalizeDirRuleStorageTypes(in.StorageTypes)
 	in.SavePath = strings.TrimSpace(in.SavePath)
 }
 
@@ -236,21 +238,31 @@ func normalizeDirRuleUpdateInput(in *model.DirRuleUpdateInput) {
 	if in == nil {
 		return
 	}
-	in.FileType = normalizeDirRuleFileType(in.FileType)
-	if in.Category != 2 {
-		in.FileType = ""
-	}
+	in.FileType = normalizeDirRuleMatchValue(in.Category, in.FileType)
+	in.StorageTypes = normalizeDirRuleStorageTypes(in.StorageTypes)
 	in.SavePath = strings.TrimSpace(in.SavePath)
 }
 
-func validateDirRuleFields(dirID snowflake.JsonInt64, category, status int, fileType string) error {
+func validateDirRuleFields(dirID snowflake.JsonInt64, category, status int, fileType, storageTypes, savePath string) error {
 	if dirID <= 0 {
 		return gerror.New("目录ID不能为空")
 	}
 	if err := fieldvalid.Enum("类别", category, 1, 2, 3); err != nil {
 		return err
 	}
-	if category == 2 {
+	if storageTypes == "" {
+		return gerror.New("适用存储不能为空")
+	}
+	if len(storageTypes) > 20 {
+		return gerror.New("适用存储长度不能超过20个字符")
+	}
+	for _, item := range splitDirRuleStorageTypes(storageTypes) {
+		if err := fieldvalid.Enum("适用存储", toInt(item), 1, 2, 3); err != nil {
+			return gerror.New("适用存储值不合法")
+		}
+	}
+	switch category {
+	case 2:
 		if fileType == "" {
 			return gerror.New("文件类型不能为空")
 		}
@@ -262,11 +274,32 @@ func validateDirRuleFields(dirID snowflake.JsonInt64, category, status int, file
 				return gerror.New("文件类型格式不正确")
 			}
 		}
+	case 3:
+		if fileType == "" {
+			return gerror.New("接口标识不能为空")
+		}
+		if len(fileType) > 255 {
+			return gerror.New("接口标识长度不能超过255个字符")
+		}
+	}
+	if hasParentRelativePath(savePath) && !isLocalOnlyStorageTypes(storageTypes) {
+		return gerror.New("父级目录规则仅支持本地存储")
 	}
 	if err := fieldvalid.Binary("状态", status); err != nil {
 		return err
 	}
 	return nil
+}
+
+func normalizeDirRuleMatchValue(category int, value string) string {
+	switch category {
+	case 2:
+		return normalizeDirRuleFileType(value)
+	case 3:
+		return normalizeDirRuleSourceMatchers(value)
+	default:
+		return ""
+	}
 }
 
 func normalizeDirRuleFileType(value string) string {
@@ -290,6 +323,42 @@ func normalizeDirRuleFileType(value string) string {
 	return strings.Join(normalized, ",")
 }
 
+func normalizeDirRuleSourceMatchers(value string) string {
+	parts := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == '，' || r == ';' || r == '；' || unicode.IsSpace(r)
+	})
+	normalized := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		part = normalizeDirRuleSourceMatcher(part)
+		if part == "" {
+			continue
+		}
+		if _, ok := seen[part]; ok {
+			continue
+		}
+		seen[part] = struct{}{}
+		normalized = append(normalized, part)
+	}
+	return strings.Join(normalized, ",")
+}
+
+func normalizeDirRuleSourceMatcher(value string) string {
+	value = strings.TrimSpace(value)
+	hasWildcard := strings.HasSuffix(value, "/*")
+	if hasWildcard {
+		value = strings.TrimSuffix(value, "/*")
+	}
+	value = shared.NormalizeUploadRuleSource(value)
+	if value == "" {
+		return ""
+	}
+	if hasWildcard && value != "/" {
+		return value + "/*"
+	}
+	return value
+}
+
 func isValidDirRuleFileType(value string) bool {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -302,4 +371,62 @@ func isValidDirRuleFileType(value string) bool {
 		return false
 	}
 	return true
+}
+
+func normalizeDirRuleStorageTypes(value string) string {
+	parts := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == '，' || r == ';' || r == '；' || unicode.IsSpace(r)
+	})
+	normalized := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if _, ok := seen[part]; ok {
+			continue
+		}
+		seen[part] = struct{}{}
+		normalized = append(normalized, part)
+	}
+	if len(normalized) == 0 {
+		return "1,2,3"
+	}
+	return strings.Join(normalized, ",")
+}
+
+func isLocalOnlyStorageTypes(value string) bool {
+	items := splitDirRuleStorageTypes(value)
+	return len(items) == 1 && items[0] == "1"
+}
+
+func splitDirRuleStorageTypes(value string) []string {
+	value = normalizeDirRuleStorageTypes(value)
+	if value == "" {
+		return nil
+	}
+	return strings.Split(value, ",")
+}
+
+func hasParentRelativePath(savePath string) bool {
+	savePath = strings.TrimSpace(strings.ReplaceAll(savePath, `\`, "/"))
+	if savePath == "" {
+		return false
+	}
+	cleaned := path.Clean(savePath)
+	return cleaned == ".." || strings.HasPrefix(cleaned, "../")
+}
+
+func toInt(value string) int {
+	switch strings.TrimSpace(value) {
+	case "1":
+		return 1
+	case "2":
+		return 2
+	case "3":
+		return 3
+	default:
+		return 0
+	}
 }

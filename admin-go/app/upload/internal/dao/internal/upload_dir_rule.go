@@ -21,32 +21,34 @@ type UploadDirRuleDao struct {
 
 // UploadDirRuleColumns defines and stores column names for the table upload_dir_rule.
 type UploadDirRuleColumns struct {
-	Id        string // ID
-	DirId     string // 目录ID
-	Category  string // 类别:1=默认,2=类型,3=接口
-	FileType  string // 文件类型，多个用逗号分隔
-	SavePath  string // 保存目录
-	Status    string // 状态:0=禁用,1=启用
-	CreatedAt string // 创建时间
-	UpdatedAt string // 更新时间
-	DeletedAt string // 删除时间
-	CreatedBy string // 创建人
-	DeptId    string // 部门ID
+	Id           string // ID
+	DirId        string // 目录ID
+	Category     string // 类别:1=默认,2=类型,3=接口
+	FileType     string // 文件类型，多个用逗号分隔
+	StorageTypes string // 适用存储类型，多个用逗号分隔
+	SavePath     string // 保存目录
+	Status       string // 状态:0=禁用,1=启用
+	CreatedAt    string // 创建时间
+	UpdatedAt    string // 更新时间
+	DeletedAt    string // 删除时间
+	CreatedBy    string // 创建人
+	DeptId       string // 部门ID
 }
 
 // uploadDirRuleColumns holds the columns for the table upload_dir_rule.
 var uploadDirRuleColumns = UploadDirRuleColumns{
-	Id:        "id",
-	DirId:     "dir_id",
-	Category:  "category",
-	FileType:  "file_type",
-	SavePath:  "save_path",
-	Status:    "status",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-	DeletedAt: "deleted_at",
-	CreatedBy: "created_by",
-	DeptId:    "dept_id",
+	Id:           "id",
+	DirId:        "dir_id",
+	Category:     "category",
+	FileType:     "file_type",
+	StorageTypes: "storage_types",
+	SavePath:     "save_path",
+	Status:       "status",
+	CreatedAt:    "created_at",
+	UpdatedAt:    "updated_at",
+	DeletedAt:    "deleted_at",
+	CreatedBy:    "created_by",
+	DeptId:       "dept_id",
 }
 
 // NewUploadDirRuleDao creates and returns a new DAO object for table data access.
