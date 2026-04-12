@@ -592,45 +592,28 @@ jobs:
       - name: Ensure upload static mapping
         run: |
           ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} 'bash -s' <<'EOF'
-          set -e
+          set -euo pipefail
           NGINX_CONF=/www/server/panel/vhost/nginx/baseadmin.easytestdev.online.conf
+          EXT_DIR=/www/server/panel/vhost/nginx/extension/baseadmin.easytestdev.online
+          EXT_CONF=$EXT_DIR/baseadmin-upload-static.conf
+
           if [ ! -f "$NGINX_CONF" ]; then
               echo "nginx config not found: $NGINX_CONF" >&2
               exit 1
           fi
 
-          if ! grep -Fq 'location ^~ /upload/' "$NGINX_CONF"; then
-              BLOCK_FILE=$(mktemp)
-              TMP_CONF=$(mktemp)
-              printf '%s\n' \
-                  'location ^~ /upload/ {' \
-                  '    alias /www/wwwroot/baseadmin.easytestdev.online/upload/resource/upload/;' \
-                  '    expires 30d;' \
-                  '    add_header Cache-Control "public";' \
-                  '    access_log off;' \
-                  '}' \
-                  '' > "$BLOCK_FILE"
-              awk -v block_file="$BLOCK_FILE" '
-              function print_block() {
-                  while ((getline line < block_file) > 0) {
-                      print line
-                  }
-                  close(block_file)
-              }
-              /location \/api\/upload\/ \{/ && !inserted {
-                  print_block()
-                  inserted = 1
-              }
-              { print }
-              END {
-                  if (!inserted) {
-                      print_block()
-                  }
-              }
-              ' "$NGINX_CONF" > "$TMP_CONF"
-              mv "$TMP_CONF" "$NGINX_CONF"
-              rm -f "$BLOCK_FILE"
-          fi
+          mkdir -p "$EXT_DIR"
+          printf '%s\n' \
+              'location ^~ /upload/ {' \
+              '    alias /www/wwwroot/baseadmin.easytestdev.online/upload/resource/upload/;' \
+              '    expires 30d;' \
+              '    add_header Cache-Control "public";' \
+              '    access_log off;' \
+              '}' \
+              '' > "$EXT_CONF"
+
+          # Clean up the broken block previously appended to the main conf.
+          perl -0pi -e 's@\n?[ \t]*location \^~ /upload/ \{\n[ \t]*alias /www/wwwroot/baseadmin\.easytestdev\.online/upload/resource/upload/;\n[ \t]*expires 30d;\n[ \t]*add_header Cache-Control "public";\n[ \t]*access_log off;\n[ \t]*\}\n?@@g' "$NGINX_CONF"
 
           nginx -t
           systemctl reload nginx 2>/dev/null || nginx -s reload
