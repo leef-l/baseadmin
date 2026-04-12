@@ -42,10 +42,10 @@
 ## 前端代理约定
 
 - `web-antd` 开发环境 `VITE_GLOB_API_URL=/api`
-- `docker/dev/.env` 默认注入 `VITE_PROXY_SYSTEM_TARGET=http://system:8000`
-- `docker/dev/.env` 默认注入 `VITE_PROXY_UPLOAD_TARGET=http://upload:8002`
-- 如果不是走 Docker 前端容器，而是宿主机直跑 `web-antd`，`apps/web-antd/.env.development` 默认把 `/api/system`、`/api/upload` 转发到 `127.0.0.1:44003`、`127.0.0.1:44004`
-- 前端容器内端口为 `5666`，compose 暴露端口为 `44005`
+- `docker/dev/.env` 默认注入 `VITE_PROXY_SYSTEM_TARGET=http://system:10022`
+- `docker/dev/.env` 默认注入 `VITE_PROXY_UPLOAD_TARGET=http://upload:10023`
+- 如果不是走 Docker 前端容器，而是宿主机直跑 `web-antd`，`apps/web-antd/.env.development` 默认把 `/api/system`、`/api/upload` 转发到 `127.0.0.1:10022`、`127.0.0.1:10023`
+- 前端容器内端口为 `10024`，compose 暴露端口为 `10024`
 
 ## env 同步规则
 
@@ -65,12 +65,12 @@
 
 - 登录账号：`admin`
 - 登录密码：`admin123`
-- MySQL：`127.0.0.1:44001`
-- Redis：`127.0.0.1:44002`
-- system：`127.0.0.1:44003`
-- upload：`127.0.0.1:44004`
-- frontend：`127.0.0.1:44005`（需显式启用 `frontend` profile）
-- adminer：`127.0.0.1:44006`
+- MySQL：`127.0.0.1:10020`
+- Redis：`127.0.0.1:10021`
+- system：`127.0.0.1:10022`
+- upload：`127.0.0.1:10023`
+- frontend：`127.0.0.1:10024`（需显式启用 `frontend` profile）
+- adminer：`127.0.0.1:10025`
 - `system` 健康检查：`GET /healthz`
 - `system` 就绪检查：`GET /readyz`
 - `upload` 健康检查：`GET /healthz`

@@ -6,11 +6,11 @@ export default defineConfig(async (configEnv) => {
   const systemProxyTarget =
     process.env.VITE_PROXY_SYSTEM_TARGET ||
     env.VITE_PROXY_SYSTEM_TARGET ||
-    'http://127.0.0.1:44003';
+    'http://127.0.0.1:10022';
   const uploadProxyTarget =
     process.env.VITE_PROXY_UPLOAD_TARGET ||
     env.VITE_PROXY_UPLOAD_TARGET ||
-    'http://127.0.0.1:44004';
+    'http://127.0.0.1:10023';
 
   return {
     application: {},

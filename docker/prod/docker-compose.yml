@@ -19,7 +19,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     ports:
-      - "127.0.0.1:${MYSQL_PORT:-44001}:3306"
+      - "127.0.0.1:${MYSQL_PORT:-10020}:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
@@ -37,7 +37,7 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "127.0.0.1:${REDIS_PORT:-44002}:6379"
+      - "127.0.0.1:${REDIS_PORT:-10021}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
@@ -67,11 +67,11 @@ services:
       - REDIS_ADDR=redis:6379
       - REDIS_PASS=${REDIS_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
-      - GF_SERVER_ADDRESS=:8000
+      - GF_SERVER_ADDRESS=:10022
       - DB_MIGRATE_AUTO=auto
       - TZ=Asia/Shanghai
     ports:
-      - "127.0.0.1:${SYSTEM_PORT:-44003}:8000"
+      - "127.0.0.1:${SYSTEM_PORT:-10022}:10022"
     networks:
       - gbaseadmin_net
 
@@ -96,11 +96,11 @@ services:
       - REDIS_ADDR=redis:6379
       - REDIS_PASS=${REDIS_PASSWORD}
       - JWT_SECRET=${JWT_SECRET}
-      - GF_SERVER_ADDRESS=:8002
+      - GF_SERVER_ADDRESS=:10023
       - DB_MIGRATE_AUTO=auto
       - TZ=Asia/Shanghai
     ports:
-      - "127.0.0.1:${UPLOAD_PORT:-44004}:8002"
+      - "127.0.0.1:${UPLOAD_PORT:-10023}:10023"
     networks:
       - gbaseadmin_net
 

@@ -50,7 +50,7 @@ Docker 铁律：
 ./docker/dev/compose.sh up -d --build
 ```
 
-默认只拉起后端、数据库和 adminer；前端需要显式启用 `frontend` profile。默认开发账号 `admin / admin123`，常用端口 MySQL `44001`、Redis `44002`、system `44003`、upload `44004`、frontend `44005`、adminer `44006`。
+默认只拉起后端、数据库和 adminer；前端需要显式启用 `frontend` profile。默认开发账号 `admin / admin123`，常用端口 MySQL `10020`、Redis `10021`、system `10022`、upload `10023`、frontend `10024`、adminer `10025`。
 
 env 同步、国内镜像、profile、代理、初始化迁移等完整细节见 [Docker 开发说明](docs/Docker开发说明.md)。本地直跑（非 Docker）、常用排查命令同样集中在该文档。
 
@@ -67,7 +67,25 @@ env 同步、国内镜像、profile、代理、初始化迁移等完整细节见
 - 只有确认当前所有改动都属于同一批交付时，才使用 `./scripts/feature-publish.sh --all "feat(scope): summary"`
 - 如果这次功能包含数据库改动，必须先补 `admin-go/database/migrations/`，再执行提交脚本
 - 仓库启用了 `lefthook`：`pre-commit` 会跑页面规范校验，`pre-push` 会跑后端测试、codegen 测试、前端 typecheck 和 `web-antd` 单测
-- `scripts/run-go-task-with-limits.sh` 和 `scripts/run-node-task-with-limits.sh` 会在启动前先检查宿主机 CPU 使用率；默认高于 `80%` 时等待，降到 `60%` 后继续，可通过 `RESOURCE_LOAD_MAX_PERCENT` / `RESOURCE_LOAD_RESUME_PERCENT` 调整
+- `scripts/run-go-task-with-limits.sh` 和 `scripts/run-node-task-with-limits.sh` 会在启动前先检查宿主机 CPU 使用率；默认高于 `80%` 时等待，降到 `50%` 后继续，可通过 `RESOURCE_LOAD_MAX_PERCENT` / `RESOURCE_LOAD_RESUME_PERCENT` 调整
+
+## 常用校验命令
+
+从仓库根目录执行：
+
+```bash
+# 仓库范围与页面规范
+bash ./scripts/verify-baseadmin-scope.sh
+bash ./scripts/verify-vben-pages.sh
+
+# 后端与 codegen 测试（带负载守卫）
+cd admin-go && ../scripts/run-go-task-with-limits.sh go test ./...
+cd admin-go/codegen && ../../scripts/run-go-task-with-limits.sh go test ./...
+
+# 前端校验（带负载守卫）
+bash ./scripts/run-node-task-with-limits.sh pnpm -C vue-vben-admin -F @vben/web-antd typecheck
+bash ./scripts/run-node-task-with-limits.sh pnpm -C vue-vben-admin test:web-antd
+```
 
 ## Vben 组件铁律
 

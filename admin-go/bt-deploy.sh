@@ -7,18 +7,19 @@ set -e
 # ============================================
 
 # ---------- 配置区 ----------
-DOMAIN="pw.easytestdev.online"          # 替换为你的域名
+DOMAIN="baseadmin.easytestdev.online"   # 替换为你的域名
 DEPLOY_DIR="/www/wwwroot/${DOMAIN}"
 FRONTEND_DIR="/www/wwwroot/${DOMAIN}"
-DB_NAME="gbaseadmin"
-DB_USER="gbaseadmin"
-DB_PASS="gbaseadmin123"
+DB_NAME="sql_baseadmin_easytestdev_online"
+DB_USER="sql_baseadmin_easytestdev_online"
+DB_PASS="4365d2c5953988"
+DB_ROOT_PASS="${DB_ROOT_PASS:-$DB_PASS}"
 DB_HOST="127.0.0.1"
 DB_PORT="3306"
 JWT_SECRET="change_me"
 
 APPS=("system" "upload")
-PORTS=("8000" "8002")
+PORTS=("10022" "10023")
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -113,14 +114,14 @@ done
 # ---------- 5. 初始化数据库 ----------
 info "检查数据库..."
 # 用 root 检查数据库是否存在（DB_USER 可能尚无权限）
-if mysql -u root -p"$DB_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "USE $DB_NAME" 2>/dev/null; then
+if mysql -u root -p"$DB_ROOT_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "USE $DB_NAME" 2>/dev/null; then
   warn "数据库 $DB_NAME 已存在，跳过创建"
 else
   info "创建数据库..."
-  mysql -u root -p"$DB_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_general_ci;"
-  mysql -u root -p"$DB_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';"
-  mysql -u root -p"$DB_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';"
-  mysql -u root -p"$DB_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "GRANT ALL ON \`$DB_NAME\`.* TO '$DB_USER'@'%'; GRANT ALL ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost'; FLUSH PRIVILEGES;"
+  mysql -u root -p"$DB_ROOT_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` DEFAULT CHARSET utf8mb4 COLLATE utf8mb4_general_ci;"
+  mysql -u root -p"$DB_ROOT_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "CREATE USER IF NOT EXISTS '$DB_USER'@'%' IDENTIFIED BY '$DB_PASS';"
+  mysql -u root -p"$DB_ROOT_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';"
+  mysql -u root -p"$DB_ROOT_PASS" -h"$DB_HOST" -P"$DB_PORT" -e "GRANT ALL ON \`$DB_NAME\`.* TO '$DB_USER'@'%'; GRANT ALL ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost'; FLUSH PRIVILEGES;"
 fi
 info "执行数据库迁移..."
 "$DEPLOY_DIR/migrate" --config "$DEPLOY_DIR/system/manifest/config/config.yaml" --dir "$DEPLOY_DIR/database/migrations" up
@@ -211,7 +212,7 @@ server {
     }
     # upload 后端 API
     location /api/upload/ {
-        proxy_pass http://127.0.0.1:8002;
+        proxy_pass http://127.0.0.1:10023;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
         proxy_set_header Host $host;
@@ -225,7 +226,7 @@ server {
 
     # system 后端 API（兜底，匹配其余 /api/ 请求）
     location /api/ {
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:10022;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
         proxy_set_header Host $host;

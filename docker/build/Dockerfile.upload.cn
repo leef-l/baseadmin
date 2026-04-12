@@ -46,9 +46,9 @@ RUN chmod +x ./upload ./migrate ./start-go-app.sh
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
-EXPOSE 8002
+EXPOSE 10023
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD nc -z 127.0.0.1 8002 || exit 1
+    CMD nc -z 127.0.0.1 10023 || exit 1
 
 CMD ["./start-go-app.sh", "upload"]

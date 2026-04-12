@@ -7,7 +7,7 @@
 - 启动入口：`main.go`
 - 路由绑定：`internal/cmd/cmd.go`
 - 当前挂载控制器：`auth`、`dept`、`role`、`menu`、`users`、`health`、`hello`
-- 默认开发端口：`44003`
+- 默认开发端口：`10022`
 
 ## 数据库表
 
@@ -53,6 +53,8 @@
 - 数据权限通过 `system_role_dept` 关联表控制（`data_scope=5` 时生效）
 - `middleware/auth.go` 会在服务端校验按钮权限，不再只依赖前端隐藏按钮
 - 数据权限已经进入运行时查询和写操作校验，当前至少覆盖 `users` / `dept` 的列表、详情及主要写接口
+- 用户分配角色时，服务端会再次校验“当前操作者可分配的启用角色”；非超级管理员只能分配自己当前持有的启用角色
+- 角色数据权限授权会按当前操作者的数据范围再次校验自定义部门列表，不能只靠前端树控件限制
 
 ## 菜单与前端契约
 
@@ -64,6 +66,7 @@
 - 菜单 `linkURL` / `linkUrl` 两种字段名，前端都会兼容读取
 - 外链 / 内嵌页在后端未填写 `component` 时，前端会兜底为 `IFrameView`
 - 菜单里的 `path`、`component`、`icon`、`permission` 必须与 `vue-vben-admin/apps/web-antd/src/views` 和路由约定保持一致
+- 后端会按菜单类型强制校验 `path / component / permission / linkURL`，并拦截重复路由路径；前端表单也会同步做类型化校验
 
 ## 对应前端页面
 

@@ -4,9 +4,11 @@ on:
   push:
     branches: [main]
     paths:
+      - '.github/workflows/deploy.yml'
       - 'admin-go/**'
+      - 'contracts/**'
+      - 'scripts/**'
       - 'vue-vben-admin/**'
-      - 'wap-ui/**'
   workflow_dispatch:
     inputs:
       target:
@@ -18,12 +20,11 @@ on:
           - all
           - backend
           - frontend
-          - wap
 
 env:
-  SERVER_HOST: pw.easytestdev.online
+  SERVER_HOST: baseadmin.easytestdev.online
   SERVER_USER: root
-  DEPLOY_DIR: /www/wwwroot/pw.easytestdev.online
+  DEPLOY_DIR: /www/wwwroot/baseadmin.easytestdev.online
   GO_VERSION: '1.25.0'
   NODE_VERSION: '22.18.0'
 
@@ -36,7 +37,7 @@ jobs:
     outputs:
       backend: ${{ steps.changes.outputs.backend }}
       frontend: ${{ steps.changes.outputs.frontend }}
-      wap: ${{ steps.changes.outputs.wap }}
+      infra: ${{ steps.changes.outputs.infra }}
       target: ${{ steps.target.outputs.value }}
     steps:
       - uses: actions/checkout@v4
@@ -50,8 +51,10 @@ jobs:
               - 'admin-go/**'
             frontend:
               - 'vue-vben-admin/**'
-            wap:
-              - 'wap-ui/**'
+            infra:
+              - '.github/workflows/deploy.yml'
+              - 'contracts/**'
+              - 'scripts/**'
 
       - name: Determine deploy target
         id: target
@@ -67,7 +70,13 @@ jobs:
     if: |
       needs.detect-changes.outputs.target == 'all' ||
       needs.detect-changes.outputs.target == 'backend' ||
-      (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.backend == 'true')
+      (
+        needs.detect-changes.outputs.target == 'auto' &&
+        (
+          needs.detect-changes.outputs.backend == 'true' ||
+          needs.detect-changes.outputs.infra == 'true'
+        )
+      )
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -97,7 +106,13 @@ jobs:
     if: |
       needs.detect-changes.outputs.target == 'all' ||
       needs.detect-changes.outputs.target == 'frontend' ||
-      (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.frontend == 'true')
+      (
+        needs.detect-changes.outputs.target == 'auto' &&
+        (
+          needs.detect-changes.outputs.frontend == 'true' ||
+          needs.detect-changes.outputs.infra == 'true'
+        )
+      )
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -180,7 +195,7 @@ jobs:
           ssh $REMOTE bash <<'EOF'
           set -e
           APP=system
-          DEPLOY_DIR=/www/wwwroot/pw.easytestdev.online
+          DEPLOY_DIR=/www/wwwroot/baseadmin.easytestdev.online
 
           echo "[$APP] Stopping service..."
           systemctl stop gba-$APP 2>/dev/null || true
@@ -211,7 +226,7 @@ jobs:
           echo "[$APP] Status: $status"
           if [ "$status" != "active" ]; then exit 1; fi
 
-          HEALTH_URL=http://127.0.0.1:8000/readyz
+          HEALTH_URL=http://127.0.0.1:10022/readyz
           echo "[$APP] Health check: $HEALTH_URL"
           for i in $(seq 1 15); do
               if curl --silent --show-error --fail "$HEALTH_URL" >/dev/null; then
@@ -265,7 +280,7 @@ jobs:
           ssh $REMOTE bash <<'EOF'
           set -e
           APP=upload
-          DEPLOY_DIR=/www/wwwroot/pw.easytestdev.online
+          DEPLOY_DIR=/www/wwwroot/baseadmin.easytestdev.online
 
           echo "[$APP] Stopping service..."
           systemctl stop gba-$APP 2>/dev/null || true
@@ -296,7 +311,7 @@ jobs:
           echo "[$APP] Status: $status"
           if [ "$status" != "active" ]; then exit 1; fi
 
-          HEALTH_URL=http://127.0.0.1:8002/readyz
+          HEALTH_URL=http://127.0.0.1:10023/readyz
           echo "[$APP] Health check: $HEALTH_URL"
           for i in $(seq 1 15); do
               if curl --silent --show-error --fail "$HEALTH_URL" >/dev/null; then
@@ -365,7 +380,7 @@ jobs:
           scp /tmp/frontend.tar.gz $REMOTE:/tmp/gba_frontend.tar.gz
           ssh $REMOTE bash <<'EOF'
           set -e
-          DEPLOY_DIR=/www/wwwroot/pw.easytestdev.online
+          DEPLOY_DIR=/www/wwwroot/baseadmin.easytestdev.online
           RELEASES_DIR=$DEPLOY_DIR/.releases/admin
           RELEASE_ID=$(date +%Y%m%d%H%M%S)
           RELEASE_DIR=$RELEASES_DIR/$RELEASE_ID
@@ -393,73 +408,10 @@ jobs:
           EOF
 
   # ============================================
-  # Build & Deploy WAP
-  # ============================================
-  deploy-wap:
-    needs: [detect-changes, deploy-frontend]
-    if: |
-      always() &&
-      (needs.deploy-frontend.result == 'success' || needs.deploy-frontend.result == 'skipped') &&
-      (
-        needs.detect-changes.outputs.target == 'all' ||
-        needs.detect-changes.outputs.target == 'wap' ||
-        (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.wap == 'true')
-      )
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.32.1
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ~/.local/share/pnpm/store
-          key: pnpm-wap-${{ hashFiles('wap-ui/pnpm-lock.yaml') }}
-          restore-keys: pnpm-wap-
-
-      - name: Install & Build WAP
-        run: |
-          cd wap-ui
-          pnpm install --frozen-lockfile
-          pnpm build:h5
-
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Deploy WAP
-        env:
-          REMOTE: ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}
-        run: |
-          cd wap-ui/dist
-          tar -czf /tmp/wap.tar.gz .
-          echo "WAP size: $(du -h /tmp/wap.tar.gz | cut -f1)"
-          scp /tmp/wap.tar.gz $REMOTE:/tmp/gba_wap.tar.gz
-          ssh $REMOTE bash <<'EOF'
-          set -e
-          DEPLOY_DIR=/www/wwwroot/pw.easytestdev.online
-          mkdir -p $DEPLOY_DIR/wap
-          rm -rf $DEPLOY_DIR/wap/*
-          tar -xzf /tmp/gba_wap.tar.gz -C $DEPLOY_DIR/wap/
-          rm -f /tmp/gba_wap.tar.gz
-          echo "WAP deployed"
-          EOF
-
-  # ============================================
   # Final status report
   # ============================================
   status-check:
-    needs: [deploy-system, deploy-upload, deploy-frontend, deploy-wap]
+    needs: [deploy-system, deploy-upload, deploy-frontend]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -480,8 +432,8 @@ jobs:
               echo "gba-$app: $status"
           done
           echo "===== Health Checks ====="
-          curl --silent --show-error --fail http://127.0.0.1:8000/readyz >/dev/null && echo "system ready: ok"
-          curl --silent --show-error --fail http://127.0.0.1:8002/readyz >/dev/null && echo "upload ready: ok"
+          curl --silent --show-error --fail http://127.0.0.1:10022/readyz >/dev/null && echo "system ready: ok"
+          curl --silent --show-error --fail http://127.0.0.1:10023/readyz >/dev/null && echo "upload ready: ok"
           EOF
 
       - name: Summary
@@ -492,4 +444,3 @@ jobs:
           echo "| system | ${{ needs.deploy-system.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| upload | ${{ needs.deploy-upload.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend | ${{ needs.deploy-frontend.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| WAP | ${{ needs.deploy-wap.result }} |" >> $GITHUB_STEP_SUMMARY

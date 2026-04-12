@@ -67,10 +67,10 @@ RUN chmod +x ./system ./migrate ./start-go-app.sh
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
-EXPOSE 8000
+EXPOSE 10022
 
 # 健康检查：当前服务未提供 /health 路由，改为端口探活
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD nc -z 127.0.0.1 8000 || exit 1
+    CMD nc -z 127.0.0.1 10022 || exit 1
 
 CMD ["./start-go-app.sh", "system"]
