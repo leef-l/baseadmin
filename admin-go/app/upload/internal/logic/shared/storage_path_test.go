@@ -9,6 +9,12 @@ func TestNormalizeLocalStoragePath(t *testing.T) {
 	if got := NormalizeLocalStoragePath("  resource/upload/  "); got != "resource/upload" {
 		t.Fatalf("NormalizeLocalStoragePath mismatch: %q", got)
 	}
+	if got := NormalizeLocalStoragePath(" upload "); got != DefaultLocalStoragePath {
+		t.Fatalf("NormalizeLocalStoragePath legacy public path mismatch: %q", got)
+	}
+	if got := NormalizeLocalStoragePath("/upload/cert"); got != filepath.Join("resource", "upload", "cert") {
+		t.Fatalf("NormalizeLocalStoragePath nested public path mismatch: %q", got)
+	}
 	if got := NormalizeLocalStoragePath(" "); got != DefaultLocalStoragePath {
 		t.Fatalf("NormalizeLocalStoragePath blank mismatch: %q", got)
 	}

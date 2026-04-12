@@ -14,6 +14,17 @@ func NormalizeLocalStoragePath(path string) string {
 	if path == "" {
 		return DefaultLocalStoragePath
 	}
+	slashed := filepath.ToSlash(strings.ReplaceAll(path, "\\", "/"))
+	slashed = strings.TrimPrefix(strings.TrimSpace(slashed), "./")
+	slashed = strings.TrimPrefix(slashed, "/")
+	switch {
+	case slashed == "", slashed == ".":
+		return DefaultLocalStoragePath
+	case slashed == "upload":
+		return DefaultLocalStoragePath
+	case strings.HasPrefix(slashed, "upload/"):
+		return filepath.Clean(filepath.Join("resource", filepath.FromSlash(slashed)))
+	}
 	cleaned := filepath.Clean(path)
 	if cleaned == "." {
 		return DefaultLocalStoragePath

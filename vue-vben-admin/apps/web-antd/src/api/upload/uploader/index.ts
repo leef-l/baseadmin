@@ -19,8 +19,8 @@ function normalizeUploadSource(value: string) {
     next = next.slice(1);
   }
   next = next.replace(/\\/g, '/');
-  next = next.split('#')[0];
-  next = next.split('?')[0];
+  next = next.split('#')[0] || '';
+  next = next.split('?')[0] || '';
   const segments = next.split('/').filter(Boolean);
   return segments.length > 0 ? `/${segments.join('/')}` : '/';
 }
