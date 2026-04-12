@@ -1,0 +1,126 @@
+name: CI GBaseAdmin
+
+on:
+  push:
+    paths:
+      - '.github/workflows/**'
+      - 'admin-go/**'
+      - 'contracts/**'
+      - 'scripts/**'
+      - 'vue-vben-admin/**'
+      - 'lefthook.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'admin-go/**'
+      - 'contracts/**'
+      - 'scripts/**'
+      - 'vue-vben-admin/**'
+      - 'lefthook.yml'
+  workflow_dispatch:
+
+env:
+  GO_VERSION: '1.25.0'
+  NODE_VERSION: '22.18.0'
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      infra: ${{ steps.changes.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect file changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'admin-go/**'
+            frontend:
+              - 'vue-vben-admin/**'
+            infra:
+              - '.github/workflows/**'
+              - 'contracts/**'
+              - 'scripts/**'
+              - 'lefthook.yml'
+
+  verify-backend:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.backend == 'true' ||
+      needs.detect-changes.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            admin-go/go.sum
+            admin-go/codegen/go.sum
+
+      - name: Verify core scope
+        run: |
+          bash ./scripts/verify-baseadmin-scope.sh
+
+      - name: Test backend
+        run: |
+          cd admin-go
+          go test ./...
+
+      - name: Test codegen
+        run: |
+          cd admin-go/codegen
+          go test ./...
+
+  verify-frontend:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.frontend == 'true' ||
+      needs.detect-changes.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Verify core scope
+        run: |
+          bash ./scripts/verify-baseadmin-scope.sh
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-frontend-${{ hashFiles('vue-vben-admin/pnpm-lock.yaml') }}
+          restore-keys: pnpm-frontend-
+
+      - name: Install frontend dependencies
+        run: |
+          cd vue-vben-admin
+          pnpm install --frozen-lockfile
+
+      - name: Verify frontend page conventions
+        run: |
+          bash ./scripts/verify-vben-pages.sh
+
+      - name: Typecheck frontend
+        run: |
+          cd vue-vben-admin
+          pnpm -F @vben/web-antd typecheck
+
+      - name: Run frontend app tests
+        run: |
+          cd vue-vben-admin
+          pnpm test:web-antd

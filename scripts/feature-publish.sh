@@ -109,3 +109,8 @@ git commit -m "$message"
 git push "$remote" "$branch"
 
 echo "published feature commit to $remote/$branch"
+if [ "$branch" = "main" ]; then
+  echo "watch GitHub Actions: CI GBaseAdmin, Deploy GBaseAdmin"
+else
+  echo "watch GitHub Actions: CI GBaseAdmin"
+fi

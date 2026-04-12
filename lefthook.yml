@@ -1,21 +1,9 @@
 pre-commit:
   jobs:
-    - name: verify-baseadmin-scope
-      run: bash ./scripts/verify-baseadmin-scope.sh
-    - name: verify-vben-pages
-      run: bash ./scripts/verify-vben-pages.sh
+    - name: ci-reminder
+      run: echo "Repository verification runs in GitHub Actions after push."
 
 pre-push:
   jobs:
-    - name: verify-baseadmin-scope
-      run: bash ./scripts/verify-baseadmin-scope.sh
-    - name: backend-tests
-      run: cd admin-go && ../scripts/run-go-task-with-limits.sh go test ./...
-    - name: codegen-tests
-      run: cd admin-go/codegen && ../../scripts/run-go-task-with-limits.sh go test ./...
-    - name: frontend-verify
-      run: bash ./scripts/verify-vben-pages.sh
-    - name: frontend-typecheck
-      run: bash ./scripts/run-node-task-with-limits.sh pnpm -C vue-vben-admin -F @vben/web-antd typecheck
-    - name: frontend-tests
-      run: bash ./scripts/run-node-task-with-limits.sh pnpm -C vue-vben-admin test:web-antd
+    - name: ci-reminder
+      run: echo "Repository verification runs in GitHub Actions after this push. Watch CI GBaseAdmin; main branch also runs Deploy GBaseAdmin."

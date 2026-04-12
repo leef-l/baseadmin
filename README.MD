@@ -69,10 +69,13 @@ env 同步、国内镜像、profile、代理、初始化迁移等完整细节见
 - 默认只发布已经 `git add` 过的内容；工作区里如果还有未暂存或未跟踪文件，脚本会拒绝执行
 - 只有确认当前所有改动都属于同一批交付时，才使用 `./scripts/feature-publish.sh --all "feat(scope): summary"`
 - 如果这次功能包含数据库改动，必须先补 `admin-go/database/migrations/`，再执行提交脚本
-- 仓库启用了 `lefthook`：`pre-commit` 会跑页面规范校验，`pre-push` 会跑后端测试、codegen 测试、前端 typecheck 和 `web-antd` 单测
-- `scripts/run-go-task-with-limits.sh` 和 `scripts/run-node-task-with-limits.sh` 会在启动前先检查宿主机 CPU 使用率；默认高于 `80%` 时等待，降到 `50%` 后继续，可通过 `RESOURCE_LOAD_MAX_PERCENT` / `RESOURCE_LOAD_RESUME_PERCENT` 调整
+- 仓库验证统一放到 GitHub Actions：提交后直接 `git push`，然后查看 `CI GBaseAdmin`；如果推的是 `main`，还会继续进入 `Deploy GBaseAdmin`
+- 根目录 `lefthook.yml` 只保留提醒，不再在本地 `pre-commit` / `pre-push` 执行 `go test`、`typecheck`、页面规则校验
+- `scripts/run-go-task-with-limits.sh` 和 `scripts/run-node-task-with-limits.sh` 仍保留为手工排查入口；默认高于 `80%` 时等待，降到 `50%` 后继续，可通过 `RESOURCE_LOAD_MAX_PERCENT` / `RESOURCE_LOAD_RESUME_PERCENT` 调整
 
-## 常用校验命令
+## 手工排查命令
+
+默认验证路径是 `commit + push -> GitHub Actions`，下面这组命令只用于本地排查，不再作为交付前必跑项。
 
 从仓库根目录执行：
 
