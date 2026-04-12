@@ -116,7 +116,7 @@ jobs:
 
       - name: Upload backend reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-test-reports
           path: ${{ runner.temp }}/reports/backend
@@ -197,7 +197,7 @@ jobs:
 
       - name: Upload frontend reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-test-reports
           path: ${{ runner.temp }}/reports/frontend
