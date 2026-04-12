@@ -19,6 +19,9 @@ on:
       - 'lefthook.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   GO_VERSION: '1.25.0'
   NODE_VERSION: '22.18.0'
@@ -31,11 +34,11 @@ jobs:
       frontend: ${{ steps.changes.outputs.frontend }}
       infra: ${{ steps.changes.outputs.infra }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Detect file changes
         id: changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4.0.1
         with:
           filters: |
             backend:
@@ -55,9 +58,9 @@ jobs:
       needs.detect-changes.outputs.infra == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: |
@@ -68,15 +71,56 @@ jobs:
         run: |
           bash ./scripts/verify-baseadmin-scope.sh
 
+      - name: Prepare backend report dir
+        run: |
+          mkdir -p "${{ runner.temp }}/reports/backend" "${{ runner.temp }}/gobin"
+
+      - name: Install gotestsum
+        run: |
+          GOBIN="${{ runner.temp }}/gobin" go install gotest.tools/gotestsum@v1.13.0
+
       - name: Test backend
         run: |
+          set -euo pipefail
+          export PATH="${{ runner.temp }}/gobin:$PATH"
+          REPORT_DIR="${{ runner.temp }}/reports/backend"
           cd admin-go
-          go test ./...
+          gotestsum \
+            --format pkgname \
+            --junitfile "$REPORT_DIR/backend-junit.xml" \
+            --jsonfile "$REPORT_DIR/backend-go-test.json" \
+            -- ./... | tee "$REPORT_DIR/backend-gotestsum.txt"
 
       - name: Test codegen
         run: |
+          set -euo pipefail
+          export PATH="${{ runner.temp }}/gobin:$PATH"
+          REPORT_DIR="${{ runner.temp }}/reports/backend"
           cd admin-go/codegen
-          go test ./...
+          gotestsum \
+            --format pkgname \
+            --junitfile "$REPORT_DIR/codegen-junit.xml" \
+            --jsonfile "$REPORT_DIR/codegen-go-test.json" \
+            -- ./... | tee "$REPORT_DIR/codegen-gotestsum.txt"
+
+      - name: Backend report summary
+        if: always()
+        run: |
+          REPORT_DIR="${{ runner.temp }}/reports/backend"
+          echo "## Backend Reports" >> "$GITHUB_STEP_SUMMARY"
+          if [ -d "$REPORT_DIR" ]; then
+            find "$REPORT_DIR" -maxdepth 1 -type f -printf -- '- %f\n' | sort >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- no backend reports generated" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload backend reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: ${{ runner.temp }}/reports/backend
+          if-no-files-found: warn
 
   verify-frontend:
     needs: detect-changes
@@ -85,11 +129,12 @@ jobs:
       needs.detect-changes.outputs.infra == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -100,11 +145,15 @@ jobs:
           bash ./scripts/verify-baseadmin-scope.sh
 
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.local/share/pnpm/store
           key: pnpm-frontend-${{ hashFiles('vue-vben-admin/pnpm-lock.yaml') }}
           restore-keys: pnpm-frontend-
+
+      - name: Prepare frontend report dir
+        run: |
+          mkdir -p "${{ runner.temp }}/reports/frontend"
 
       - name: Install frontend dependencies
         run: |
@@ -117,10 +166,39 @@ jobs:
 
       - name: Typecheck frontend
         run: |
+          set -euo pipefail
+          REPORT_DIR="${{ runner.temp }}/reports/frontend"
           cd vue-vben-admin
-          pnpm -F @vben/web-antd typecheck
+          pnpm -F @vben/web-antd typecheck 2>&1 | tee "$REPORT_DIR/web-antd-typecheck.txt"
 
       - name: Run frontend app tests
         run: |
+          set -euo pipefail
+          REPORT_DIR="${{ runner.temp }}/reports/frontend"
           cd vue-vben-admin
-          pnpm test:web-antd
+          pnpm test:web-antd -- \
+            --reporter=default \
+            --reporter=junit \
+            --reporter=json \
+            --outputFile.junit="$REPORT_DIR/web-antd-junit.xml" \
+            --outputFile.json="$REPORT_DIR/web-antd-vitest.json" \
+            2>&1 | tee "$REPORT_DIR/web-antd-vitest.txt"
+
+      - name: Frontend report summary
+        if: always()
+        run: |
+          REPORT_DIR="${{ runner.temp }}/reports/frontend"
+          echo "## Frontend Reports" >> "$GITHUB_STEP_SUMMARY"
+          if [ -d "$REPORT_DIR" ]; then
+            find "$REPORT_DIR" -maxdepth 1 -type f -printf -- '- %f\n' | sort >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- no frontend reports generated" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload frontend reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-test-reports
+          path: ${{ runner.temp }}/reports/frontend
+          if-no-files-found: warn

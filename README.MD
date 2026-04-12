@@ -70,6 +70,8 @@ env 同步、国内镜像、profile、代理、初始化迁移等完整细节见
 - 只有确认当前所有改动都属于同一批交付时，才使用 `./scripts/feature-publish.sh --all "feat(scope): summary"`
 - 如果这次功能包含数据库改动，必须先补 `admin-go/database/migrations/`，再执行提交脚本
 - 仓库验证统一放到 GitHub Actions：提交后直接 `git push`，然后查看 `CI GBaseAdmin`；如果推的是 `main`，还会继续进入 `Deploy GBaseAdmin`
+- `CI GBaseAdmin` 会把后端/前端测试结果写进 Actions Summary，并上传 JUnit、JSON、文本日志 artifact
+- `Deploy GBaseAdmin` 会使用 GitHub Secrets 里的专用 smoke 账号做真实登录、目录规则、上传、公网 URL 冒烟，不再依赖管理员账号
 - 根目录 `lefthook.yml` 只保留提醒，不再在本地 `pre-commit` / `pre-push` 执行 `go test`、`typecheck`、页面规则校验
 - `scripts/run-go-task-with-limits.sh` 和 `scripts/run-node-task-with-limits.sh` 仍保留为手工排查入口；默认高于 `80%` 时等待，降到 `50%` 后继续，可通过 `RESOURCE_LOAD_MAX_PERCENT` / `RESOURCE_LOAD_RESUME_PERCENT` 调整
 

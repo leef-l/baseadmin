@@ -50,6 +50,11 @@
 | 文件记录 | `internal/controller/file` | 文件记录查询与删除 |
 | 文件上传 | `internal/controller/uploader` | 上传入口和落库 |
 
+目录规则类别约定：
+- `1=默认规则`
+- `2=类型规则`
+- `3=来源规则`，按上传来源标识匹配，通常来自当前页面路由
+
 ## 上传流程
 
 1. 前端调用 `POST /api/upload/uploader/upload`，发送 `file`（文件）+ `dirId`（可选目录ID）
@@ -58,6 +63,10 @@
 4. 本地存储：保存到 `resource/upload/{日期}/{唯一文件名}`
 5. 写入 `upload_file` 记录，返回文件信息（id, url, name, size, ext, mime, isImage）
 6. 如果数据库写入失败，已上传成功的 OSS/COS 对象会执行回滚删除，避免残留孤儿文件
+
+目录规则命中优先级：`来源规则 > 类型规则 > 默认规则`。
+
+线上 `Deploy GBaseAdmin` 会用专用 smoke 账号做一次真实链路冒烟：创建临时来源规则 -> 上传文件 -> 校验 `upload_file.dir_id` -> 校验公网 `/upload/...` 可访问。
 
 ## 存储类型
 
@@ -152,4 +161,11 @@ import FileManagerModal from '#/components/file-manager/modal.vue';
 ```bash
 cd admin-go
 go run ./app/upload/main.go
+```
+
+历史记录回填目录归属可用：
+
+```bash
+cd admin-go
+go run ./app/upload/cmd/backfill_upload_dir --config ./app/upload/manifest/config/config.yaml --dry-run
 ```

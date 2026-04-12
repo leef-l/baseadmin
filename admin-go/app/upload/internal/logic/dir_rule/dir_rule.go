@@ -289,10 +289,10 @@ func validateDirRuleFields(dirID snowflake.JsonInt64, category, status int, file
 		}
 	case 3:
 		if fileType == "" {
-			return gerror.New("接口标识不能为空")
+			return gerror.New("来源标识不能为空")
 		}
 		if len(fileType) > 255 {
-			return gerror.New("接口标识长度不能超过255个字符")
+			return gerror.New("来源标识长度不能超过255个字符")
 		}
 	}
 	if hasParentRelativePath(savePath) && !isLocalOnlyStorageTypes(storageTypes) {

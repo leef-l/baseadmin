@@ -21,7 +21,7 @@ import type {
 const categoryOptions = [
   { label: '默认', value: 1 },
   { label: '类型', value: 2 },
-  { label: '接口', value: 3 },
+  { label: '来源', value: 3 },
 ];
 
 const storageTypeOptions = [
@@ -145,7 +145,7 @@ const [Form, formApi] = useVbenForm({
       label: '匹配条件',
       dependencies: fileTypeDeps,
       componentProps: {
-        placeholder: '类型规则填扩展名；接口规则填页面路由，多个用逗号分隔，如 txt,doc 或 /system/users,/upload/file/*',
+        placeholder: '类型规则填扩展名；来源规则填页面路由，多个用逗号分隔，如 txt,doc 或 /system/users,/upload/file/*',
         maxlength: 255,
       },
     },

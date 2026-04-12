@@ -19,14 +19,14 @@ const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblu
 const categoryOptions = [
   { label: '默认', value: 1 },
   { label: '类型', value: 2 },
-  { label: '接口', value: 3 },
+  { label: '来源', value: 3 },
 ];
 
 /** 类别映射 */
 const categoryMap: Record<number, string> = {
   1: '默认',
   2: '类型',
-  3: '接口',
+  3: '来源',
 };
 
 const storageTypeMap: Record<number, string> = {

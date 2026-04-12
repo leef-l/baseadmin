@@ -21,6 +21,9 @@ on:
           - backend
           - frontend
 
+permissions:
+  contents: read
+
 env:
   SERVER_HOST: baseadmin.easytestdev.online
   SERVER_USER: root
@@ -53,11 +56,11 @@ jobs:
       infra: ${{ steps.changes.outputs.infra }}
       target: ${{ steps.target.outputs.value }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Detect file changes
         id: changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4.0.1
         with:
           filters: |
             backend:
@@ -92,8 +95,8 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: |
@@ -128,11 +131,12 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -143,7 +147,7 @@ jobs:
           bash ./scripts/verify-baseadmin-scope.sh
 
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.local/share/pnpm/store
           key: pnpm-frontend-${{ hashFiles('vue-vben-admin/pnpm-lock.yaml') }}
@@ -185,23 +189,31 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: admin-go/go.sum
 
-      - name: Build system and migrate
+      - name: Build system, migrate, and ops tools
         run: |
           cd admin-go
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
             go build -ldflags "-s -w" -o system ./app/system/main.go
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
             go build -ldflags "-s -w" -o migrate ./cmd/migrate
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -ldflags "-s -w" -o ensure-smoke-user ./app/system/cmd/ensure_smoke_user
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -ldflags "-s -w" -o upload-backfill ./app/upload/cmd/backfill_upload_dir
 
       - name: Validate deploy SSH secret
         run: |
           test -n "${{ secrets.DEPLOY_SSH_KEY }}"
+      - name: Validate smoke test secrets
+        run: |
+          test -n "${{ secrets.SMOKE_USERNAME }}"
+          test -n "${{ secrets.SMOKE_PASSWORD }}"
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -212,25 +224,36 @@ jobs:
       - name: Deploy system
         env:
           REMOTE: ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}
+          SMOKE_USERNAME: ${{ secrets.SMOKE_USERNAME }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
         run: |
-          ssh $REMOTE "mkdir -p /tmp/gba_stage/system /tmp/gba_stage/database"
+          SMOKE_USERNAME_B64=$(printf '%s' "$SMOKE_USERNAME" | base64 -w0)
+          SMOKE_PASSWORD_B64=$(printf '%s' "$SMOKE_PASSWORD" | base64 -w0)
+          ssh $REMOTE "mkdir -p /tmp/gba_stage/system /tmp/gba_stage/database /tmp/gba_stage/bin"
           scp admin-go/system $REMOTE:/tmp/gba_stage/system/system
           scp admin-go/migrate $REMOTE:/tmp/gba_stage/migrate
+          scp admin-go/ensure-smoke-user $REMOTE:/tmp/gba_stage/bin/ensure-smoke-user
+          scp admin-go/upload-backfill $REMOTE:/tmp/gba_stage/bin/upload-backfill
           scp -r admin-go/database/migrations $REMOTE:/tmp/gba_stage/database/
           scp -r admin-go/app/system/manifest $REMOTE:/tmp/gba_stage/system/
-          ssh $REMOTE bash <<'EOF'
-          set -e
+          ssh $REMOTE "SMOKE_USERNAME_B64='$SMOKE_USERNAME_B64' SMOKE_PASSWORD_B64='$SMOKE_PASSWORD_B64' bash -s" <<'EOF'
+          set -euo pipefail
           APP=system
           DEPLOY_DIR=/www/wwwroot/baseadmin.easytestdev.online
           SERVICE_NAME=baseadmin-$APP
           LEGACY_SERVICE_NAME=gba-$APP
           APP_BIN=$DEPLOY_DIR/$APP/$APP
           APP_BIN_NEW=$DEPLOY_DIR/$APP/$APP.new
+          SMOKE_USERNAME=$(printf '%s' "$SMOKE_USERNAME_B64" | base64 -d)
+          SMOKE_PASSWORD=$(printf '%s' "$SMOKE_PASSWORD_B64" | base64 -d)
 
           echo "[$APP] Preparing service..."
           mkdir -p $DEPLOY_DIR/$APP
           install -m 0755 /tmp/gba_stage/$APP/$APP $APP_BIN_NEW
           install -m 0755 /tmp/gba_stage/migrate $DEPLOY_DIR/migrate
+          mkdir -p $DEPLOY_DIR/bin
+          install -m 0755 /tmp/gba_stage/bin/ensure-smoke-user $DEPLOY_DIR/bin/ensure-smoke-user
+          install -m 0755 /tmp/gba_stage/bin/upload-backfill $DEPLOY_DIR/bin/upload-backfill
           rm -rf $DEPLOY_DIR/database/migrations
           mkdir -p $DEPLOY_DIR/database
           cp -r /tmp/gba_stage/database/migrations $DEPLOY_DIR/database/
@@ -275,6 +298,16 @@ jobs:
 
           echo "[$APP] Running database migrations..."
           $DEPLOY_DIR/migrate --config $DEPLOY_DIR/$APP/manifest/config/config.yaml --dir $DEPLOY_DIR/database/migrations up
+
+          echo "[$APP] Ensuring smoke test role/user..."
+          $DEPLOY_DIR/bin/ensure-smoke-user \
+            --config $DEPLOY_DIR/$APP/manifest/config/config.yaml \
+            --username "$SMOKE_USERNAME" \
+            --password "$SMOKE_PASSWORD"
+
+          echo "[$APP] Backfilling upload file dir_id..."
+          $DEPLOY_DIR/bin/upload-backfill \
+            --config $DEPLOY_DIR/$APP/manifest/config/config.yaml
 
           systemctl daemon-reload
           systemctl stop $SERVICE_NAME 2>/dev/null || true
@@ -325,7 +358,7 @@ jobs:
           done
           curl --silent --show-error --fail "$HEALTH_URL" >/dev/null
 
-          rm -rf /tmp/gba_stage/$APP /tmp/gba_stage/database /tmp/gba_stage/migrate
+          rm -rf /tmp/gba_stage/$APP /tmp/gba_stage/database /tmp/gba_stage/migrate /tmp/gba_stage/bin
           EOF
 
   deploy-upload:
@@ -346,8 +379,8 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: admin-go/go.sum
@@ -501,18 +534,19 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
 
       - uses: pnpm/action-setup@v4
         with:
           version: 10.32.1
 
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.local/share/pnpm/store
           key: pnpm-frontend-${{ hashFiles('vue-vben-admin/pnpm-lock.yaml') }}
@@ -647,15 +681,22 @@ jobs:
             echo "upload ready check skipped ($UPLOAD_DEPLOY_RESULT)"
           fi
 
-      - name: Smoke test live upload path
+      - name: Smoke test live dir rule flow
         if: |
           needs.deploy-upload.result == 'success' ||
           needs.deploy-upload.result == 'skipped'
+        env:
+          SMOKE_USERNAME: ${{ secrets.SMOKE_USERNAME }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
         run: |
           set -euo pipefail
+          test -n "$SMOKE_USERNAME"
+          test -n "$SMOKE_PASSWORD"
           BASE_URL=https://${{ env.SERVER_HOST }}/api
-          TMP_FILE=$(mktemp)
+          LOGIN_PAYLOAD=$(python3 -c 'import json, os; print(json.dumps({"username": os.environ["SMOKE_USERNAME"], "password": os.environ["SMOKE_PASSWORD"]}))')
+          TMP_FILE=$(mktemp --suffix=.txt)
           FILE_ID=""
+          RULE_ID=""
           cleanup() {
             if [ -n "$FILE_ID" ]; then
               curl --silent --show-error \
@@ -665,25 +706,55 @@ jobs:
                 -d "{\"id\":\"$FILE_ID\"}" \
                 "$BASE_URL/upload/file/delete" >/dev/null || true
             fi
+            if [ -n "$RULE_ID" ]; then
+              curl --silent --show-error \
+                -X DELETE \
+                -H "Authorization: Bearer $TOKEN" \
+                -H 'Content-Type: application/json' \
+                -d "{\"id\":\"$RULE_ID\"}" \
+                "$BASE_URL/upload/dir_rule/delete" >/dev/null || true
+            fi
             rm -f "$TMP_FILE"
           }
           trap cleanup EXIT
 
           LOGIN_JSON=$(curl --silent --show-error --fail \
             -H 'Content-Type: application/json' \
-            -d '{"username":"admin","password":"admin123"}' \
+            -d "$LOGIN_PAYLOAD" \
             "$BASE_URL/system/auth/login")
           TOKEN=$(printf '%s' "$LOGIN_JSON" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
           test -n "$TOKEN"
 
-          curl --silent --show-error --fail \
+          DIR_JSON=$(curl --silent --show-error --fail \
             -H "Authorization: Bearer $TOKEN" \
-            "$BASE_URL/upload/dir_rule/list?pageNum=1&pageSize=1&keyword=smoke" >/dev/null
-          echo "dir_rule list smoke: ok"
+            "$BASE_URL/upload/dir/list?pageNum=1&pageSize=1&status=1")
+          DIR_ID=$(printf '%s' "$DIR_JSON" | sed -n 's/.*"id":"\([0-9]*\)".*/\1/p')
+          test -n "$DIR_ID"
+
+          SOURCE="/ci-smoke/${{ github.run_id }}/${{ github.run_attempt }}"
+          RULE_PAYLOAD=$(SOURCE="$SOURCE" DIR_ID="$DIR_ID" python3 -c 'import json, os; print(json.dumps({"dirID": os.environ["DIR_ID"], "category": 3, "fileType": os.environ["SOURCE"], "storageTypes": "1", "savePath": "ci-smoke/{Y-m-d}/{ext}", "status": 1}))')
+          curl --silent --show-error --fail \
+            -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "$RULE_PAYLOAD" \
+            "$BASE_URL/upload/dir_rule/create" >/dev/null
+
+          RULE_LIST_JSON=$(curl --silent --show-error --fail \
+            --get \
+            -H "Authorization: Bearer $TOKEN" \
+            --data-urlencode "pageNum=1" \
+            --data-urlencode "pageSize=1" \
+            --data-urlencode "keyword=$SOURCE" \
+            "$BASE_URL/upload/dir_rule/list")
+          RULE_ID=$(printf '%s' "$RULE_LIST_JSON" | sed -n 's/.*"id":"\([0-9]*\)".*/\1/p')
+          test -n "$RULE_ID"
+          echo "dir_rule create/list e2e: ok"
 
           printf 'deploy smoke %s\n' "$(date -u +%FT%TZ)" > "$TMP_FILE"
           UPLOAD_JSON=$(curl --silent --show-error --fail \
             -H "Authorization: Bearer $TOKEN" \
+            -F "source=$SOURCE" \
             -F "file=@$TMP_FILE;type=text/plain" \
             "$BASE_URL/upload/uploader/upload")
 
@@ -691,6 +762,13 @@ jobs:
           FILE_URL=$(printf '%s' "$UPLOAD_JSON" | sed -n 's/.*"url":"\([^"]*\)".*/\1/p')
           test -n "$FILE_ID"
           test -n "$FILE_URL"
+
+          FILE_DETAIL_JSON=$(curl --silent --show-error --fail \
+            -H "Authorization: Bearer $TOKEN" \
+            "$BASE_URL/upload/file/detail?id=$FILE_ID")
+          FILE_DIR_ID=$(printf '%s' "$FILE_DETAIL_JSON" | sed -n 's/.*"dirID":"\([0-9]*\)".*/\1/p')
+          test "$FILE_DIR_ID" = "$DIR_ID"
+          echo "file record dir_id e2e: ok"
 
           curl --silent --show-error --fail --head \
             "https://${{ env.SERVER_HOST }}$FILE_URL" >/dev/null

@@ -53,7 +53,9 @@
 ## GitHub Actions 现状
 
 - `CI GBaseAdmin`：按路径执行 `verify-baseadmin-scope`、后端测试、codegen 测试、前端页面规则校验、前端 typecheck、`web-antd` 单测
+- `CI GBaseAdmin`：同时输出 Actions Summary，并上传后端/前端的 JUnit、JSON、文本日志 artifact，测试记录统一看这里
 - `Deploy GBaseAdmin`：`main` 分支在部署前再次执行上线门禁，并顺序部署 `system`、`upload`、`frontend`
+- `Deploy GBaseAdmin`：使用专用 smoke 账号做真实登录、目录规则、上传、公网 URL 冒烟；需要仓库 secrets `SMOKE_USERNAME`、`SMOKE_PASSWORD`
 
 说明：
 

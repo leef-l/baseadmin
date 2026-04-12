@@ -33,7 +33,7 @@ func TestNormalizeDirRuleInputs(t *testing.T) {
 	}
 	normalizeDirRuleCreateInput(interfaceIn)
 	if interfaceIn.FileType != "/upload/file,/system/users,/upload/file/*" {
-		t.Fatalf("normalizeDirRuleCreateInput interface matcher mismatch: %+v", interfaceIn)
+		t.Fatalf("normalizeDirRuleCreateInput source matcher mismatch: %+v", interfaceIn)
 	}
 
 	updateIn := &model.DirRuleUpdateInput{
@@ -87,7 +87,7 @@ func TestDirRuleInputValidation(t *testing.T) {
 	if err := validateDirRuleFields(1, 2, 1, "txt,doc$", "1", ""); err == nil || err.Error() != "文件类型格式不正确" {
 		t.Fatalf("validateDirRuleFields invalid fileType mismatch: %v", err)
 	}
-	if err := validateDirRuleFields(1, 3, 1, "", "1", ""); err == nil || err.Error() != "接口标识不能为空" {
+	if err := validateDirRuleFields(1, 3, 1, "", "1", ""); err == nil || err.Error() != "来源标识不能为空" {
 		t.Fatalf("validateDirRuleFields missing source matcher mismatch: %v", err)
 	}
 	if err := validateDirRuleFields(1, 1, 1, "", "1,2", "../cert"); err == nil || err.Error() != "父级目录规则仅支持本地存储" {
