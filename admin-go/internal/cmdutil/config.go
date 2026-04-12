@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/gogf/gf/v2/frame/gins"
+	"github.com/gogf/gf/v2/os/gcfg"
 )
 
 // UseConfigFile points GoFrame config loading at the provided config file.
@@ -32,5 +35,10 @@ func UseConfigFile(configPath string) error {
 	if err := os.Setenv("GF_GCFG_FILE", filepath.Base(absPath)); err != nil {
 		return fmt.Errorf("set GF_GCFG_FILE: %w", err)
 	}
+	adapter, err := gcfg.NewAdapterFile(absPath)
+	if err != nil {
+		return fmt.Errorf("init gcfg adapter: %w", err)
+	}
+	gins.Config().SetAdapter(adapter)
 	return nil
 }
