@@ -30,6 +30,9 @@ func TestNormalizeRoleInputs(t *testing.T) {
 	if treeIn.Keyword != "operator" {
 		t.Fatalf("normalizeRoleTreeInput mismatch: %+v", treeIn)
 	}
+	if treeIn.AssignableOnly {
+		t.Fatalf("normalizeRoleTreeInput should preserve assignableOnly: %+v", treeIn)
+	}
 }
 
 func TestRoleInputValidation(t *testing.T) {

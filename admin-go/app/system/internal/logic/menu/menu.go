@@ -38,7 +38,11 @@ func (s *sMenu) Create(ctx context.Context, in *model.MenuCreateInput) error {
 		return err
 	}
 	normalizeMenuCreateInput(in)
-	if err := validateMenuFields(in.Title, in.Type, in.IsShow, in.IsCache, in.Status, in.Sort); err != nil {
+	normalizeMenuTypeFields(in.Type, &in.Path, &in.Component, &in.LinkURL)
+	if err := validateMenuFields(in.Title, in.Type, in.Path, in.Component, in.Permission, in.LinkURL, in.IsShow, in.IsCache, in.Status, in.Sort); err != nil {
+		return err
+	}
+	if err := s.ensureMenuPathUnique(ctx, 0, in.Type, in.Path); err != nil {
 		return err
 	}
 	if err := s.ensureMenuPermissionUnique(ctx, 0, in.Permission); err != nil {
@@ -75,10 +79,14 @@ func (s *sMenu) Update(ctx context.Context, in *model.MenuUpdateInput) error {
 		return err
 	}
 	normalizeMenuUpdateInput(in)
-	if err := validateMenuFields(in.Title, in.Type, in.IsShow, in.IsCache, in.Status, in.Sort); err != nil {
+	normalizeMenuTypeFields(in.Type, &in.Path, &in.Component, &in.LinkURL)
+	if err := validateMenuFields(in.Title, in.Type, in.Path, in.Component, in.Permission, in.LinkURL, in.IsShow, in.IsCache, in.Status, in.Sort); err != nil {
 		return err
 	}
 	if err := s.ensureMenuExists(ctx, in.ID); err != nil {
+		return err
+	}
+	if err := s.ensureMenuPathUnique(ctx, in.ID, in.Type, in.Path); err != nil {
 		return err
 	}
 	if err := s.ensureMenuPermissionUnique(ctx, in.ID, in.Permission); err != nil {
@@ -322,7 +330,24 @@ func normalizeMenuTreeInput(in *model.MenuTreeInput) {
 	in.Keyword = strings.TrimSpace(in.Keyword)
 }
 
-func validateMenuFields(title string, menuType, isShow, isCache, status, sort int) error {
+func normalizeMenuTypeFields(menuType int, path, component, linkURL *string) {
+	if path == nil || component == nil || linkURL == nil {
+		return
+	}
+	switch menuType {
+	case 1:
+		*component = ""
+		*linkURL = ""
+	case 2:
+		*linkURL = ""
+	case 3:
+		*path = ""
+		*component = ""
+		*linkURL = ""
+	}
+}
+
+func validateMenuFields(title string, menuType int, path, component, permission, linkURL string, isShow, isCache, status, sort int) error {
 	if title == "" {
 		return gerror.New("菜单名称不能为空")
 	}
@@ -341,7 +366,38 @@ func validateMenuFields(title string, menuType, isShow, isCache, status, sort in
 	if err := fieldvalid.Binary("状态", status); err != nil {
 		return err
 	}
+	if isRouteMenuType(menuType) {
+		if path == "" {
+			return gerror.New("当前菜单类型必须填写前端路由路径")
+		}
+		if !strings.HasPrefix(path, "/") {
+			return gerror.New("前端路由路径必须以 / 开头")
+		}
+	}
+	switch menuType {
+	case 2:
+		if component == "" {
+			return gerror.New("菜单类型必须填写前端组件路径")
+		}
+	case 3:
+		if permission == "" {
+			return gerror.New("按钮类型必须填写权限标识")
+		}
+	case 4, 5:
+		if linkURL == "" {
+			return gerror.New("外链/内链类型必须填写地址")
+		}
+	}
 	return nil
+}
+
+func isRouteMenuType(menuType int) bool {
+	switch menuType {
+	case 1, 2, 4, 5:
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *sMenu) fillParentTitles(ctx context.Context, list []*model.MenuListOutput) {
@@ -420,6 +476,28 @@ func (s *sMenu) ensureMenuPermissionUnique(ctx context.Context, currentID snowfl
 	}
 	if count > 0 {
 		return gerror.New("权限标识已存在")
+	}
+	return nil
+}
+
+func (s *sMenu) ensureMenuPathUnique(ctx context.Context, currentID snowflake.JsonInt64, menuType int, path string) error {
+	path = strings.TrimSpace(path)
+	if !isRouteMenuType(menuType) || path == "" {
+		return nil
+	}
+	m := dao.Menu.Ctx(ctx).
+		Where(dao.Menu.Columns().Path, path).
+		WhereIn(dao.Menu.Columns().Type, []int{1, 2, 4, 5}).
+		Where(dao.Menu.Columns().DeletedAt, nil)
+	if currentID > 0 {
+		m = m.WhereNot(dao.Menu.Columns().Id, currentID)
+	}
+	count, err := m.Count()
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return gerror.New("前端路由路径已存在")
 	}
 	return nil
 }

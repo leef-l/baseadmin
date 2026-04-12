@@ -68,9 +68,10 @@ type RoleListInput struct {
 
 // RoleTreeInput 角色表树形查询输入
 type RoleTreeInput struct {
-	Keyword   string `json:"keyword"`
-	DataScope int    `json:"dataScope"`
-	Status    *int   `json:"status"`
+	Keyword        string `json:"keyword"`
+	DataScope      int    `json:"dataScope"`
+	Status         *int   `json:"status"`
+	AssignableOnly bool   `json:"assignableOnly"`
 }
 
 // RoleTreeOutput 角色表树形输出

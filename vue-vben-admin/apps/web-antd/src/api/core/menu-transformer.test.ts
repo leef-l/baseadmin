@@ -174,4 +174,70 @@ describe('transformMenus', () => {
       },
     ]);
   });
+
+  it('skips invalid and duplicate route records', () => {
+    expect(
+      transformMenus([
+        {
+          id: '30',
+          parentId: '0',
+          title: 'Broken Menu',
+          type: 2,
+          path: '/broken',
+          component: '',
+          permission: '',
+          icon: '',
+          sort: 1,
+          isShow: 1,
+          isCache: 0,
+          linkUrl: '',
+          status: 1,
+        },
+        {
+          id: '31',
+          parentId: '0',
+          title: 'Valid Menu',
+          type: 2,
+          path: '/system/users',
+          component: '/system/users/index',
+          permission: '',
+          icon: '',
+          sort: 2,
+          isShow: 1,
+          isCache: 0,
+          linkUrl: '',
+          status: 1,
+        },
+        {
+          id: '32',
+          parentId: '0',
+          title: 'Duplicate Path',
+          type: 4,
+          path: '/system/users',
+          component: '',
+          permission: '',
+          icon: '',
+          sort: 3,
+          isShow: 1,
+          isCache: 0,
+          linkUrl: 'https://example.com/users',
+          status: 1,
+        },
+      ]),
+    ).toEqual([
+      {
+        name: 'system-users',
+        path: '/system/users',
+        component: '/system/users/index',
+        meta: {
+          title: 'Valid Menu',
+          icon: undefined,
+          order: 2,
+          hideInMenu: false,
+          keepAlive: false,
+          authority: undefined,
+        },
+      },
+    ]);
+  });
 });

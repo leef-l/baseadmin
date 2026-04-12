@@ -154,7 +154,7 @@ const [Modal, modalApi] = useVbenModal({
 
     // 加载角色树
     try {
-      const res = await getRoleTree();
+      const res = await getRoleTree({ assignableOnly: true });
       if (currentOpenToken !== openToken.value) {
         return;
       }

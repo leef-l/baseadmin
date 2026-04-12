@@ -66,3 +66,15 @@ func TestContainsInt64(t *testing.T) {
 		t.Fatal("containsInt64 should reject missing value")
 	}
 }
+
+func TestRoleIDsWithinScope(t *testing.T) {
+	if !RoleIDsWithinScope([]int64{3, 5}, []int64{5, 3, 9}) {
+		t.Fatal("RoleIDsWithinScope should allow included ids")
+	}
+	if RoleIDsWithinScope([]int64{3, 6}, []int64{5, 3, 9}) {
+		t.Fatal("RoleIDsWithinScope should reject ids outside scope")
+	}
+	if !RoleIDsWithinScope(nil, nil) {
+		t.Fatal("RoleIDsWithinScope should allow empty target ids")
+	}
+}

@@ -75,9 +75,10 @@ func (c *cRole) List(ctx context.Context, req *v1.RoleListReq) (res *v1.RoleList
 func (c *cRole) Tree(ctx context.Context, req *v1.RoleTreeReq) (res *v1.RoleTreeRes, err error) {
 	res = &v1.RoleTreeRes{}
 	res.List, err = service.Role().Tree(ctx, &model.RoleTreeInput{
-		Keyword:   req.Keyword,
-		DataScope: req.DataScope,
-		Status:    req.Status,
+		Keyword:        req.Keyword,
+		DataScope:      req.DataScope,
+		Status:         req.Status,
+		AssignableOnly: req.AssignableOnly,
 	})
 	return
 }

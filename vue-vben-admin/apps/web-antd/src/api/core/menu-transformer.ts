@@ -37,13 +37,46 @@ function getMenuComponent(menu: BackendMenu, link: string) {
   return component;
 }
 
+function isMenuRouteValid(
+  menu: BackendMenu,
+  path: string,
+  component: string,
+  link: string,
+) {
+  if (!path) {
+    return false;
+  }
+  if (menu.type === 2 && !component) {
+    return false;
+  }
+  if ((menu.type === 4 || menu.type === 5) && !link) {
+    return false;
+  }
+  return true;
+}
+
 export function transformMenus(
   menus: BackendMenu[],
 ): RouteRecordStringComponent[] {
-  return menus
-    .filter((menu) => menu.isShow === 1 && routeMenuTypes.has(menu.type))
-    .map((menu) => {
+  const seenPaths = new Set<string>();
+
+  function walk(list: BackendMenu[]): RouteRecordStringComponent[] {
+    return list.flatMap((menu) => {
+      if (menu.isShow !== 1 || !routeMenuTypes.has(menu.type)) {
+        return [];
+      }
+
       const link = getMenuLink(menu);
+      const path = menu.path?.trim() || '';
+      const component = getMenuComponent(menu, link);
+      if (!isMenuRouteValid(menu, path, component, link)) {
+        return [];
+      }
+      if (seenPaths.has(path)) {
+        return [];
+      }
+      seenPaths.add(path);
+
       const baseMeta = {
         title: menu.title,
         icon: menu.icon || undefined,
@@ -53,14 +86,14 @@ export function transformMenus(
         authority: menu.permission ? [menu.permission] : undefined,
       };
       const route: RouteRecordStringComponent = {
-        name: menu.path?.replace(/\//g, '-').replace(/^-/, '') || `menu-${menu.id}`,
-        path: menu.path || '',
-        component: getMenuComponent(menu, link),
+        name: path.replace(/\//g, '-').replace(/^-/, '') || `menu-${menu.id}`,
+        path,
+        component,
         meta: baseMeta,
       };
 
       if (menu.children?.length) {
-        route.children = transformMenus(menu.children);
+        route.children = walk(menu.children);
       }
 
       if (menu.type === 4 && link) {
@@ -71,6 +104,9 @@ export function transformMenus(
         route.meta = { ...baseMeta, iframeSrc: link };
       }
 
-      return route;
+      return [route];
     });
+  }
+
+  return walk(menus);
 }

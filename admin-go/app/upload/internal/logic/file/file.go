@@ -6,12 +6,17 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	cos "github.com/tencentyun/cos-go-sdk-v5"
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
+	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
+	"github.com/gogf/gf/v2/frame/g"
 
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/logic/shared"
@@ -40,6 +45,12 @@ type fileDeleteTarget struct {
 	ID      int64  `json:"id"`
 	URL     string `json:"url"`
 	Storage int    `json:"storage"`
+}
+
+type stagedLocalDelete struct {
+	RecordID     int64
+	OriginalPath string
+	StagedPath   string
 }
 
 // Create 创建文件记录
@@ -111,7 +122,7 @@ func (s *sFile) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if err := precheckDeleteTargets(ctx, targets); err != nil {
 		return err
 	}
-	return s.deleteTarget(ctx, targets[0])
+	return s.deleteTargets(ctx, targets)
 }
 
 // BatchDelete 批量删除文件记录
@@ -127,12 +138,7 @@ func (s *sFile) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) erro
 	if err := precheckDeleteTargets(ctx, targets); err != nil {
 		return err
 	}
-	for _, target := range targets {
-		if err := s.deleteTarget(ctx, target); err != nil {
-			return err
-		}
-	}
-	return nil
+	return s.deleteTargets(ctx, targets)
 }
 
 // deleteCloudFileOSS 从阿里云 OSS 删除文件
@@ -207,15 +213,170 @@ func precheckDeleteTargets(ctx context.Context, targets []fileDeleteTarget) erro
 	return nil
 }
 
-func (s *sFile) deleteTarget(ctx context.Context, target fileDeleteTarget) error {
-	if err := deleteStoredFile(ctx, target.Storage, target.URL); err != nil {
+func (s *sFile) deleteTargets(ctx context.Context, targets []fileDeleteTarget) error {
+	stagedLocalDeletes, err := stageLocalDeleteTargets(targets)
+	if err != nil {
 		return err
 	}
+	deleteIDs := make([]int64, 0, len(targets))
+	for _, target := range targets {
+		deleteIDs = append(deleteIDs, target.ID)
+	}
+	if err := s.softDeleteTargets(ctx, deleteIDs); err != nil {
+		if restoreErr := restoreStagedLocalDeletes(stagedLocalDeletes); restoreErr != nil {
+			return gerror.Wrapf(err, "删除文件记录失败，且恢复本地文件失败: %v", restoreErr)
+		}
+		return err
+	}
+	return s.finalizeDeleteTargets(ctx, targets, stagedLocalDeletes)
+}
+
+func (s *sFile) softDeleteTargets(ctx context.Context, ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	return dao.UploadFile.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		_, err := tx.Model(dao.UploadFile.Table()).Ctx(ctx).
+			WhereIn(dao.UploadFile.Columns().Id, ids).
+			Where(dao.UploadFile.Columns().DeletedAt, nil).
+			Delete()
+		return err
+	})
+}
+
+func (s *sFile) restoreDeletedTargets(ctx context.Context, ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
 	_, err := dao.UploadFile.Ctx(ctx).
-		Where(dao.UploadFile.Columns().Id, target.ID).
-		Where(dao.UploadFile.Columns().DeletedAt, nil).
-		Delete()
+		Unscoped().
+		WhereIn(dao.UploadFile.Columns().Id, ids).
+		Update(dao.UploadFile.Columns().DeletedAt + "=NULL")
 	return err
+}
+
+func (s *sFile) finalizeDeleteTargets(ctx context.Context, targets []fileDeleteTarget, stagedLocalDeletes []stagedLocalDelete) error {
+	stagedMap := make(map[int64]stagedLocalDelete, len(stagedLocalDeletes))
+	for _, item := range stagedLocalDeletes {
+		stagedMap[item.RecordID] = item
+	}
+
+	var deleteErrors []string
+	for _, target := range targets {
+		if target.Storage == 1 {
+			if staged, ok := stagedMap[target.ID]; ok {
+				if err := finalizeStagedLocalDelete(staged); err != nil {
+					g.Log().Warningf(ctx, "failed to cleanup staged local file %d: %v", target.ID, err)
+				}
+			}
+			continue
+		}
+		if err := deleteStoredFile(ctx, target.Storage, target.URL); err != nil {
+			if restoreErr := s.restoreDeletedTargets(ctx, []int64{target.ID}); restoreErr != nil {
+				deleteErrors = append(deleteErrors, fmt.Sprintf("文件 %d 删除失败，且记录恢复失败: %v / %v", target.ID, err, restoreErr))
+				continue
+			}
+			deleteErrors = append(deleteErrors, fmt.Sprintf("文件 %d 删除失败，记录已恢复: %v", target.ID, err))
+		}
+	}
+
+	if len(deleteErrors) > 0 {
+		return gerror.New(strings.Join(deleteErrors, "; "))
+	}
+	return nil
+}
+
+func stageLocalDeleteTargets(targets []fileDeleteTarget) ([]stagedLocalDelete, error) {
+	staged := make([]stagedLocalDelete, 0, len(targets))
+	for _, target := range targets {
+		if target.Storage != 1 {
+			continue
+		}
+		item, err := stageLocalDeleteTarget(target)
+		if err != nil {
+			if restoreErr := restoreStagedLocalDeletes(staged); restoreErr != nil {
+				return nil, gerror.Newf("准备删除本地文件失败: %v；恢复已暂存文件失败: %v", err, restoreErr)
+			}
+			return nil, err
+		}
+		if item.RecordID > 0 {
+			staged = append(staged, item)
+		}
+	}
+	return staged, nil
+}
+
+func stageLocalDeleteTarget(target fileDeleteTarget) (stagedLocalDelete, error) {
+	if strings.TrimSpace(target.URL) == "" {
+		return stagedLocalDelete{}, nil
+	}
+	localPath := shared.LocalStoragePhysicalPath(target.URL)
+	if _, err := os.Stat(localPath); err != nil {
+		if os.IsNotExist(err) {
+			return stagedLocalDelete{}, nil
+		}
+		return stagedLocalDelete{}, fmt.Errorf("读取本地文件失败: %w", err)
+	}
+
+	stagedPath := buildLocalDeleteStagePath(target.ID, localPath)
+	if err := os.MkdirAll(filepath.Dir(stagedPath), 0o755); err != nil {
+		return stagedLocalDelete{}, fmt.Errorf("创建本地删除暂存目录失败: %w", err)
+	}
+	if err := os.Rename(localPath, stagedPath); err != nil {
+		return stagedLocalDelete{}, fmt.Errorf("暂存本地待删文件失败: %w", err)
+	}
+	return stagedLocalDelete{
+		RecordID:     target.ID,
+		OriginalPath: localPath,
+		StagedPath:   stagedPath,
+	}, nil
+}
+
+func buildLocalDeleteStagePath(recordID int64, localPath string) string {
+	return filepath.Join(
+		shared.DefaultLocalStoragePath,
+		".trash",
+		strconv.FormatInt(time.Now().UnixNano(), 10),
+		fmt.Sprintf("%d-%s", recordID, filepath.Base(localPath)),
+	)
+}
+
+func restoreStagedLocalDeletes(staged []stagedLocalDelete) error {
+	for i := len(staged) - 1; i >= 0; i-- {
+		if err := restoreStagedLocalDelete(staged[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func restoreStagedLocalDelete(staged stagedLocalDelete) error {
+	if staged.OriginalPath == "" || staged.StagedPath == "" {
+		return nil
+	}
+	if _, err := os.Stat(staged.StagedPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("读取本地暂存文件失败: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(staged.OriginalPath), 0o755); err != nil {
+		return fmt.Errorf("恢复本地文件目录失败: %w", err)
+	}
+	if err := os.Rename(staged.StagedPath, staged.OriginalPath); err != nil {
+		return fmt.Errorf("恢复本地文件失败: %w", err)
+	}
+	return nil
+}
+
+func finalizeStagedLocalDelete(staged stagedLocalDelete) error {
+	if staged.StagedPath == "" {
+		return nil
+	}
+	if err := os.Remove(staged.StagedPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("清理本地暂存文件失败: %w", err)
+	}
+	return nil
 }
 
 func (s *sFile) loadDeleteTargets(ctx context.Context, ids []snowflake.JsonInt64) ([]fileDeleteTarget, error) {

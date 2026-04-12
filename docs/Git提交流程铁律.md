@@ -47,9 +47,16 @@
 
 ## Hook 现状
 
+- `pre-commit`：执行 `bash ./scripts/verify-baseadmin-scope.sh`
 - `pre-commit`：执行 `bash ./scripts/verify-vben-pages.sh`
-- `pre-push`：执行 `cd admin-go && go test ./...`
-- `pre-push`：执行 `cd admin-go/codegen && go test ./...`
-- `pre-push`：再次执行 `bash ./scripts/verify-vben-pages.sh`
-- `pre-push`：执行 `cd vue-vben-admin && pnpm -F @vben/web-antd typecheck`
-- `pre-push`：执行 `cd vue-vben-admin && pnpm test:web-antd`
+- `pre-push`：执行 `bash ./scripts/verify-baseadmin-scope.sh`
+- `pre-push`：执行 `cd admin-go && ../scripts/run-go-task-with-limits.sh go test ./...`
+- `pre-push`：执行 `cd admin-go/codegen && ../../scripts/run-go-task-with-limits.sh go test ./...`
+- `pre-push`：执行 `bash ./scripts/verify-vben-pages.sh`
+- `pre-push`：执行 `bash ./scripts/run-node-task-with-limits.sh pnpm -C vue-vben-admin -F @vben/web-antd typecheck`
+- `pre-push`：执行 `bash ./scripts/run-node-task-with-limits.sh pnpm -C vue-vben-admin test:web-antd`
+
+说明：
+
+- Go / Node 重任务不再裸跑，统一通过负载守卫脚本执行
+- 默认 CPU 阈值是高于 `80%` 暂停，回落到 `50%` 恢复，可通过环境变量调整

@@ -53,6 +53,9 @@ func (s *sUsers) Create(ctx context.Context, in *model.UsersCreateInput) error {
 	if err := s.ensureAdminRoleGrantAllowed(ctx, roleIDs); err != nil {
 		return err
 	}
+	if err := s.ensureRoleIDsAssignable(ctx, roleIDs); err != nil {
+		return err
+	}
 	id := snowflake.Generate()
 	if err := password.ValidatePolicy(in.Password); err != nil {
 		return gerror.New(err.Error())
@@ -120,6 +123,9 @@ func (s *sUsers) Update(ctx context.Context, in *model.UsersUpdateInput) error {
 	if err := s.ensureAdminRoleUserManageAllowed(ctx, hasAdminRole); err != nil {
 		return err
 	}
+	if err := s.ensureUserRolesManageable(ctx, in.ID); err != nil {
+		return err
+	}
 	if in.Status == 0 && isBuiltinAdmin {
 		return gerror.New("内置管理员账号不能禁用")
 	}
@@ -145,6 +151,9 @@ func (s *sUsers) Update(ctx context.Context, in *model.UsersUpdateInput) error {
 			return err
 		}
 		if err := s.ensureAdminRoleGrantAllowed(ctx, roleIDs); err != nil {
+			return err
+		}
+		if err := s.ensureRoleIDsAssignable(ctx, roleIDs); err != nil {
 			return err
 		}
 		if isBuiltinAdmin {
@@ -264,6 +273,9 @@ func (s *sUsers) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if err := s.ensureAdminRoleUserManageAllowed(ctx, hasAdminRole); err != nil {
 		return err
 	}
+	if err := s.ensureUserRolesManageable(ctx, id); err != nil {
+		return err
+	}
 	// 内置管理员不可删除
 	isAdmin, err := s.isBuiltinAdmin(ctx, id)
 	if err != nil {
@@ -335,6 +347,9 @@ func (s *sUsers) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) err
 			return err
 		}
 		if err := s.ensureAdminRoleUserManageAllowed(ctx, hasAdminRole); err != nil {
+			return err
+		}
+		if err := s.ensureUserRolesManageable(ctx, snowflake.JsonInt64(item.Id)); err != nil {
 			return err
 		}
 	}
@@ -477,6 +492,9 @@ func (s *sUsers) ResetPassword(ctx context.Context, in *model.UsersResetPassword
 		return err
 	}
 	if err := s.ensureAdminRoleUserManageAllowed(ctx, hasAdminRole); err != nil {
+		return err
+	}
+	if err := s.ensureUserRolesManageable(ctx, in.ID); err != nil {
 		return err
 	}
 	hashedPassword, err := password.Hash(in.Password)
@@ -659,6 +677,20 @@ func (s *sUsers) ensureAdminRoleGrantAllowed(ctx context.Context, roleIDs []snow
 	return validateAdminRoleGrantAllowed(assignsAdminRole, actorHasAdmin)
 }
 
+func (s *sUsers) ensureRoleIDsAssignable(ctx context.Context, roleIDs []snowflake.JsonInt64) error {
+	if len(roleIDs) == 0 {
+		return nil
+	}
+	assignableRoleIDs, err := shared.LoadCurrentActorAssignableRoleIDs(ctx)
+	if err != nil {
+		return err
+	}
+	if shared.RoleIDsWithinScope(batchutil.ToInt64s(roleIDs), assignableRoleIDs) {
+		return nil
+	}
+	return gerror.New("包含无权分配的角色")
+}
+
 func (s *sUsers) ensureBuiltinAdminManageAllowed(ctx context.Context, isBuiltinAdmin bool) error {
 	if !isBuiltinAdmin {
 		return nil
@@ -710,6 +742,47 @@ func (s *sUsers) userHasAdminRole(ctx context.Context, userID snowflake.JsonInt6
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (s *sUsers) ensureUserRolesManageable(ctx context.Context, userID snowflake.JsonInt64) error {
+	roleIDs, err := s.loadUserActiveRoleIDs(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if len(roleIDs) == 0 {
+		return nil
+	}
+	assignableRoleIDs, err := shared.LoadCurrentActorAssignableRoleIDs(ctx)
+	if err != nil {
+		return err
+	}
+	if shared.RoleIDsWithinScope(roleIDs, assignableRoleIDs) {
+		return nil
+	}
+	return gerror.New("用户存在不可管理的角色")
+}
+
+func (s *sUsers) loadUserActiveRoleIDs(ctx context.Context, userID snowflake.JsonInt64) ([]int64, error) {
+	if userID <= 0 {
+		return nil, nil
+	}
+	var rows []struct {
+		RoleId int64 `json:"roleId"`
+	}
+	if err := dao.UserRole.Ctx(ctx).
+		LeftJoin(dao.Role.Table(), dao.Role.Table()+"."+dao.Role.Columns().Id+"="+dao.UserRole.Table()+"."+dao.UserRole.Columns().RoleId).
+		Fields(dao.UserRole.Table()+"."+dao.UserRole.Columns().RoleId+" AS roleId").
+		Where(dao.UserRole.Table()+"."+dao.UserRole.Columns().UserId, userID).
+		Where(dao.Role.Table()+"."+dao.Role.Columns().DeletedAt, nil).
+		Where(dao.Role.Table()+"."+dao.Role.Columns().Status, 1).
+		Scan(&rows); err != nil {
+		return nil, err
+	}
+	roleIDs := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		roleIDs = append(roleIDs, row.RoleId)
+	}
+	return roleIDs, nil
 }
 
 func (s *sUsers) normalizeRoleIDs(ctx context.Context, roleIDs []snowflake.JsonInt64) ([]snowflake.JsonInt64, error) {

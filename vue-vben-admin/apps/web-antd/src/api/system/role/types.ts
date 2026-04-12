@@ -29,6 +29,7 @@ export interface RoleTreeParams {
   keyword?: string;
   dataScope?: number;
   status?: number;
+  assignableOnly?: boolean;
 }
 
 /** 角色表创建参数 */

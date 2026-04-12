@@ -306,6 +306,17 @@ func (s *sRole) Tree(ctx context.Context, in *model.RoleTreeInput) (tree []*mode
 	m := dao.Role.Ctx(ctx).Where(dao.Role.Columns().DeletedAt, nil)
 	if in != nil {
 		normalizeRoleTreeInput(in)
+		if in.AssignableOnly {
+			assignableRoleIDs, assignErr := shared.LoadCurrentActorAssignableRoleIDs(ctx)
+			if assignErr != nil {
+				return nil, assignErr
+			}
+			if len(assignableRoleIDs) == 0 {
+				return nil, nil
+			}
+			m = m.WhereIn(dao.Role.Columns().Id, assignableRoleIDs).
+				Where(dao.Role.Columns().Status, 1)
+		}
 		if in.Keyword != "" {
 			m = m.WhereLike(dao.Role.Columns().Title, "%"+in.Keyword+"%")
 		}
@@ -471,6 +482,9 @@ func (s *sRole) GrantDept(ctx context.Context, in *model.RoleGrantDeptInput) err
 	if err != nil {
 		return err
 	}
+	if err := s.ensureDeptGrantIDsAccessible(ctx, deptIDs); err != nil {
+		return err
+	}
 	if in.DataScope != 5 {
 		deptIDs = nil
 	}
@@ -622,6 +636,19 @@ func (s *sRole) normalizeDeptIDs(ctx context.Context, deptIDs []snowflake.JsonIn
 		return nil, gerror.New("部门不存在或已删除")
 	}
 	return normalized, nil
+}
+
+func (s *sRole) ensureDeptGrantIDsAccessible(ctx context.Context, deptIDs []snowflake.JsonInt64) error {
+	for _, deptID := range deptIDs {
+		allowed, err := shared.CanAccessDept(ctx, int64(deptID))
+		if err != nil {
+			return err
+		}
+		if !allowed {
+			return gerror.New("包含无权授权的部门")
+		}
+	}
+	return nil
 }
 
 func (s *sRole) getRoleUserIDs(ctx context.Context, roleID snowflake.JsonInt64) ([]int64, error) {

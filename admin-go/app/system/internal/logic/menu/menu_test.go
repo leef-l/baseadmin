@@ -57,16 +57,38 @@ func TestMenuInputValidation(t *testing.T) {
 	if err := menuSvc.Update(nil, &model.MenuUpdateInput{ID: 1, Title: " "}); err == nil || err.Error() != "菜单名称不能为空" {
 		t.Fatalf("Update blank title mismatch: %v", err)
 	}
-	if err := validateMenuFields("系统管理", 0, 1, 0, 1, 1); err == nil || err.Error() != "菜单类型值不合法" {
+	if err := validateMenuFields("系统管理", 0, "", "", "", "", 1, 0, 1, 1); err == nil || err.Error() != "菜单类型值不合法" {
 		t.Fatalf("validateMenuFields invalid type mismatch: %v", err)
 	}
-	if err := validateMenuFields("系统管理", 1, 1, 0, 1, -1); err == nil || err.Error() != "排序不能小于0" {
+	if err := validateMenuFields("系统管理", 1, "/system", "", "", "", 1, 0, 1, -1); err == nil || err.Error() != "排序不能小于0" {
 		t.Fatalf("validateMenuFields negative sort mismatch: %v", err)
 	}
-	if err := validateMenuFields("系统管理", 1, 3, 0, 1, 0); err == nil || err.Error() != "是否显示值不合法" {
+	if err := validateMenuFields("系统管理", 1, "/system", "", "", "", 3, 0, 1, 0); err == nil || err.Error() != "是否显示值不合法" {
 		t.Fatalf("validateMenuFields invalid isShow mismatch: %v", err)
+	}
+	if err := validateMenuFields("菜单", 2, "/system/menu", "", "", "", 1, 0, 1, 0); err == nil || err.Error() != "菜单类型必须填写前端组件路径" {
+		t.Fatalf("validateMenuFields missing component mismatch: %v", err)
+	}
+	if err := validateMenuFields("按钮", 3, "", "", "", "", 1, 0, 1, 0); err == nil || err.Error() != "按钮类型必须填写权限标识" {
+		t.Fatalf("validateMenuFields missing permission mismatch: %v", err)
+	}
+	if err := validateMenuFields("外链", 4, "/docs", "", "", "", 1, 0, 1, 0); err == nil || err.Error() != "外链/内链类型必须填写地址" {
+		t.Fatalf("validateMenuFields missing linkURL mismatch: %v", err)
+	}
+	if err := validateMenuFields("目录", 1, "system", "", "", "", 1, 0, 1, 0); err == nil || err.Error() != "前端路由路径必须以 / 开头" {
+		t.Fatalf("validateMenuFields invalid path prefix mismatch: %v", err)
 	}
 	if _, err := menuSvc.Detail(nil, 0); err == nil || err.Error() != "菜单不存在或已删除" {
 		t.Fatalf("Detail invalid id mismatch: %v", err)
+	}
+}
+
+func TestNormalizeMenuTypeFields(t *testing.T) {
+	path := "/system/button"
+	component := "system/button/index"
+	linkURL := "https://example.com"
+	normalizeMenuTypeFields(3, &path, &component, &linkURL)
+	if path != "" || component != "" || linkURL != "" {
+		t.Fatalf("normalizeMenuTypeFields button mismatch: path=%q component=%q linkURL=%q", path, component, linkURL)
 	}
 }

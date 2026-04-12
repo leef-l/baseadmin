@@ -2,8 +2,11 @@ package file
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
+	uploadshared "gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model"
 	"gbaseadmin/app/upload/internal/model/entity"
 )
@@ -248,5 +251,67 @@ func TestOrderDeleteTargetsKeepsRequestOrder(t *testing.T) {
 	}
 	if ordered[0].ID != 3 || ordered[1].ID != 7 || ordered[2].ID != 9 {
 		t.Fatalf("orderDeleteTargets order mismatch: %+v", ordered)
+	}
+}
+
+func TestStageAndRestoreLocalDeleteTarget(t *testing.T) {
+	fileURL := "/upload/test-file-delete/stage/demo.txt"
+	localPath := uploadshared.LocalStoragePhysicalPath(fileURL)
+	if err := os.MkdirAll(filepath.Dir(localPath), 0o755); err != nil {
+		t.Fatalf("mkdir mismatch: %v", err)
+	}
+	if err := os.WriteFile(localPath, []byte("demo"), 0o644); err != nil {
+		t.Fatalf("write mismatch: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.RemoveAll(filepath.Join(uploadshared.DefaultLocalStoragePath, "test-file-delete"))
+		_ = os.RemoveAll(filepath.Join(uploadshared.DefaultLocalStoragePath, ".trash"))
+	})
+
+	staged, err := stageLocalDeleteTarget(fileDeleteTarget{ID: 42, URL: fileURL, Storage: 1})
+	if err != nil {
+		t.Fatalf("stageLocalDeleteTarget mismatch: %v", err)
+	}
+	if _, err := os.Stat(localPath); !os.IsNotExist(err) {
+		t.Fatalf("original file should be moved away, err=%v", err)
+	}
+	if _, err := os.Stat(staged.StagedPath); err != nil {
+		t.Fatalf("staged file should exist: %v", err)
+	}
+
+	if err := restoreStagedLocalDeletes([]stagedLocalDelete{staged}); err != nil {
+		t.Fatalf("restoreStagedLocalDeletes mismatch: %v", err)
+	}
+	if _, err := os.Stat(localPath); err != nil {
+		t.Fatalf("restored file should exist: %v", err)
+	}
+}
+
+func TestFinalizeStagedLocalDeleteRemovesStagedFile(t *testing.T) {
+	fileURL := "/upload/test-file-delete/finalize/demo.txt"
+	localPath := uploadshared.LocalStoragePhysicalPath(fileURL)
+	if err := os.MkdirAll(filepath.Dir(localPath), 0o755); err != nil {
+		t.Fatalf("mkdir mismatch: %v", err)
+	}
+	if err := os.WriteFile(localPath, []byte("demo"), 0o644); err != nil {
+		t.Fatalf("write mismatch: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.RemoveAll(filepath.Join(uploadshared.DefaultLocalStoragePath, "test-file-delete"))
+		_ = os.RemoveAll(filepath.Join(uploadshared.DefaultLocalStoragePath, ".trash"))
+	})
+
+	staged, err := stageLocalDeleteTarget(fileDeleteTarget{ID: 99, URL: fileURL, Storage: 1})
+	if err != nil {
+		t.Fatalf("stageLocalDeleteTarget mismatch: %v", err)
+	}
+	if err := finalizeStagedLocalDelete(staged); err != nil {
+		t.Fatalf("finalizeStagedLocalDelete mismatch: %v", err)
+	}
+	if _, err := os.Stat(staged.StagedPath); !os.IsNotExist(err) {
+		t.Fatalf("staged file should be removed, err=%v", err)
+	}
+	if _, err := os.Stat(localPath); !os.IsNotExist(err) {
+		t.Fatalf("original file should stay removed after finalize, err=%v", err)
 	}
 }

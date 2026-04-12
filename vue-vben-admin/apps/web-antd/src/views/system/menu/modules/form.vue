@@ -30,6 +30,69 @@ const emit = defineEmits<{ success: [] }>();
 const isEdit = ref(false);
 const editId = ref('');
 const openToken = ref(0);
+const routeMenuTypes = new Set([1, 2, 4, 5]);
+
+function normalizeText(value?: string) {
+  return value?.trim() ?? '';
+}
+
+function normalizeMenuValues(values: MenuCreateParams): MenuCreateParams {
+  const type = Number(values.type ?? 0);
+  const normalized: MenuCreateParams = {
+    ...values,
+    title: normalizeText(values.title),
+    path: normalizeText(values.path),
+    component: normalizeText(values.component),
+    permission: normalizeText(values.permission),
+    icon: normalizeText(values.icon),
+    linkURL: normalizeText(values.linkURL),
+  };
+
+  switch (type) {
+    case 1: {
+      normalized.component = '';
+      normalized.linkURL = '';
+      break;
+    }
+    case 2: {
+      normalized.linkURL = '';
+      break;
+    }
+    case 3: {
+      normalized.path = '';
+      normalized.component = '';
+      normalized.linkURL = '';
+      break;
+    }
+  }
+
+  return normalized;
+}
+
+function validateMenuValues(values: MenuCreateParams) {
+  const type = Number(values.type ?? 0);
+  const path = normalizeText(values.path);
+  const component = normalizeText(values.component);
+  const permission = normalizeText(values.permission);
+  const linkURL = normalizeText(values.linkURL);
+
+  if (routeMenuTypes.has(type) && !path) {
+    return '当前菜单类型必须填写前端路由路径';
+  }
+  if (routeMenuTypes.has(type) && !path.startsWith('/')) {
+    return '前端路由路径必须以 / 开头';
+  }
+  if (type === 2 && !component) {
+    return '菜单类型必须填写前端组件路径';
+  }
+  if (type === 3 && !permission) {
+    return '按钮类型必须填写权限标识';
+  }
+  if ((type === 4 || type === 5) && !linkURL) {
+    return '外链/内链类型必须填写地址';
+  }
+  return '';
+}
 
 /** 表单配置 */
 const [Form, formApi] = useVbenForm({
@@ -133,13 +196,19 @@ const [Modal, modalApi] = useVbenModal({
       | MenuCreateParams
       | undefined;
     if (!values) return;
+    const normalizedValues = normalizeMenuValues(values);
+    const validationError = validateMenuValues(normalizedValues);
+    if (validationError) {
+      message.error(validationError);
+      return;
+    }
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateMenu({ id: editId.value, ...values } as MenuUpdateParams);
+        await updateMenu({ id: editId.value, ...normalizedValues } as MenuUpdateParams);
         message.success('更新成功');
       } else {
-        await createMenu(values);
+        await createMenu(normalizedValues);
         message.success('创建成功');
       }
       emit('success');

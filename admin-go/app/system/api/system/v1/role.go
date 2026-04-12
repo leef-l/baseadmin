@@ -95,10 +95,11 @@ type RoleListRes struct {
 
 // RoleTreeReq 获取角色表树形结构请求
 type RoleTreeReq struct {
-	g.Meta    `path:"/role/tree" method:"get" tags:"角色表" summary:"获取角色表树形结构"`
-	Keyword   string `json:"keyword" dc:"关键词"`
-	DataScope int    `json:"dataScope" dc:"数据范围"`
-	Status    *int   `json:"status" dc:"状态"`
+	g.Meta         `path:"/role/tree" method:"get" tags:"角色表" summary:"获取角色表树形结构"`
+	Keyword        string `json:"keyword" dc:"关键词"`
+	DataScope      int    `json:"dataScope" dc:"数据范围"`
+	Status         *int   `json:"status" dc:"状态"`
+	AssignableOnly bool   `json:"assignableOnly" dc:"仅返回当前操作者可分配的启用角色"`
 }
 
 // RoleTreeRes 获取角色表树形结构响应
