@@ -196,15 +196,10 @@ jobs:
           set -e
           APP=system
           DEPLOY_DIR=/www/wwwroot/baseadmin.easytestdev.online
+          SERVICE_NAME=baseadmin-$APP
+          LEGACY_SERVICE_NAME=gba-$APP
 
           echo "[$APP] Stopping service..."
-          systemctl stop gba-$APP 2>/dev/null || true
-          for i in $(seq 1 10); do
-              if ! pgrep -x "$APP" >/dev/null 2>&1; then break; fi
-              sleep 1
-          done
-
-          echo "[$APP] Replacing binary..."
           mkdir -p $DEPLOY_DIR/$APP
           cp /tmp/gba_stage/$APP/$APP $DEPLOY_DIR/$APP/$APP
           chmod +x $DEPLOY_DIR/$APP/$APP
@@ -213,16 +208,44 @@ jobs:
               cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
           fi
 
+          cat > /etc/systemd/system/$SERVICE_NAME.service <<EOSERVICE
+[Unit]
+Description=GBaseAdmin $APP
+After=network.target mysql.service
+
+[Service]
+Type=simple
+WorkingDirectory=$DEPLOY_DIR/$APP
+ExecStart=$DEPLOY_DIR/$APP/$APP
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOSERVICE
+
+          systemctl daemon-reload
+          systemctl stop $SERVICE_NAME 2>/dev/null || true
+          systemctl stop $LEGACY_SERVICE_NAME 2>/dev/null || true
+          systemctl disable $LEGACY_SERVICE_NAME 2>/dev/null || true
+
+          for i in $(seq 1 10); do
+              if ! pgrep -x "$APP" >/dev/null 2>&1; then break; fi
+              sleep 1
+          done
+
           echo "[$APP] Starting service..."
-          systemctl start gba-$APP
+          systemctl enable $SERVICE_NAME
+          systemctl start $SERVICE_NAME
 
           for i in $(seq 1 8); do
-              status=$(systemctl is-active gba-$APP 2>/dev/null || echo 'unknown')
+              status=$(systemctl is-active $SERVICE_NAME 2>/dev/null || echo 'unknown')
               if [ "$status" = "active" ]; then break; fi
               sleep 1
           done
 
-          status=$(systemctl is-active gba-$APP 2>/dev/null || echo 'unknown')
+          status=$(systemctl is-active $SERVICE_NAME 2>/dev/null || echo 'unknown')
           echo "[$APP] Status: $status"
           if [ "$status" != "active" ]; then exit 1; fi
 
@@ -281,15 +304,10 @@ jobs:
           set -e
           APP=upload
           DEPLOY_DIR=/www/wwwroot/baseadmin.easytestdev.online
+          SERVICE_NAME=baseadmin-$APP
+          LEGACY_SERVICE_NAME=gba-$APP
 
           echo "[$APP] Stopping service..."
-          systemctl stop gba-$APP 2>/dev/null || true
-          for i in $(seq 1 10); do
-              if ! pgrep -x "$APP" >/dev/null 2>&1; then break; fi
-              sleep 1
-          done
-
-          echo "[$APP] Replacing binary..."
           mkdir -p $DEPLOY_DIR/$APP
           cp /tmp/gba_stage/$APP/$APP $DEPLOY_DIR/$APP/$APP
           chmod +x $DEPLOY_DIR/$APP/$APP
@@ -298,16 +316,44 @@ jobs:
               cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
           fi
 
+          cat > /etc/systemd/system/$SERVICE_NAME.service <<EOSERVICE
+[Unit]
+Description=GBaseAdmin $APP
+After=network.target mysql.service
+
+[Service]
+Type=simple
+WorkingDirectory=$DEPLOY_DIR/$APP
+ExecStart=$DEPLOY_DIR/$APP/$APP
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOSERVICE
+
+          systemctl daemon-reload
+          systemctl stop $SERVICE_NAME 2>/dev/null || true
+          systemctl stop $LEGACY_SERVICE_NAME 2>/dev/null || true
+          systemctl disable $LEGACY_SERVICE_NAME 2>/dev/null || true
+
+          for i in $(seq 1 10); do
+              if ! pgrep -x "$APP" >/dev/null 2>&1; then break; fi
+              sleep 1
+          done
+
           echo "[$APP] Starting service..."
-          systemctl start gba-$APP
+          systemctl enable $SERVICE_NAME
+          systemctl start $SERVICE_NAME
 
           for i in $(seq 1 8); do
-              status=$(systemctl is-active gba-$APP 2>/dev/null || echo 'unknown')
+              status=$(systemctl is-active $SERVICE_NAME 2>/dev/null || echo 'unknown')
               if [ "$status" = "active" ]; then break; fi
               sleep 1
           done
 
-          status=$(systemctl is-active gba-$APP 2>/dev/null || echo 'unknown')
+          status=$(systemctl is-active $SERVICE_NAME 2>/dev/null || echo 'unknown')
           echo "[$APP] Status: $status"
           if [ "$status" != "active" ]; then exit 1; fi
 
@@ -428,8 +474,8 @@ jobs:
           set -e
           echo "===== Service Status ====="
           for app in system upload; do
-              status=$(systemctl is-active gba-$app 2>/dev/null || echo "unknown")
-              echo "gba-$app: $status"
+              status=$(systemctl is-active baseadmin-$app 2>/dev/null || echo "unknown")
+              echo "baseadmin-$app: $status"
           done
           echo "===== Health Checks ====="
           curl --silent --show-error --fail http://127.0.0.1:10022/readyz >/dev/null && echo "system ready: ok"

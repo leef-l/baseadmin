@@ -22,6 +22,7 @@
 - [Upload 应用说明](admin-go/app/upload/README.MD)
 - [代码生成器说明](admin-go/codegen/README.md)
 - [Docker 开发说明](docs/Docker开发说明.md)
+- [生产运维说明](docs/生产运维说明.md)
 - [Git 提交流程铁律](docs/Git提交流程铁律.md)
 
 Docker 开发入口已迁移到根目录：
@@ -53,6 +54,8 @@ Docker 铁律：
 默认只拉起后端、数据库和 adminer；前端需要显式启用 `frontend` profile。默认开发账号 `admin / admin123`，常用端口 MySQL `10020`、Redis `10021`、system `10022`、upload `10023`、frontend `10024`、adminer `10025`。
 
 env 同步、国内镜像、profile、代理、初始化迁移等完整细节见 [Docker 开发说明](docs/Docker开发说明.md)。本地直跑（非 Docker）、常用排查命令同样集中在该文档。
+
+线上服务管理、GitHub Actions 部署巡检、`systemd` / Nginx / 健康检查命令见 [生产运维说明](docs/生产运维说明.md)。
 
 ## Git 提交铁律
 

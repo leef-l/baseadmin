@@ -51,6 +51,10 @@ mkdir -p "$DEPLOY_DIR/database/migrations"
 # ---------- 2. 停止旧服务 ----------
 info "停止旧服务..."
 for app in "${APPS[@]}"; do
+  if systemctl is-active "baseadmin-${app}" &>/dev/null; then
+    systemctl stop "baseadmin-${app}"
+    info "baseadmin-${app} 已停止"
+  fi
   if systemctl is-active "gba-${app}" &>/dev/null; then
     systemctl stop "gba-${app}"
     info "gba-${app} 已停止"
@@ -131,7 +135,7 @@ info "数据库迁移完成"
 info "创建 systemd 服务..."
 for i in "${!APPS[@]}"; do
   app="${APPS[$i]}"
-  cat > "/etc/systemd/system/gba-${app}.service" <<EOF
+  cat > "/etc/systemd/system/baseadmin-${app}.service" <<EOF
 [Unit]
 Description=GBaseAdmin ${app}
 After=network.target mysql.service
@@ -151,9 +155,10 @@ done
 
 systemctl daemon-reload
 for app in "${APPS[@]}"; do
-  systemctl enable "gba-${app}"
-  systemctl restart "gba-${app}"
-  info "gba-${app} 服务已启动"
+  systemctl disable --now "gba-${app}" 2>/dev/null || true
+  systemctl enable "baseadmin-${app}"
+  systemctl restart "baseadmin-${app}"
+  info "baseadmin-${app} 服务已启动"
 done
 
 # ---------- 7. 生成宝塔 Nginx 反向代理配置 ----------
@@ -276,7 +281,7 @@ info "后端部署目录: $DEPLOY_DIR"
 info "前端部署目录: $FRONTEND_DIR"
 info "服务管理:"
 for app in "${APPS[@]}"; do
-  info "  systemctl status/restart gba-${app}"
+  info "  systemctl status/restart baseadmin-${app}"
 done
 info ""
 info "前端构建后将 dist 内容复制到 $FRONTEND_DIR:"
