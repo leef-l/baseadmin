@@ -199,7 +199,7 @@ jobs:
           SERVICE_NAME=baseadmin-$APP
           LEGACY_SERVICE_NAME=gba-$APP
 
-          echo "[$APP] Stopping service..."
+          echo "[$APP] Preparing service..."
           mkdir -p $DEPLOY_DIR/$APP
           cp /tmp/gba_stage/$APP/$APP $DEPLOY_DIR/$APP/$APP
           chmod +x $DEPLOY_DIR/$APP/$APP
@@ -208,22 +208,22 @@ jobs:
               cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
           fi
 
-          cat > /etc/systemd/system/$SERVICE_NAME.service <<EOSERVICE
-[Unit]
-Description=GBaseAdmin $APP
-After=network.target mysql.service
-
-[Service]
-Type=simple
-WorkingDirectory=$DEPLOY_DIR/$APP
-ExecStart=$DEPLOY_DIR/$APP/$APP
-Restart=always
-RestartSec=5
-LimitNOFILE=65536
-
-[Install]
-WantedBy=multi-user.target
-EOSERVICE
+          printf '%s\n' \
+              '[Unit]' \
+              "Description=GBaseAdmin $APP" \
+              'After=network.target mysql.service' \
+              '' \
+              '[Service]' \
+              'Type=simple' \
+              "WorkingDirectory=$DEPLOY_DIR/$APP" \
+              "ExecStart=$DEPLOY_DIR/$APP/$APP" \
+              'Restart=always' \
+              'RestartSec=5' \
+              'LimitNOFILE=65536' \
+              '' \
+              '[Install]' \
+              'WantedBy=multi-user.target' \
+              > /etc/systemd/system/$SERVICE_NAME.service
 
           systemctl daemon-reload
           systemctl stop $SERVICE_NAME 2>/dev/null || true
@@ -307,7 +307,7 @@ EOSERVICE
           SERVICE_NAME=baseadmin-$APP
           LEGACY_SERVICE_NAME=gba-$APP
 
-          echo "[$APP] Stopping service..."
+          echo "[$APP] Preparing service..."
           mkdir -p $DEPLOY_DIR/$APP
           cp /tmp/gba_stage/$APP/$APP $DEPLOY_DIR/$APP/$APP
           chmod +x $DEPLOY_DIR/$APP/$APP
@@ -316,22 +316,22 @@ EOSERVICE
               cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
           fi
 
-          cat > /etc/systemd/system/$SERVICE_NAME.service <<EOSERVICE
-[Unit]
-Description=GBaseAdmin $APP
-After=network.target mysql.service
-
-[Service]
-Type=simple
-WorkingDirectory=$DEPLOY_DIR/$APP
-ExecStart=$DEPLOY_DIR/$APP/$APP
-Restart=always
-RestartSec=5
-LimitNOFILE=65536
-
-[Install]
-WantedBy=multi-user.target
-EOSERVICE
+          printf '%s\n' \
+              '[Unit]' \
+              "Description=GBaseAdmin $APP" \
+              'After=network.target mysql.service' \
+              '' \
+              '[Service]' \
+              'Type=simple' \
+              "WorkingDirectory=$DEPLOY_DIR/$APP" \
+              "ExecStart=$DEPLOY_DIR/$APP/$APP" \
+              'Restart=always' \
+              'RestartSec=5' \
+              'LimitNOFILE=65536' \
+              '' \
+              '[Install]' \
+              'WantedBy=multi-user.target' \
+              > /etc/systemd/system/$SERVICE_NAME.service
 
           systemctl daemon-reload
           systemctl stop $SERVICE_NAME 2>/dev/null || true
