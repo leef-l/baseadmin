@@ -146,19 +146,12 @@ func (s *sDirRule) List(ctx context.Context, in *model.DirRuleListInput) (list [
 		in = &model.DirRuleListInput{}
 	}
 	normalizeDirRuleListInput(in)
-	m := dao.UploadDirRule.Ctx(ctx).Where(dao.UploadDirRule.Columns().DeletedAt, nil)
-	if in.Keyword != "" {
-		m = m.WhereLike(dao.UploadDirRule.Columns().SavePath, "%"+in.Keyword+"%").
-			WhereOrLike(dao.UploadDirRule.Columns().FileType, "%"+in.Keyword+"%").
-			WhereOrLike(dao.UploadDirRule.Columns().StorageTypes, "%"+in.Keyword+"%")
-	}
-	if in.Category > 0 {
-		m = m.Where(dao.UploadDirRule.Columns().Category, in.Category)
-	}
-	if in.Status != nil {
-		m = m.Where(dao.UploadDirRule.Columns().Status, *in.Status)
-	}
+	m := s.buildListModel(ctx, in, true)
 	total, err = m.Count()
+	if err != nil && shouldRetryDirRuleListWithoutStorageTypes(err, in.Keyword) {
+		m = s.buildListModel(ctx, in, false)
+		total, err = m.Count()
+	}
 	if err != nil {
 		return
 	}
@@ -169,6 +162,26 @@ func (s *sDirRule) List(ctx context.Context, in *model.DirRuleListInput) (list [
 	}
 	s.fillDirNames(ctx, list)
 	return
+}
+
+func (s *sDirRule) buildListModel(ctx context.Context, in *model.DirRuleListInput, includeStorageTypes bool) *gdb.Model {
+	m := dao.UploadDirRule.Ctx(ctx).Where(dao.UploadDirRule.Columns().DeletedAt, nil)
+	if in.Keyword != "" {
+		keywordBuilder := m.Builder()
+		keywordBuilder = keywordBuilder.WhereLike(dao.UploadDirRule.Columns().SavePath, "%"+in.Keyword+"%")
+		keywordBuilder = keywordBuilder.WhereOrLike(dao.UploadDirRule.Columns().FileType, "%"+in.Keyword+"%")
+		if includeStorageTypes {
+			keywordBuilder = keywordBuilder.WhereOrLike(dao.UploadDirRule.Columns().StorageTypes, "%"+in.Keyword+"%")
+		}
+		m = m.Where(keywordBuilder)
+	}
+	if in.Category > 0 {
+		m = m.Where(dao.UploadDirRule.Columns().Category, in.Category)
+	}
+	if in.Status != nil {
+		m = m.Where(dao.UploadDirRule.Columns().Status, *in.Status)
+	}
+	return m
 }
 
 func (s *sDirRule) fillDirNames(ctx context.Context, list []*model.DirRuleListOutput) {
@@ -357,6 +370,14 @@ func normalizeDirRuleSourceMatcher(value string) string {
 		return value + "/*"
 	}
 	return value
+}
+
+func shouldRetryDirRuleListWithoutStorageTypes(err error, keyword string) bool {
+	if err == nil || strings.TrimSpace(keyword) == "" {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "unknown column") && strings.Contains(message, "storage_types")
 }
 
 func isValidDirRuleFileType(value string) bool {

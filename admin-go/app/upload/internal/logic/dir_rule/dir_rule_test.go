@@ -1,6 +1,7 @@
 package dir_rule
 
 import (
+	"errors"
 	"testing"
 
 	"gbaseadmin/app/upload/internal/model"
@@ -94,5 +95,18 @@ func TestDirRuleInputValidation(t *testing.T) {
 	}
 	if _, err := dirRuleSvc.Detail(nil, 0); err == nil || err.Error() != "目录规则不存在或已删除" {
 		t.Fatalf("Detail invalid id mismatch: %v", err)
+	}
+}
+
+func TestShouldRetryDirRuleListWithoutStorageTypes(t *testing.T) {
+	err := errors.New("SELECT COUNT(1) FROM `upload_dir_rule` WHERE `storage_types` LIKE '%demo%': Error 1054 (42S22): Unknown column 'storage_types' in 'where clause'")
+	if !shouldRetryDirRuleListWithoutStorageTypes(err, "demo") {
+		t.Fatal("expected missing storage_types column error to trigger retry")
+	}
+	if shouldRetryDirRuleListWithoutStorageTypes(err, "   ") {
+		t.Fatal("blank keyword should not trigger retry")
+	}
+	if shouldRetryDirRuleListWithoutStorageTypes(errors.New("boom"), "demo") {
+		t.Fatal("unrelated errors should not trigger retry")
 	}
 }

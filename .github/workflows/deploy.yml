@@ -185,11 +185,13 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: admin-go/go.sum
 
-      - name: Build system
+      - name: Build system and migrate
         run: |
           cd admin-go
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
             go build -ldflags "-s -w" -o system ./app/system/main.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -ldflags "-s -w" -o migrate ./cmd/migrate
 
       - name: Validate deploy SSH secret
         run: |
@@ -205,8 +207,10 @@ jobs:
         env:
           REMOTE: ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }}
         run: |
-          ssh $REMOTE "mkdir -p /tmp/gba_stage/system"
+          ssh $REMOTE "mkdir -p /tmp/gba_stage/system /tmp/gba_stage/database"
           scp admin-go/system $REMOTE:/tmp/gba_stage/system/system
+          scp admin-go/migrate $REMOTE:/tmp/gba_stage/migrate
+          scp -r admin-go/database/migrations $REMOTE:/tmp/gba_stage/database/
           scp -r admin-go/app/system/manifest $REMOTE:/tmp/gba_stage/system/
           ssh $REMOTE bash <<'EOF'
           set -e
@@ -220,6 +224,10 @@ jobs:
           echo "[$APP] Preparing service..."
           mkdir -p $DEPLOY_DIR/$APP
           install -m 0755 /tmp/gba_stage/$APP/$APP $APP_BIN_NEW
+          install -m 0755 /tmp/gba_stage/migrate $DEPLOY_DIR/migrate
+          rm -rf $DEPLOY_DIR/database/migrations
+          mkdir -p $DEPLOY_DIR/database
+          cp -r /tmp/gba_stage/database/migrations $DEPLOY_DIR/database/
 
           if [ ! -d $DEPLOY_DIR/$APP/manifest ]; then
               cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
@@ -258,6 +266,9 @@ jobs:
               '[Install]' \
               'WantedBy=multi-user.target' \
               > /etc/systemd/system/$SERVICE_NAME.service
+
+          echo "[$APP] Running database migrations..."
+          $DEPLOY_DIR/migrate --config $DEPLOY_DIR/$APP/manifest/config/config.yaml --dir $DEPLOY_DIR/database/migrations up
 
           systemctl daemon-reload
           systemctl stop $SERVICE_NAME 2>/dev/null || true
@@ -308,7 +319,7 @@ jobs:
           done
           curl --silent --show-error --fail "$HEALTH_URL" >/dev/null
 
-          rm -rf /tmp/gba_stage/$APP
+          rm -rf /tmp/gba_stage/$APP /tmp/gba_stage/database /tmp/gba_stage/migrate
           EOF
 
   deploy-upload:
@@ -364,6 +375,7 @@ jobs:
           echo "[$APP] Preparing service..."
           mkdir -p $DEPLOY_DIR/$APP
           install -m 0755 /tmp/gba_stage/$APP/$APP $APP_BIN_NEW
+          mkdir -p $DEPLOY_DIR/$APP/resource/upload
 
           if [ ! -d $DEPLOY_DIR/$APP/manifest ]; then
               cp -r /tmp/gba_stage/$APP/manifest $DEPLOY_DIR/$APP/
@@ -559,6 +571,54 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ env.SERVER_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Ensure upload static mapping
+        run: |
+          ssh ${{ env.SERVER_USER }}@${{ env.SERVER_HOST }} 'bash -s' <<'EOF'
+          set -e
+          NGINX_CONF=/www/server/panel/vhost/nginx/baseadmin.easytestdev.online.conf
+          if [ ! -f "$NGINX_CONF" ]; then
+              echo "nginx config not found: $NGINX_CONF" >&2
+              exit 1
+          fi
+
+          if ! grep -Fq 'location ^~ /upload/' "$NGINX_CONF"; then
+              BLOCK_FILE=$(mktemp)
+              TMP_CONF=$(mktemp)
+              cat > "$BLOCK_FILE" <<'BLOCK'
+              location ^~ /upload/ {
+                  alias /www/wwwroot/baseadmin.easytestdev.online/upload/resource/upload/;
+                  expires 30d;
+                  add_header Cache-Control "public";
+                  access_log off;
+              }
+
+BLOCK
+              awk -v block_file="$BLOCK_FILE" '
+              function print_block() {
+                  while ((getline line < block_file) > 0) {
+                      print line
+                  }
+                  close(block_file)
+              }
+              /location \/api\/upload\/ \{/ && !inserted {
+                  print_block()
+                  inserted = 1
+              }
+              { print }
+              END {
+                  if (!inserted) {
+                      print_block()
+                  }
+              }
+              ' "$NGINX_CONF" > "$TMP_CONF"
+              mv "$TMP_CONF" "$NGINX_CONF"
+              rm -f "$BLOCK_FILE"
+          fi
+
+          nginx -t
+          systemctl reload nginx 2>/dev/null || nginx -s reload
+          EOF
+
       - name: Check service status
         env:
           SYSTEM_DEPLOY_RESULT: ${{ needs.deploy-system.result }}
@@ -586,6 +646,55 @@ jobs:
           else
             echo "upload ready check skipped ($UPLOAD_DEPLOY_RESULT)"
           fi
+
+      - name: Smoke test live upload path
+        if: |
+          needs.deploy-upload.result == 'success' ||
+          needs.deploy-upload.result == 'skipped'
+        run: |
+          set -euo pipefail
+          BASE_URL=https://${{ env.SERVER_HOST }}/api
+          TMP_FILE=$(mktemp)
+          FILE_ID=""
+          cleanup() {
+            if [ -n "$FILE_ID" ]; then
+              curl --silent --show-error \
+                -X DELETE \
+                -H "Authorization: Bearer $TOKEN" \
+                -H 'Content-Type: application/json' \
+                -d "{\"id\":\"$FILE_ID\"}" \
+                "$BASE_URL/upload/file/delete" >/dev/null || true
+            fi
+            rm -f "$TMP_FILE"
+          }
+          trap cleanup EXIT
+
+          LOGIN_JSON=$(curl --silent --show-error --fail \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"admin","password":"admin123"}' \
+            "$BASE_URL/system/auth/login")
+          TOKEN=$(printf '%s' "$LOGIN_JSON" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+          test -n "$TOKEN"
+
+          curl --silent --show-error --fail \
+            -H "Authorization: Bearer $TOKEN" \
+            "$BASE_URL/upload/dir_rule/list?pageNum=1&pageSize=1&keyword=smoke" >/dev/null
+          echo "dir_rule list smoke: ok"
+
+          printf 'deploy smoke %s\n' "$(date -u +%FT%TZ)" > "$TMP_FILE"
+          UPLOAD_JSON=$(curl --silent --show-error --fail \
+            -H "Authorization: Bearer $TOKEN" \
+            -F "file=@$TMP_FILE;type=text/plain" \
+            "$BASE_URL/upload/uploader/upload")
+
+          FILE_ID=$(printf '%s' "$UPLOAD_JSON" | sed -n 's/.*"id":"\([0-9]*\)".*/\1/p')
+          FILE_URL=$(printf '%s' "$UPLOAD_JSON" | sed -n 's/.*"url":"\([^"]*\)".*/\1/p')
+          test -n "$FILE_ID"
+          test -n "$FILE_URL"
+
+          curl --silent --show-error --fail --head \
+            "https://${{ env.SERVER_HOST }}$FILE_URL" >/dev/null
+          echo "public upload url smoke: ok"
 
       - name: Summary
         run: |
