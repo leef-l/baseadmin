@@ -27,6 +27,19 @@ env:
   DEPLOY_DIR: /www/wwwroot/baseadmin.easytestdev.online
   GO_VERSION: '1.25.0'
   NODE_VERSION: '22.18.0'
+  PNPM_NETWORK_CONCURRENCY: '3'
+  PNPM_CHILD_CONCURRENCY: '1'
+  FRONTEND_NODE_MAX_OLD_SPACE_SIZE: '2048'
+  BACKEND_SERVICE_TASKS_MAX: '512'
+  BACKEND_SERVICE_NICE: '5'
+  BACKEND_SYSTEM_MEMORY_HIGH: '384M'
+  BACKEND_SYSTEM_MEMORY_MAX: '640M'
+  BACKEND_SYSTEM_CPU_QUOTA: '80%'
+  BACKEND_SYSTEM_OOM_SCORE_ADJUST: '200'
+  BACKEND_UPLOAD_MEMORY_HIGH: '256M'
+  BACKEND_UPLOAD_MEMORY_MAX: '384M'
+  BACKEND_UPLOAD_CPU_QUOTA: '50%'
+  BACKEND_UPLOAD_OOM_SCORE_ADJUST: '300'
 
 jobs:
   # ============================================
@@ -178,6 +191,9 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
             go build -ldflags "-s -w" -o system ./app/system/main.go
 
+      - name: Validate deploy SSH secret
+        run: |
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}"
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -217,6 +233,15 @@ jobs:
               'Type=simple' \
               "WorkingDirectory=$DEPLOY_DIR/$APP" \
               "ExecStart=$DEPLOY_DIR/$APP/$APP" \
+              'MemoryAccounting=true' \
+              'CPUAccounting=true' \
+              'TasksAccounting=true' \
+              "MemoryHigh=${{ env.BACKEND_SYSTEM_MEMORY_HIGH }}" \
+              "MemoryMax=${{ env.BACKEND_SYSTEM_MEMORY_MAX }}" \
+              "CPUQuota=${{ env.BACKEND_SYSTEM_CPU_QUOTA }}" \
+              "TasksMax=${{ env.BACKEND_SERVICE_TASKS_MAX }}" \
+              "Nice=${{ env.BACKEND_SERVICE_NICE }}" \
+              "OOMScoreAdjust=${{ env.BACKEND_SYSTEM_OOM_SCORE_ADJUST }}" \
               'Restart=always' \
               'RestartSec=5' \
               'LimitNOFILE=65536' \
@@ -286,6 +311,9 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
             go build -ldflags "-s -w" -o upload ./app/upload/main.go
 
+      - name: Validate deploy SSH secret
+        run: |
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}"
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -325,6 +353,15 @@ jobs:
               'Type=simple' \
               "WorkingDirectory=$DEPLOY_DIR/$APP" \
               "ExecStart=$DEPLOY_DIR/$APP/$APP" \
+              'MemoryAccounting=true' \
+              'CPUAccounting=true' \
+              'TasksAccounting=true' \
+              "MemoryHigh=${{ env.BACKEND_UPLOAD_MEMORY_HIGH }}" \
+              "MemoryMax=${{ env.BACKEND_UPLOAD_MEMORY_MAX }}" \
+              "CPUQuota=${{ env.BACKEND_UPLOAD_CPU_QUOTA }}" \
+              "TasksMax=${{ env.BACKEND_SERVICE_TASKS_MAX }}" \
+              "Nice=${{ env.BACKEND_SERVICE_NICE }}" \
+              "OOMScoreAdjust=${{ env.BACKEND_UPLOAD_OOM_SCORE_ADJUST }}" \
               'Restart=always' \
               'RestartSec=5' \
               'LimitNOFILE=65536' \
@@ -409,6 +446,9 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm build:antd
 
+      - name: Validate deploy SSH secret
+        run: |
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}"
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -461,6 +501,9 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - name: Validate deploy SSH secret
+        run: |
+          test -n "${{ secrets.DEPLOY_SSH_KEY }}"
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
