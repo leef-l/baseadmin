@@ -592,7 +592,7 @@ jobs:
                   access_log off;
               }
 
-BLOCK
+              BLOCK
               awk -v block_file="$BLOCK_FILE" '
               function print_block() {
                   while ((getline line < block_file) > 0) {
