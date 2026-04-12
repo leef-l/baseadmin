@@ -83,6 +83,24 @@ func TestSelectUploadRulePathPrefersSourceRule(t *testing.T) {
 	}
 }
 
+func TestSelectUploadRuleReturnsMatchedDirID(t *testing.T) {
+	rules := []*entity.UploadDirRule{
+		{Id: 1, DirId: 11, Category: 1, StorageTypes: "1", SavePath: "local/default/{Y-m-d}"},
+		{Id: 2, DirId: 22, Category: 3, FileType: "/system/users/*", StorageTypes: "1", SavePath: "routes/users/{Y-m-d}"},
+	}
+
+	got := selectUploadRule(rules, 1, ".DOC", "/system/users/edit")
+	if got == nil {
+		t.Fatal("expected selectUploadRule to return matched rule")
+	}
+	if int64(got.DirId) != 22 {
+		t.Fatalf("selectUploadRule dir mismatch: %d", got.DirId)
+	}
+	if got.SavePath != "routes/users/{Y-m-d}" {
+		t.Fatalf("selectUploadRule savePath mismatch: %q", got.SavePath)
+	}
+}
+
 func TestSelectUploadRulePathFallsBackToDefaultRule(t *testing.T) {
 	rules := []*entity.UploadDirRule{
 		{Category: 1, StorageTypes: "2,3", SavePath: "cloud/default/{Y-m-d}"},

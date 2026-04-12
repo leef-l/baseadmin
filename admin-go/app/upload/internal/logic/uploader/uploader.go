@@ -86,7 +86,7 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 	}
 
 	// 始终先保存到本地临时目录，云存储场景下上传后再清理
-	relativeDir, savePath, err := resolveUploadSavePath(ctx, cfg, dirId, fileMeta.Ext, source, now)
+	resolvedDirID, relativeDir, savePath, err := resolveUploadSavePath(ctx, cfg, dirId, fileMeta.Ext, source, now)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 	id := snowflake.Generate()
 	_, err = dao.UploadFile.Ctx(ctx).Data(do.UploadFile{
 		Id:      id,
-		DirId:   dirId,
+		DirId:   resolvedDirID,
 		Name:    file.Filename,
 		Url:     storeResult.FileURL,
 		Ext:     fileMeta.Ext,

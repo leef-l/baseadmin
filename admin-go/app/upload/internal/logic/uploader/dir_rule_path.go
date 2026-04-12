@@ -20,49 +20,73 @@ func resolveUploadSavePath(
 	fileExt string,
 	source string,
 	now time.Time,
-) (relativeDir string, physicalDir string, err error) {
-	relativeDir, err = resolveUploadRelativeDir(ctx, dirID, cfg.StorageType, fileExt, source, now)
+) (resolvedDirID int64, relativeDir string, physicalDir string, err error) {
+	resolvedDirID, relativeDir, err = resolveUploadRelativeDir(ctx, dirID, cfg.StorageType, fileExt, source, now)
 	if err != nil {
-		return "", "", err
+		return 0, "", "", err
 	}
 	physicalDir, ok := shared.ResolveLocalStorageDir(cfg.LocalPath, relativeDir)
 	if !ok {
-		return "", "", fmt.Errorf("保存目录超出允许范围")
+		return 0, "", "", fmt.Errorf("保存目录超出允许范围")
 	}
 	if cfg.StorageType != 1 && hasParentRelativeDir(relativeDir) {
-		return "", "", fmt.Errorf("云存储不支持父级目录规则")
+		return 0, "", "", fmt.Errorf("云存储不支持父级目录规则")
 	}
-	return relativeDir, physicalDir, nil
+	return resolvedDirID, relativeDir, physicalDir, nil
 }
 
-func resolveUploadRelativeDir(ctx context.Context, dirID int64, storageType int, fileExt, source string, now time.Time) (string, error) {
+func resolveUploadRelativeDir(ctx context.Context, dirID int64, storageType int, fileExt, source string, now time.Time) (int64, string, error) {
 	defaultDir := now.Format("2006-01-02")
-	if dirID <= 0 {
-		return defaultDir, nil
+	rules, err := loadUploadRules(ctx, dirID)
+	if err != nil {
+		return 0, "", err
 	}
 
-	var rules []*entity.UploadDirRule
-	err := dao.UploadDirRule.Ctx(ctx).
-		Where(dao.UploadDirRule.Columns().DirId, dirID).
+	selectedRule := selectUploadRule(rules, storageType, fileExt, source)
+	renderedDir := renderUploadRulePath(selectedRuleSavePath(selectedRule), now, fileExt)
+	if renderedDir == "" {
+		renderedDir = defaultDir
+	}
+	resolvedDirID := dirID
+	if selectedRule != nil && selectedRule.DirId > 0 {
+		resolvedDirID = int64(selectedRule.DirId)
+	}
+	return resolvedDirID, renderedDir, nil
+}
+
+func loadUploadRules(ctx context.Context, dirID int64) ([]*entity.UploadDirRule, error) {
+	m := dao.UploadDirRule.Ctx(ctx).
 		Where(dao.UploadDirRule.Columns().Status, 1).
 		Where(dao.UploadDirRule.Columns().DeletedAt, nil).
-		OrderAsc(dao.UploadDirRule.Columns().Id).
-		Scan(&rules)
-	if err != nil {
-		return "", fmt.Errorf("读取目录规则失败: %w", err)
+		OrderAsc(dao.UploadDirRule.Columns().Id)
+	if dirID > 0 {
+		m = m.Where(dao.UploadDirRule.Columns().DirId, dirID)
 	}
-
-	renderedDir := renderUploadRulePath(selectUploadRulePath(rules, storageType, fileExt, source), now, fileExt)
-	if renderedDir == "" {
-		return defaultDir, nil
+	var rules []*entity.UploadDirRule
+	if err := m.Scan(&rules); err != nil {
+		return nil, fmt.Errorf("读取目录规则失败: %w", err)
 	}
-	return renderedDir, nil
+	return rules, nil
 }
 
 func selectUploadRulePath(rules []*entity.UploadDirRule, storageType int, fileExt, source string) string {
+	return selectedRuleSavePath(selectUploadRule(rules, storageType, fileExt, source))
+}
+
+func selectedRuleSavePath(rule *entity.UploadDirRule) string {
+	if rule == nil {
+		return ""
+	}
+	return rule.SavePath
+}
+
+func selectUploadRule(rules []*entity.UploadDirRule, storageType int, fileExt, source string) *entity.UploadDirRule {
 	var sourcePath string
 	var typePath string
 	var defaultPath string
+	var sourceRule *entity.UploadDirRule
+	var typeRule *entity.UploadDirRule
+	var defaultRule *entity.UploadDirRule
 	normalizedExt := normalizeExt(fileExt)
 	normalizedSource := shared.NormalizeUploadRuleSource(source)
 	for _, rule := range rules {
@@ -76,24 +100,30 @@ func selectUploadRulePath(rules []*entity.UploadDirRule, storageType int, fileEx
 		case 3:
 			if sourcePath == "" && dirRuleSourceMatches(rule.FileType, normalizedSource) {
 				sourcePath = rule.SavePath
+				sourceRule = rule
 			}
 		case 2:
 			if typePath == "" && dirRuleFileTypeMatches(rule.FileType, normalizedExt) {
 				typePath = rule.SavePath
+				typeRule = rule
 			}
 		case 1:
 			if defaultPath == "" {
 				defaultPath = rule.SavePath
+				defaultRule = rule
 			}
 		}
 	}
 	if sourcePath != "" {
-		return sourcePath
+		return sourceRule
 	}
 	if typePath != "" {
-		return typePath
+		return typeRule
 	}
-	return defaultPath
+	if defaultPath != "" {
+		return defaultRule
+	}
+	return nil
 }
 
 func dirRuleSupportsStorageType(storageTypes string, storageType int) bool {

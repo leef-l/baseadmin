@@ -193,7 +193,7 @@ const [Modal, modalApi] = useVbenModal({
     if (!values) return;
     const submitValues = {
       ...values,
-      fileType: values.category === 2 ? values.fileType?.trim() : '',
+      fileType: values.category === 2 || values.category === 3 ? values.fileType?.trim() : '',
       storageTypes: stringifyStorageTypes(values.storageTypes),
     };
     modalApi.lock();
