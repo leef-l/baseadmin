@@ -12,7 +12,7 @@ packages:
   - scripts/*
   - docs
   - playground
-childConcurrency: ${PNPM_CHILD_CONCURRENCY:-1}
+childConcurrency: 1
 nodeOptions: "--max-old-space-size=${FRONTEND_NODE_MAX_OLD_SPACE_SIZE:-1024} ${FRONTEND_NODE_OPTIONS_EXTRA:- } ${NODE_OPTIONS:- }"
 allowBuilds:
   '@parcel/watcher': true
