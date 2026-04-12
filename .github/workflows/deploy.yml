@@ -602,15 +602,14 @@ jobs:
           if ! grep -Fq 'location ^~ /upload/' "$NGINX_CONF"; then
               BLOCK_FILE=$(mktemp)
               TMP_CONF=$(mktemp)
-              cat > "$BLOCK_FILE" <<'BLOCK'
-              location ^~ /upload/ {
-                  alias /www/wwwroot/baseadmin.easytestdev.online/upload/resource/upload/;
-                  expires 30d;
-                  add_header Cache-Control "public";
-                  access_log off;
-              }
-
-              BLOCK
+              printf '%s\n' \
+                  'location ^~ /upload/ {' \
+                  '    alias /www/wwwroot/baseadmin.easytestdev.online/upload/resource/upload/;' \
+                  '    expires 30d;' \
+                  '    add_header Cache-Control "public";' \
+                  '    access_log off;' \
+                  '}' \
+                  '' > "$BLOCK_FILE"
               awk -v block_file="$BLOCK_FILE" '
               function print_block() {
                   while ((getline line < block_file) > 0) {
