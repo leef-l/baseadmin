@@ -176,7 +176,13 @@ jobs:
     if: |
       needs.detect-changes.outputs.target == 'all' ||
       needs.detect-changes.outputs.target == 'backend' ||
-      (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.backend == 'true')
+      (
+        needs.detect-changes.outputs.target == 'auto' &&
+        (
+          needs.detect-changes.outputs.backend == 'true' ||
+          needs.detect-changes.outputs.infra == 'true'
+        )
+      )
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -330,7 +336,13 @@ jobs:
       (
         needs.detect-changes.outputs.target == 'all' ||
         needs.detect-changes.outputs.target == 'backend' ||
-        (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.backend == 'true')
+        (
+          needs.detect-changes.outputs.target == 'auto' &&
+          (
+            needs.detect-changes.outputs.backend == 'true' ||
+            needs.detect-changes.outputs.infra == 'true'
+          )
+        )
       )
     runs-on: ubuntu-latest
     steps:
@@ -479,7 +491,13 @@ jobs:
       (
         needs.detect-changes.outputs.target == 'all' ||
         needs.detect-changes.outputs.target == 'frontend' ||
-        (needs.detect-changes.outputs.target == 'auto' && needs.detect-changes.outputs.frontend == 'true')
+        (
+          needs.detect-changes.outputs.target == 'auto' &&
+          (
+            needs.detect-changes.outputs.frontend == 'true' ||
+            needs.detect-changes.outputs.infra == 'true'
+          )
+        )
       )
     runs-on: ubuntu-latest
     steps:
