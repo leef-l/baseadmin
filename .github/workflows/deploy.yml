@@ -265,19 +265,19 @@ jobs:
           systemctl disable $LEGACY_SERVICE_NAME 2>/dev/null || true
 
           for i in $(seq 1 10); do
-              if ! pgrep -x "$APP" >/dev/null 2>&1; then break; fi
+              if ! pgrep -f -x "$APP_BIN" >/dev/null 2>&1; then break; fi
               sleep 1
           done
 
-          if pgrep -x "$APP" >/dev/null 2>&1; then
-              pkill -TERM -x "$APP" 2>/dev/null || true
+          if pgrep -f -x "$APP_BIN" >/dev/null 2>&1; then
+              pkill -TERM -f -x "$APP_BIN" 2>/dev/null || true
               sleep 2
           fi
-          if pgrep -x "$APP" >/dev/null 2>&1; then
-              pkill -KILL -x "$APP" 2>/dev/null || true
+          if pgrep -f -x "$APP_BIN" >/dev/null 2>&1; then
+              pkill -KILL -f -x "$APP_BIN" 2>/dev/null || true
               sleep 1
           fi
-          if pgrep -x "$APP" >/dev/null 2>&1; then
+          if pgrep -f -x "$APP_BIN" >/dev/null 2>&1; then
               echo "[$APP] Process still running after stop" >&2
               exit 1
           fi
@@ -409,19 +409,19 @@ jobs:
           systemctl disable $LEGACY_SERVICE_NAME 2>/dev/null || true
 
           for i in $(seq 1 10); do
-              if ! pgrep -x "$APP" >/dev/null 2>&1; then break; fi
+              if ! pgrep -f -x "$APP_BIN" >/dev/null 2>&1; then break; fi
               sleep 1
           done
 
-          if pgrep -x "$APP" >/dev/null 2>&1; then
-              pkill -TERM -x "$APP" 2>/dev/null || true
+          if pgrep -f -x "$APP_BIN" >/dev/null 2>&1; then
+              pkill -TERM -f -x "$APP_BIN" 2>/dev/null || true
               sleep 2
           fi
-          if pgrep -x "$APP" >/dev/null 2>&1; then
-              pkill -KILL -x "$APP" 2>/dev/null || true
+          if pgrep -f -x "$APP_BIN" >/dev/null 2>&1; then
+              pkill -KILL -f -x "$APP_BIN" 2>/dev/null || true
               sleep 1
           fi
-          if pgrep -x "$APP" >/dev/null 2>&1; then
+          if pgrep -f -x "$APP_BIN" >/dev/null 2>&1; then
               echo "[$APP] Process still running after stop" >&2
               exit 1
           fi
