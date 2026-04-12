@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS upload_dir_rule (
   id bigint unsigned NOT NULL COMMENT 'ID',
   dir_id bigint unsigned NOT NULL COMMENT '目录ID',
   category tinyint(1) NOT NULL DEFAULT 1 COMMENT '类别:1=默认,2=类型,3=接口',
+  file_type varchar(255) DEFAULT '' COMMENT '文件类型，多个用逗号分隔',
   save_path varchar(500) DEFAULT '' COMMENT '保存目录',
   status tinyint(1) NOT NULL DEFAULT 1 COMMENT '状态:0=禁用,1=启用',
   created_at datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

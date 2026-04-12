@@ -15,6 +15,7 @@ type UploadDirRule struct {
 	Id        any         // ID
 	DirId     any         // 目录ID
 	Category  any         // 类别:1=默认,2=类型,3=接口
+	FileType  any         // 文件类型，多个用逗号分隔
 	SavePath  any         // 保存目录
 	Status    any         // 状态:0=禁用,1=启用
 	CreatedAt *gtime.Time // 创建时间

@@ -76,11 +76,13 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 
 	// 生成唯一文件名和对象路径
 	now := time.Now()
-	dateDir := now.Format("2006-01-02")
 	uniqueName := buildUniqueName(now, randomSuffix(10000), fileMeta.Ext)
 
 	// 始终先保存到本地临时目录，云存储场景下上传后再清理
-	savePath := filepath.Join(cfg.LocalPath, dateDir)
+	relativeDir, savePath, err := resolveUploadSavePath(ctx, cfg, dirId, fileMeta.Ext, now)
+	if err != nil {
+		return nil, err
+	}
 	if err := os.MkdirAll(savePath, 0755); err != nil {
 		return nil, fmt.Errorf("创建目录失败: %v", err)
 	}
@@ -92,9 +94,9 @@ func (s *sUploader) Upload(ctx context.Context) (*model.UploadOutput, error) {
 		return nil, fmt.Errorf("保存文件失败: %v", err)
 	}
 
-	objectKey := dateDir + "/" + uniqueName
+	objectKey := buildObjectKey(relativeDir, uniqueName)
 	storeResult, err := newStorageProvider(cfg).Store(ctx, storeRequest{
-		DateDir:       dateDir,
+		RelativeDir:   relativeDir,
 		LocalFilePath: fullPath,
 		ObjectKey:     objectKey,
 		UniqueName:    uniqueName,

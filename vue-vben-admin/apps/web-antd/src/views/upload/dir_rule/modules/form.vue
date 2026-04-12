@@ -27,6 +27,13 @@ const isEdit = ref(false);
 const editId = ref('');
 const openToken = ref(0);
 
+const fileTypeDeps = {
+  triggerFields: ['category'],
+  show(values: Record<string, any>) {
+    return values.category === 2;
+  },
+};
+
 /** 目录下拉选项 */
 const dirIDOptions = ref<{ label: string; value: string }[]>([]);
 
@@ -88,6 +95,13 @@ const [Form, formApi] = useVbenForm({
     },
     {
       component: 'Input',
+      fieldName: 'fileType',
+      label: '文件类型',
+      dependencies: fileTypeDeps,
+      componentProps: { placeholder: '请输入文件类型，多个用逗号分隔，如 txt,doc,pdf', maxlength: 255 },
+    },
+    {
+      component: 'Input',
       fieldName: 'savePath',
       label: '保存目录',
       componentProps: { placeholder: '请输入保存目录', maxlength: 500 },
@@ -113,13 +127,17 @@ const [Modal, modalApi] = useVbenModal({
       | DirRuleCreateParams
       | undefined;
     if (!values) return;
+    const submitValues = {
+      ...values,
+      fileType: values.category === 2 ? values.fileType?.trim() : '',
+    };
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateDirRule({ id: editId.value, ...values } as DirRuleUpdateParams);
+        await updateDirRule({ id: editId.value, ...submitValues } as DirRuleUpdateParams);
         message.success('更新成功');
       } else {
-        await createDirRule(values);
+        await createDirRule(submitValues);
         message.success('创建成功');
       }
       emit('success');

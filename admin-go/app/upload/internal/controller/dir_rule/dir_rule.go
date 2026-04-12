@@ -17,6 +17,7 @@ func (c *cDirRule) Create(ctx context.Context, req *v1.DirRuleCreateReq) (res *v
 	err = service.DirRule().Create(ctx, &model.DirRuleCreateInput{
 		DirID:    req.DirID,
 		Category: req.Category,
+		FileType: req.FileType,
 		SavePath: req.SavePath,
 		Status:   req.Status,
 	})
@@ -29,6 +30,7 @@ func (c *cDirRule) Update(ctx context.Context, req *v1.DirRuleUpdateReq) (res *v
 		ID:       req.ID,
 		DirID:    req.DirID,
 		Category: req.Category,
+		FileType: req.FileType,
 		SavePath: req.SavePath,
 		Status:   req.Status,
 	})

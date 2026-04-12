@@ -13,6 +13,7 @@ type UploadDirRule struct {
 	Id        uint64      `orm:"id"         description:"ID"`                // ID
 	DirId     uint64      `orm:"dir_id"     description:"目录ID"`              // 目录ID
 	Category  int         `orm:"category"   description:"类别:1=默认,2=类型,3=接口"` // 类别:1=默认,2=类型,3=接口
+	FileType  string      `orm:"file_type"  description:"文件类型，多个用逗号分隔"`      // 文件类型，多个用逗号分隔
 	SavePath  string      `orm:"save_path"  description:"保存目录"`              // 保存目录
 	Status    int         `orm:"status"     description:"状态:0=禁用,1=启用"`      // 状态:0=禁用,1=启用
 	CreatedAt *gtime.Time `orm:"created_at" description:"创建时间"`              // 创建时间

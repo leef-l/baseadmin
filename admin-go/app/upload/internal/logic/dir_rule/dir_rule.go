@@ -3,6 +3,7 @@ package dir_rule
 import (
 	"context"
 	"strings"
+	"unicode"
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -35,7 +36,7 @@ func (s *sDirRule) Create(ctx context.Context, in *model.DirRuleCreateInput) err
 		return err
 	}
 	normalizeDirRuleCreateInput(in)
-	if err := validateDirRuleFields(in.DirID, in.Category, in.Status); err != nil {
+	if err := validateDirRuleFields(in.DirID, in.Category, in.Status, in.FileType); err != nil {
 		return err
 	}
 	if err := s.ensureDirExists(ctx, in.DirID); err != nil {
@@ -46,6 +47,7 @@ func (s *sDirRule) Create(ctx context.Context, in *model.DirRuleCreateInput) err
 		Id:       id,
 		DirId:    in.DirID,
 		Category: in.Category,
+		FileType: in.FileType,
 		SavePath: in.SavePath,
 		Status:   in.Status,
 	}).Insert()
@@ -58,7 +60,7 @@ func (s *sDirRule) Update(ctx context.Context, in *model.DirRuleUpdateInput) err
 		return err
 	}
 	normalizeDirRuleUpdateInput(in)
-	if err := validateDirRuleFields(in.DirID, in.Category, in.Status); err != nil {
+	if err := validateDirRuleFields(in.DirID, in.Category, in.Status, in.FileType); err != nil {
 		return err
 	}
 	if err := s.ensureDirRuleExists(ctx, in.ID); err != nil {
@@ -70,6 +72,7 @@ func (s *sDirRule) Update(ctx context.Context, in *model.DirRuleUpdateInput) err
 	data := do.UploadDirRule{
 		DirId:    in.DirID,
 		Category: in.Category,
+		FileType: in.FileType,
 		SavePath: in.SavePath,
 		Status:   in.Status,
 	}
@@ -142,7 +145,8 @@ func (s *sDirRule) List(ctx context.Context, in *model.DirRuleListInput) (list [
 	normalizeDirRuleListInput(in)
 	m := dao.UploadDirRule.Ctx(ctx).Where(dao.UploadDirRule.Columns().DeletedAt, nil)
 	if in.Keyword != "" {
-		m = m.WhereLike(dao.UploadDirRule.Columns().SavePath, "%"+in.Keyword+"%")
+		m = m.WhereLike(dao.UploadDirRule.Columns().SavePath, "%"+in.Keyword+"%").
+			WhereOrLike(dao.UploadDirRule.Columns().FileType, "%"+in.Keyword+"%")
 	}
 	if in.Category > 0 {
 		m = m.Where(dao.UploadDirRule.Columns().Category, in.Category)
@@ -221,6 +225,10 @@ func normalizeDirRuleCreateInput(in *model.DirRuleCreateInput) {
 	if in == nil {
 		return
 	}
+	in.FileType = normalizeDirRuleFileType(in.FileType)
+	if in.Category != 2 {
+		in.FileType = ""
+	}
 	in.SavePath = strings.TrimSpace(in.SavePath)
 }
 
@@ -228,18 +236,70 @@ func normalizeDirRuleUpdateInput(in *model.DirRuleUpdateInput) {
 	if in == nil {
 		return
 	}
+	in.FileType = normalizeDirRuleFileType(in.FileType)
+	if in.Category != 2 {
+		in.FileType = ""
+	}
 	in.SavePath = strings.TrimSpace(in.SavePath)
 }
 
-func validateDirRuleFields(dirID snowflake.JsonInt64, category, status int) error {
+func validateDirRuleFields(dirID snowflake.JsonInt64, category, status int, fileType string) error {
 	if dirID <= 0 {
 		return gerror.New("目录ID不能为空")
 	}
 	if err := fieldvalid.Enum("类别", category, 1, 2, 3); err != nil {
 		return err
 	}
+	if category == 2 {
+		if fileType == "" {
+			return gerror.New("文件类型不能为空")
+		}
+		if len(fileType) > 255 {
+			return gerror.New("文件类型长度不能超过255个字符")
+		}
+		for _, item := range strings.Split(fileType, ",") {
+			if !isValidDirRuleFileType(item) {
+				return gerror.New("文件类型格式不正确")
+			}
+		}
+	}
 	if err := fieldvalid.Binary("状态", status); err != nil {
 		return err
 	}
 	return nil
+}
+
+func normalizeDirRuleFileType(value string) string {
+	parts := strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == '，' || r == ';' || r == '；' || unicode.IsSpace(r)
+	})
+	normalized := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		part = strings.ToLower(strings.TrimSpace(part))
+		part = strings.TrimPrefix(part, ".")
+		if part == "" {
+			continue
+		}
+		if _, ok := seen[part]; ok {
+			continue
+		}
+		seen[part] = struct{}{}
+		normalized = append(normalized, part)
+	}
+	return strings.Join(normalized, ",")
+}
+
+func isValidDirRuleFileType(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' || r == '_' || r == '+' || r == '.' {
+			continue
+		}
+		return false
+	}
+	return true
 }

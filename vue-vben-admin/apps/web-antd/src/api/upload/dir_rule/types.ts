@@ -6,6 +6,7 @@ export interface DirRuleItem {
   dirID: string;
   dirName?: string;
   category?: number;
+  fileType?: string;
   savePath?: string;
   status?: number;
   createdAt?: string;
@@ -25,6 +26,7 @@ export interface DirRuleListParams {
 export interface DirRuleCreateParams {
   dirID: string;
   category?: number;
+  fileType?: string;
   savePath?: string;
   status?: number;
 }
@@ -34,6 +36,7 @@ export interface DirRuleUpdateParams {
   id: string;
   dirID: string;
   category?: number;
+  fileType?: string;
   savePath?: string;
   status?: number;
 }

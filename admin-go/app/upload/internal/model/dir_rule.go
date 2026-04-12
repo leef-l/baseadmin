@@ -12,6 +12,7 @@ import (
 type DirRuleCreateInput struct {
 	DirID    snowflake.JsonInt64 `json:"dirID"`
 	Category int                 `json:"category"`
+	FileType string              `json:"fileType"`
 	SavePath string              `json:"savePath"`
 	Status   int                 `json:"status"`
 }
@@ -21,6 +22,7 @@ type DirRuleUpdateInput struct {
 	ID       snowflake.JsonInt64 `json:"id"`
 	DirID    snowflake.JsonInt64 `json:"dirID"`
 	Category int                 `json:"category"`
+	FileType string              `json:"fileType"`
 	SavePath string              `json:"savePath"`
 	Status   int                 `json:"status"`
 }
@@ -31,6 +33,7 @@ type DirRuleDetailOutput struct {
 	DirID     snowflake.JsonInt64 `json:"dirID"`
 	DirName   string              `json:"dirName"`
 	Category  int                 `json:"category"`
+	FileType  string              `json:"fileType"`
 	SavePath  string              `json:"savePath"`
 	Status    int                 `json:"status"`
 	CreatedAt *gtime.Time         `json:"createdAt"`
@@ -43,6 +46,7 @@ type DirRuleListOutput struct {
 	DirID     snowflake.JsonInt64 `json:"dirID"`
 	DirName   string              `json:"dirName"`
 	Category  int                 `json:"category"`
+	FileType  string              `json:"fileType"`
 	SavePath  string              `json:"savePath"`
 	Status    int                 `json:"status"`
 	CreatedAt *gtime.Time         `json:"createdAt"`

@@ -73,7 +73,7 @@ const formOptions: VbenFormProps = {
       component: 'Input',
       componentProps: {
         allowClear: true,
-        placeholder: '请输入保存目录',
+        placeholder: '请输入保存目录或文件类型',
       },
       fieldName: 'keyword',
       label: '关键词',
@@ -111,6 +111,7 @@ const gridOptions: VxeGridProps<DirRuleItem> = {
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { field: 'dirName', title: '所属目录' },
     { field: 'category', title: '类别', width: 120, slots: { default: 'category_cell' } },
+    { field: 'fileType', title: '文件类型', width: 180 },
     { field: 'savePath', title: '保存目录' },
     { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' } },
     { field: 'createdAt', title: '创建时间', width: 180, formatter: 'formatDateTime' },

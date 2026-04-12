@@ -11,7 +11,7 @@ import (
 type cleanupHook func(context.Context) error
 
 type storeRequest struct {
-	DateDir       string
+	RelativeDir   string
 	LocalFilePath string
 	ObjectKey     string
 	UniqueName    string
@@ -42,7 +42,7 @@ type localStorageProvider struct{}
 
 func (p localStorageProvider) Store(ctx context.Context, req storeRequest) (*storeResult, error) {
 	return &storeResult{
-		FileURL: buildLocalFileURL(req.DateDir, req.UniqueName),
+		FileURL: buildLocalFileURL(req.RelativeDir, req.UniqueName),
 		OnRollback: func(context.Context) error {
 			return removeLocalFile(req.LocalFilePath)
 		},

@@ -120,7 +120,7 @@ func TestLocalStorageProviderRollbackRemovesFile(t *testing.T) {
 	}
 
 	result, err := localStorageProvider{}.Store(context.Background(), storeRequest{
-		DateDir:       "2026-04-10",
+		RelativeDir:   "2026-04-10",
 		LocalFilePath: path,
 		UniqueName:    "demo.txt",
 	})
