@@ -29,6 +29,19 @@ type AuthTicketLoginReq struct {
 
 type AuthTicketLoginRes = AuthLoginRes
 
+// 生成票据
+type AuthIssueTicketReq struct {
+	g.Meta    `path:"/auth/ticket" method:"post" tags:"认证" summary:"生成应用间票据"`
+	TargetApp string `json:"targetApp" v:"required#目标应用不能为空"`
+}
+
+type AuthIssueTicketRes struct {
+	Ticket    string `json:"ticket"`
+	SourceApp string `json:"sourceApp"`
+	TargetApp string `json:"targetApp"`
+	ExpiresIn int    `json:"expiresIn"`
+}
+
 // 获取当前用户信息
 type AuthInfoReq struct {
 	g.Meta `path:"/auth/info" method:"get" tags:"认证" summary:"获取当前用户信息"`

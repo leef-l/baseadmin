@@ -80,6 +80,33 @@ func TestNormalizeAuthLoginInput(t *testing.T) {
 	}
 }
 
+func TestIssueTicketInputValidation(t *testing.T) {
+	authSvc := &sAuth{}
+	if _, err := authSvc.IssueTicket(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
+		t.Fatalf("IssueTicket nil input mismatch: %v", err)
+	}
+	if _, err := authSvc.IssueTicket(nil, &model.AuthIssueTicketInput{
+		UserID:    0,
+		TargetApp: "crm",
+	}); err == nil || err.Error() != "用户ID不能为空" {
+		t.Fatalf("IssueTicket user id mismatch: %v", err)
+	}
+	if _, err := authSvc.IssueTicket(nil, &model.AuthIssueTicketInput{
+		UserID:    1,
+		TargetApp: " ",
+	}); err == nil || err.Error() != "目标应用不能为空" {
+		t.Fatalf("IssueTicket target app mismatch: %v", err)
+	}
+}
+
+func TestNormalizeAuthIssueTicketInput(t *testing.T) {
+	in := &model.AuthIssueTicketInput{TargetApp: " crm "}
+	normalizeAuthIssueTicketInput(in)
+	if in.TargetApp != "crm" {
+		t.Fatalf("normalizeAuthIssueTicketInput mismatch: %+v", in)
+	}
+}
+
 func TestChangePasswordInputValidation(t *testing.T) {
 	authSvc := &sAuth{}
 	if err := authSvc.ChangePassword(nil, nil); err == nil || err.Error() != "请求参数不能为空" {

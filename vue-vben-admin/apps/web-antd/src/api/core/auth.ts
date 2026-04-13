@@ -13,6 +13,11 @@ export namespace AuthApi {
     ticket: string;
   }
 
+  /** 生成应用票据接口参数 */
+  export interface IssueTicketParams {
+    targetApp: string;
+  }
+
   /** 登录接口返回值 */
   export interface LoginResult {
     token: string;
@@ -20,6 +25,14 @@ export namespace AuthApi {
     username: string;
     nickname: string;
     avatar: string;
+  }
+
+  /** 生成应用票据接口返回值 */
+  export interface IssueTicketResult {
+    ticket: string;
+    sourceApp: string;
+    targetApp: string;
+    expiresIn: number;
   }
 }
 
@@ -42,6 +55,16 @@ export async function loginApi(data: AuthApi.LoginParams) {
 export async function ticketLoginApi(data: AuthApi.TicketLoginParams) {
   return requestClient.post<AuthApi.LoginResult>(
     '/system/auth/ticket-login',
+    data,
+  );
+}
+
+/**
+ * 生成应用间票据
+ */
+export async function issueTicketApi(data: AuthApi.IssueTicketParams) {
+  return requestClient.post<AuthApi.IssueTicketResult>(
+    '/system/auth/ticket',
     data,
   );
 }

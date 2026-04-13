@@ -42,6 +42,7 @@ var (
 					group.Group("/", func(group *ghttp.RouterGroup) {
 						group.Middleware(middleware.Auth)
 						group.Bind(
+							auth.Auth.IssueTicket,
 							auth.Auth.Info,
 							auth.Auth.ChangePassword,
 							auth.Auth.Menus,

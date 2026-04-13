@@ -83,6 +83,13 @@ func normalizeAuthTicketLoginInput(in *model.AuthTicketLoginInput) {
 	in.Ticket = strings.TrimSpace(in.Ticket)
 }
 
+func normalizeAuthIssueTicketInput(in *model.AuthIssueTicketInput) {
+	if in == nil {
+		return
+	}
+	in.TargetApp = strings.TrimSpace(in.TargetApp)
+}
+
 // Login 用户登录
 func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model.AuthLoginOutput, err error) {
 	if err := inpututil.Require(in); err != nil {
@@ -193,6 +200,44 @@ func (s *sAuth) TicketLogin(ctx context.Context, in *model.AuthTicketLoginInput)
 		Username: user.Username,
 		Nickname: user.Nickname,
 		Avatar:   user.Avatar,
+	}
+	return out, nil
+}
+
+// IssueTicket 为当前登录用户生成应用间票据
+func (s *sAuth) IssueTicket(ctx context.Context, in *model.AuthIssueTicketInput) (out *model.AuthIssueTicketOutput, err error) {
+	if err := inpututil.Require(in); err != nil {
+		return nil, err
+	}
+	normalizeAuthIssueTicketInput(in)
+	if in.UserID <= 0 {
+		return nil, gerror.New("用户ID不能为空")
+	}
+	if in.TargetApp == "" {
+		return nil, gerror.New("目标应用不能为空")
+	}
+
+	user, err := s.loadUserByID(ctx, int64(in.UserID))
+	if err != nil {
+		return nil, err
+	}
+	if user == nil || user.Id == 0 {
+		return nil, gerror.New("用户不存在或已删除")
+	}
+	if user.Status == 0 {
+		return nil, gerror.New("账号已被禁用")
+	}
+
+	ticket, err := appticket.Generate(ctx, user.Username, "", in.TargetApp)
+	if err != nil {
+		return nil, gerror.New("生成票据失败")
+	}
+
+	out = &model.AuthIssueTicketOutput{
+		Ticket:    ticket,
+		SourceApp: appticket.CurrentAppID(ctx),
+		TargetApp: in.TargetApp,
+		ExpiresIn: appticket.ExpireSeconds(ctx),
 	}
 	return out, nil
 }
@@ -505,6 +550,21 @@ func (s *sAuth) loadUserByUsername(ctx context.Context, username string) (*authU
 	var user authUserRecord
 	err := dao.Users.Ctx(ctx).
 		Where(dao.Users.Columns().Username, username).
+		Where(dao.Users.Columns().DeletedAt, nil).
+		Scan(&user)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (s *sAuth) loadUserByID(ctx context.Context, userID int64) (*authUserRecord, error) {
+	if userID <= 0 {
+		return nil, nil
+	}
+	var user authUserRecord
+	err := dao.Users.Ctx(ctx).
+		Where(dao.Users.Columns().Id, userID).
 		Where(dao.Users.Columns().DeletedAt, nil).
 		Scan(&user)
 	if err != nil {

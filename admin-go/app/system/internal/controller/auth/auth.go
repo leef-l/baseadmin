@@ -50,6 +50,28 @@ func (c *cAuth) TicketLogin(ctx context.Context, req *v1.AuthTicketLoginReq) (re
 	return
 }
 
+// IssueTicket 生成应用间票据
+func (c *cAuth) IssueTicket(ctx context.Context, req *v1.AuthIssueTicketReq) (res *v1.AuthIssueTicketRes, err error) {
+	claims := GetClaims(ctx)
+	if claims == nil {
+		return nil, nil
+	}
+	out, err := service.Auth().IssueTicket(ctx, &model.AuthIssueTicketInput{
+		UserID:    snowflake.JsonInt64(claims.UserID),
+		TargetApp: req.TargetApp,
+	})
+	if err != nil {
+		return nil, err
+	}
+	res = &v1.AuthIssueTicketRes{
+		Ticket:    out.Ticket,
+		SourceApp: out.SourceApp,
+		TargetApp: out.TargetApp,
+		ExpiresIn: out.ExpiresIn,
+	}
+	return
+}
+
 // Info 获取当前用户信息
 func (c *cAuth) Info(ctx context.Context, req *v1.AuthInfoReq) (res *v1.AuthInfoRes, err error) {
 	claims := GetClaims(ctx)

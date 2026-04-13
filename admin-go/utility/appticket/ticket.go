@@ -101,6 +101,11 @@ func CurrentAppID(ctx context.Context) string {
 	return normalizeString(value.String(), defaultAppID)
 }
 
+// ExpireSeconds 返回票据有效期秒数。
+func ExpireSeconds(ctx context.Context) int {
+	return int(ticketExpire(ctx) / time.Second)
+}
+
 // ValidateTarget 校验票据目标应用。
 func ValidateTarget(ctx context.Context, claims *Claims) error {
 	if claims == nil {

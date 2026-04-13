@@ -38,6 +38,7 @@
 | 示例 | `GET /hello` | 否 | GoFrame 默认 hello 路由，当前仍挂载 |
 | 认证 | `POST /api/system/auth/login` | 否 | 用户名密码登录 |
 | 认证 | `POST /api/system/auth/ticket-login` | 否 | 应用间票据登录 |
+| 认证 | `POST /api/system/auth/ticket` | 是 | 为当前登录用户生成目标应用票据 |
 | 认证 | `GET /api/system/auth/info` | 是 | 当前用户信息，返回 `roles` 和 `perms` |
 | 认证 | `GET /api/system/auth/menus` | 是 | 当前用户菜单树，供 `web-antd` 动态路由使用 |
 | 认证 | `POST /api/system/auth/change-password` | 是 | 修改当前用户密码 |
@@ -60,7 +61,9 @@
 ## 菜单与前端契约
 
 - `auth/info` 同时驱动前端用户信息和权限码加载
-- 如果多个应用共用登录态，推荐由来源应用生成短效签名票据，再调用 `auth/ticket-login` 换取当前后台 JWT；共享密钥配置在 `sso.sharedKey`
+- 如果多个应用共用登录态，来源应用可以先在自己的登录态下调用 `POST /api/system/auth/ticket` 生成短效签名票据，再跳转目标应用的 `/auth/login?ticket=...`
+- 目标应用收到 `ticket` 后，前端会自动调用 `POST /api/system/auth/ticket-login` 换取当前后台 JWT
+- 参与互通的应用要使用同一份 `sso.sharedKey`，并各自配置不同的 `sso.appId`
 - `auth/menus` 返回的是 `web-antd` 后端权限模式所需的菜单树
 - `type=3` 按钮权限不会进入前端路由树
 - `type=4` 外链会在前端映射为 `meta.link`

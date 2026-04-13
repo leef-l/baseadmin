@@ -724,6 +724,23 @@ jobs:
             "$BASE_URL/system/auth/login")
           TOKEN=$(printf '%s' "$LOGIN_JSON" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
           test -n "$TOKEN"
+          ISSUE_TICKET_PAYLOAD='{"targetApp":"gbaseadmin-admin"}'
+          ISSUE_TICKET_JSON=$(curl --silent --show-error --fail \
+            -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -H 'Content-Type: application/json' \
+            -d "$ISSUE_TICKET_PAYLOAD" \
+            "$BASE_URL/system/auth/ticket")
+          APP_TICKET=$(printf '%s' "$ISSUE_TICKET_JSON" | sed -n 's/.*"ticket":"\([^"]*\)".*/\1/p')
+          test -n "$APP_TICKET"
+          TICKET_LOGIN_JSON=$(TICKET="$APP_TICKET" python3 -c 'import json, os; print(json.dumps({"ticket": os.environ["TICKET"]}))' | \
+            curl --silent --show-error --fail \
+              -H 'Content-Type: application/json' \
+              -d @- \
+              "$BASE_URL/system/auth/ticket-login")
+          TICKET_TOKEN=$(printf '%s' "$TICKET_LOGIN_JSON" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p')
+          test -n "$TICKET_TOKEN"
+          echo "ticket issue/login smoke: ok"
 
           DIR_JSON=$(curl --silent --show-error --fail \
             -H "Authorization: Bearer $TOKEN" \

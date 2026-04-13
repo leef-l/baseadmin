@@ -15,6 +15,12 @@ type AuthTicketLoginInput struct {
 	Ticket string
 }
 
+// AuthIssueTicketInput 生成应用间票据输入
+type AuthIssueTicketInput struct {
+	UserID    snowflake.JsonInt64
+	TargetApp string
+}
+
 // AuthLoginOutput 登录输出
 type AuthLoginOutput struct {
 	Token    string              `json:"token"`
@@ -22,6 +28,14 @@ type AuthLoginOutput struct {
 	Username string              `json:"username"`
 	Nickname string              `json:"nickname"`
 	Avatar   string              `json:"avatar"`
+}
+
+// AuthIssueTicketOutput 生成应用间票据输出
+type AuthIssueTicketOutput struct {
+	Ticket    string `json:"ticket"`
+	SourceApp string `json:"sourceApp"`
+	TargetApp string `json:"targetApp"`
+	ExpiresIn int    `json:"expiresIn"`
 }
 
 // AuthInfoOutput 当前用户信息输出
