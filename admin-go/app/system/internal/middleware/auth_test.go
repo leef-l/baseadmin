@@ -8,6 +8,7 @@ func TestResolveSystemPermission(t *testing.T) {
 		path   string
 		want   string
 	}{
+		{method: "POST", path: "/api/system/auth/ticket-login", want: ""},
 		{method: "GET", path: "/api/system/auth/info", want: ""},
 		{method: "GET", path: "/api/system/dept/tree", want: "system:dept:list"},
 		{method: "DELETE", path: "/api/system/menu/delete", want: "system:menu:delete"},

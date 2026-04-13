@@ -101,7 +101,7 @@ func resolveSystemPermission(method, path string) string {
 
 func isAllowedAuthAction(action string) bool {
 	switch action {
-	case "login", "info", "menus", "change-password":
+	case "login", "ticket-login", "info", "menus", "change-password":
 		return true
 	default:
 		return false

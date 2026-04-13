@@ -14,6 +14,7 @@ import (
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/model/do"
 	"gbaseadmin/app/system/internal/service"
+	"gbaseadmin/utility/appticket"
 	"gbaseadmin/utility/authz"
 	"gbaseadmin/utility/cache"
 	"gbaseadmin/utility/inpututil"
@@ -43,6 +44,16 @@ type roleSnapshot struct {
 	IsAdmin int    `json:"isAdmin"`
 }
 
+type authUserRecord struct {
+	Id       int64  `json:"id"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Nickname string `json:"nickname"`
+	Avatar   string `json:"avatar"`
+	DeptId   int64  `json:"deptId"`
+	Status   int    `json:"status"`
+}
+
 const (
 	authLoginFailLimit  = 5
 	authLoginFailWindow = 10 * time.Minute
@@ -65,6 +76,13 @@ func normalizeAuthChangePasswordInput(in *model.AuthChangePasswordInput) {
 	in.NewPassword = strings.TrimSpace(in.NewPassword)
 }
 
+func normalizeAuthTicketLoginInput(in *model.AuthTicketLoginInput) {
+	if in == nil {
+		return
+	}
+	in.Ticket = strings.TrimSpace(in.Ticket)
+}
+
 // Login 用户登录
 func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model.AuthLoginOutput, err error) {
 	if err := inpututil.Require(in); err != nil {
@@ -78,26 +96,11 @@ func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model
 		return nil, gerror.New("登录失败次数过多，请10分钟后再试")
 	}
 
-	// 查询用户
-	var user struct {
-		Id       int64  `json:"id"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Nickname string `json:"nickname"`
-		Avatar   string `json:"avatar"`
-		DeptId   int64  `json:"deptId"`
-		Status   int    `json:"status"`
-	}
-
-	err = dao.Users.Ctx(ctx).
-		Where(dao.Users.Columns().Username, in.Username).
-		Where(dao.Users.Columns().DeletedAt, nil).
-		Scan(&user)
-
+	user, err := s.loadUserByUsername(ctx, in.Username)
 	if err != nil {
 		return nil, gerror.New("用户名或密码错误")
 	}
-	if user.Id == 0 {
+	if user == nil || user.Id == 0 {
 		s.recordLoginFailure(ctx, in.Username)
 		return nil, gerror.New("用户名或密码错误")
 	}
@@ -138,6 +141,60 @@ func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model
 		Avatar:   user.Avatar,
 	}
 	return
+}
+
+// TicketLogin 应用间票据登录
+func (s *sAuth) TicketLogin(ctx context.Context, in *model.AuthTicketLoginInput) (out *model.AuthLoginOutput, err error) {
+	if err := inpututil.Require(in); err != nil {
+		return nil, err
+	}
+	normalizeAuthTicketLoginInput(in)
+	if in.Ticket == "" {
+		return nil, gerror.New("票据不能为空")
+	}
+
+	claims, err := appticket.Parse(ctx, in.Ticket)
+	if err != nil {
+		return nil, gerror.New("票据无效或已过期")
+	}
+	if strings.TrimSpace(claims.Username) == "" {
+		return nil, gerror.New("票据缺少用户名")
+	}
+	if err := appticket.ValidateTarget(ctx, claims); err != nil {
+		return nil, gerror.New("票据目标应用不匹配")
+	}
+	replayed, err := s.markTicketUsed(ctx, claims, in.Ticket)
+	if err != nil {
+		return nil, err
+	}
+	if replayed {
+		return nil, gerror.New("票据已使用或已失效")
+	}
+
+	user, err := s.loadUserByUsername(ctx, claims.Username)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil || user.Id == 0 {
+		return nil, gerror.New("票据用户不存在或已删除")
+	}
+	if user.Status == 0 {
+		return nil, gerror.New("账号已被禁用")
+	}
+
+	token, err := jwt.GenerateToken(user.Id, user.Username, user.DeptId)
+	if err != nil {
+		return nil, gerror.New("生成Token失败")
+	}
+
+	out = &model.AuthLoginOutput{
+		Token:    token,
+		UserID:   snowflake.JsonInt64(user.Id),
+		Username: user.Username,
+		Nickname: user.Nickname,
+		Avatar:   user.Avatar,
+	}
+	return out, nil
 }
 
 // Info 获取当前用户信息
@@ -442,6 +499,26 @@ func menusCacheKey(userID int64) string {
 
 func loginFailCacheKey(username, ip string) string {
 	return fmt.Sprintf("system:auth:login_fail:%s:%s", normalizeAuthKeyPart(username), normalizeAuthKeyPart(ip))
+}
+
+func (s *sAuth) loadUserByUsername(ctx context.Context, username string) (*authUserRecord, error) {
+	var user authUserRecord
+	err := dao.Users.Ctx(ctx).
+		Where(dao.Users.Columns().Username, username).
+		Where(dao.Users.Columns().DeletedAt, nil).
+		Scan(&user)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (s *sAuth) markTicketUsed(ctx context.Context, claims *appticket.Claims, rawTicket string) (bool, error) {
+	count, err := cache.IncrWithTTL(ctx, appticket.ReplayCacheKey(claims, rawTicket), appticket.ReplayTTL(claims))
+	if err != nil {
+		return false, err
+	}
+	return count > 1, nil
 }
 
 func normalizeAuthKeyPart(value string) string {

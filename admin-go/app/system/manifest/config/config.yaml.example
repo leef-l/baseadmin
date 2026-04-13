@@ -27,3 +27,9 @@ redis:
 jwt:
   secret: "change_me"
   expire: 24  # Token 过期时间（小时）
+
+# 应用间票据互通配置
+sso:
+  appId: "gbaseadmin-admin"
+  sharedKey: "change_me_shared_sso_key"
+  ticketExpireSeconds: 60

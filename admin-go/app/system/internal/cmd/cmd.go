@@ -36,6 +36,7 @@ var (
 					// 公开接口（无需登录）
 					group.Bind(
 						auth.Auth.Login,
+						auth.Auth.TicketLogin,
 					)
 					// 需要登录的接口
 					group.Group("/", func(group *ghttp.RouterGroup) {

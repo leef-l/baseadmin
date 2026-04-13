@@ -32,6 +32,24 @@ func (c *cAuth) Login(ctx context.Context, req *v1.AuthLoginReq) (res *v1.AuthLo
 	return
 }
 
+// TicketLogin 票据登录
+func (c *cAuth) TicketLogin(ctx context.Context, req *v1.AuthTicketLoginReq) (res *v1.AuthTicketLoginRes, err error) {
+	out, err := service.Auth().TicketLogin(ctx, &model.AuthTicketLoginInput{
+		Ticket: req.Ticket,
+	})
+	if err != nil {
+		return nil, err
+	}
+	res = &v1.AuthTicketLoginRes{
+		Token:    out.Token,
+		UserID:   out.UserID,
+		Username: out.Username,
+		Nickname: out.Nickname,
+		Avatar:   out.Avatar,
+	}
+	return
+}
+
 // Info 获取当前用户信息
 func (c *cAuth) Info(ctx context.Context, req *v1.AuthInfoReq) (res *v1.AuthInfoRes, err error) {
 	claims := GetClaims(ctx)

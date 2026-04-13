@@ -16,6 +16,7 @@ import {
   getUserInfoApi,
   loginApi,
   logoutApi,
+  ticketLoginApi,
 } from '#/api';
 import { mapToUserInfo } from '#/api/core/user-mapper';
 import { $t } from '#/locales';
@@ -36,44 +37,29 @@ export const useAuthStore = defineStore('auth', () => {
     params: Recordable<any>,
     onSuccess?: () => Promise<void> | void,
   ) {
-    // 异步处理用户登录操作并获取 accessToken
     let userInfo: null | UserInfo = null;
     try {
       loginLoading.value = true;
       const loginResult = await loginApi(params);
+      userInfo = await establishSession(loginResult?.token, onSuccess);
+    } finally {
+      loginLoading.value = false;
+    }
 
-      // 后端返回 token 字段
-      const accessToken = loginResult?.token;
+    return {
+      userInfo,
+    };
+  }
 
-      // 如果成功获取到 accessToken
-      if (accessToken) {
-        accessStore.setAccessToken(accessToken);
-
-        const authInfo = await getAuthInfoApi();
-        userInfo = mapToUserInfo(authInfo, preferences.app.defaultHomePath);
-        const accessCodes = extractAccessCodes(authInfo);
-
-        userStore.setUserInfo(userInfo);
-        accessStore.setAccessCodes(accessCodes);
-
-        if (accessStore.loginExpired) {
-          accessStore.setLoginExpired(false);
-        } else {
-          onSuccess
-            ? await onSuccess?.()
-            : await router.push(
-                userInfo.homePath || preferences.app.defaultHomePath,
-              );
-        }
-
-        if (userInfo?.realName) {
-          notification.success({
-            description: `${$t('authentication.loginSuccessDesc')}:${userInfo?.realName}`,
-            duration: 3,
-            message: $t('authentication.loginSuccess'),
-          });
-        }
-      }
+  async function authLoginByTicket(
+    ticket: string,
+    onSuccess?: () => Promise<void> | void,
+  ) {
+    let userInfo: null | UserInfo = null;
+    try {
+      loginLoading.value = true;
+      const loginResult = await ticketLoginApi({ ticket });
+      userInfo = await establishSession(loginResult?.token, onSuccess);
     } finally {
       loginLoading.value = false;
     }
@@ -113,9 +99,46 @@ export const useAuthStore = defineStore('auth', () => {
     loginLoading.value = false;
   }
 
+  async function establishSession(
+    accessToken: null | string | undefined,
+    onSuccess?: () => Promise<void> | void,
+  ) {
+    if (!accessToken) {
+      return null;
+    }
+
+    accessStore.setAccessToken(accessToken);
+
+    const authInfo = await getAuthInfoApi();
+    const userInfo = mapToUserInfo(authInfo, preferences.app.defaultHomePath);
+    const accessCodes = extractAccessCodes(authInfo);
+
+    userStore.setUserInfo(userInfo);
+    accessStore.setAccessCodes(accessCodes);
+
+    if (accessStore.loginExpired) {
+      accessStore.setLoginExpired(false);
+    } else {
+      onSuccess
+        ? await onSuccess?.()
+        : await router.push(userInfo.homePath || preferences.app.defaultHomePath);
+    }
+
+    if (userInfo?.realName) {
+      notification.success({
+        description: `${$t('authentication.loginSuccessDesc')}:${userInfo?.realName}`,
+        duration: 3,
+        message: $t('authentication.loginSuccess'),
+      });
+    }
+
+    return userInfo;
+  }
+
   return {
     $reset,
     authLogin,
+    authLoginByTicket,
     fetchUserInfo,
     loginLoading,
     logout,

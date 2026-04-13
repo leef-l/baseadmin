@@ -10,6 +10,11 @@ type AuthLoginInput struct {
 	Password string
 }
 
+// AuthTicketLoginInput 票据登录输入
+type AuthTicketLoginInput struct {
+	Ticket string
+}
+
 // AuthLoginOutput 登录输出
 type AuthLoginOutput struct {
 	Token    string              `json:"token"`

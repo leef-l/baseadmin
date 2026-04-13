@@ -21,6 +21,14 @@ type AuthLoginRes struct {
 	Avatar   string              `json:"avatar"`
 }
 
+// 票据登录
+type AuthTicketLoginReq struct {
+	g.Meta `path:"/auth/ticket-login" method:"post" tags:"认证" summary:"票据登录"`
+	Ticket string `json:"ticket" v:"required#票据不能为空"`
+}
+
+type AuthTicketLoginRes = AuthLoginRes
+
 // 获取当前用户信息
 type AuthInfoReq struct {
 	g.Meta `path:"/auth/info" method:"get" tags:"认证" summary:"获取当前用户信息"`

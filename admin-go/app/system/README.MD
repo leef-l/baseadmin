@@ -36,7 +36,8 @@
 | 健康检查 | `GET /healthz` | 否 | 返回 `{ status: "ok", service: "system" }` |
 | 就绪检查 | `GET /readyz` | 否 | 返回数据库与关键依赖检查结果 |
 | 示例 | `GET /hello` | 否 | GoFrame 默认 hello 路由，当前仍挂载 |
-| 认证 | `POST /api/system/auth/login` | 否 | 登录 |
+| 认证 | `POST /api/system/auth/login` | 否 | 用户名密码登录 |
+| 认证 | `POST /api/system/auth/ticket-login` | 否 | 应用间票据登录 |
 | 认证 | `GET /api/system/auth/info` | 是 | 当前用户信息，返回 `roles` 和 `perms` |
 | 认证 | `GET /api/system/auth/menus` | 是 | 当前用户菜单树，供 `web-antd` 动态路由使用 |
 | 认证 | `POST /api/system/auth/change-password` | 是 | 修改当前用户密码 |
@@ -59,6 +60,7 @@
 ## 菜单与前端契约
 
 - `auth/info` 同时驱动前端用户信息和权限码加载
+- 如果多个应用共用登录态，推荐由来源应用生成短效签名票据，再调用 `auth/ticket-login` 换取当前后台 JWT；共享密钥配置在 `sso.sharedKey`
 - `auth/menus` 返回的是 `web-antd` 后端权限模式所需的菜单树
 - `type=3` 按钮权限不会进入前端路由树
 - `type=4` 外链会在前端映射为 `meta.link`

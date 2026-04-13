@@ -8,6 +8,11 @@ export namespace AuthApi {
     username?: string;
   }
 
+  /** 票据登录接口参数 */
+  export interface TicketLoginParams {
+    ticket: string;
+  }
+
   /** 登录接口返回值 */
   export interface LoginResult {
     token: string;
@@ -28,6 +33,16 @@ export async function loginApi(data: AuthApi.LoginParams) {
     {
       // 登录接口不需要 token
     },
+  );
+}
+
+/**
+ * 票据登录
+ */
+export async function ticketLoginApi(data: AuthApi.TicketLoginParams) {
+  return requestClient.post<AuthApi.LoginResult>(
+    '/system/auth/ticket-login',
+    data,
   );
 }
 
