@@ -20,7 +20,7 @@ database:
 redis:
   default:
     address: "127.0.0.1:6379"
-    pass: "gbaseadmin123"
+    pass: "123456"
     db: 0
 
 # JWT 配置

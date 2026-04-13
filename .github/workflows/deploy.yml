@@ -269,6 +269,22 @@ jobs:
                   cp /tmp/gba_stage/$APP/manifest/config/config.yaml.example $DEPLOY_DIR/$APP/manifest/config/config.yaml
               fi
           fi
+          CONFIG_PATH=$DEPLOY_DIR/$APP/manifest/config/config.yaml
+          if ! grep -q 'tcp(127.0.0.1:3306)' "$CONFIG_PATH"; then
+              echo "[$APP] database.default.link must point to 127.0.0.1:3306" >&2
+              exit 1
+          fi
+          if ! grep -Eq '^[[:space:]]*address:[[:space:]]*"127.0.0.1:6379"' "$CONFIG_PATH"; then
+              echo "[$APP] redis.default.address must point to 127.0.0.1:6379" >&2
+              exit 1
+          fi
+          REDIS_PASS=$(awk -F'"' '/^[[:space:]]*pass:[[:space:]]*"/ {print $2; exit}' "$CONFIG_PATH")
+          if [ -z "$REDIS_PASS" ]; then
+              echo "[$APP] redis.default.pass is required" >&2
+              exit 1
+          fi
+          redis-cli -a "$REDIS_PASS" ping >/dev/null
+          echo "[$APP] Local mysql/redis config check: ok"
 
           printf '%s\n' \
               '[Unit]' \
@@ -433,6 +449,22 @@ jobs:
                   cp /tmp/gba_stage/$APP/manifest/config/config.yaml.example $DEPLOY_DIR/$APP/manifest/config/config.yaml
               fi
           fi
+          CONFIG_PATH=$DEPLOY_DIR/$APP/manifest/config/config.yaml
+          if ! grep -q 'tcp(127.0.0.1:3306)' "$CONFIG_PATH"; then
+              echo "[$APP] database.default.link must point to 127.0.0.1:3306" >&2
+              exit 1
+          fi
+          if ! grep -Eq '^[[:space:]]*address:[[:space:]]*"127.0.0.1:6379"' "$CONFIG_PATH"; then
+              echo "[$APP] redis.default.address must point to 127.0.0.1:6379" >&2
+              exit 1
+          fi
+          REDIS_PASS=$(awk -F'"' '/^[[:space:]]*pass:[[:space:]]*"/ {print $2; exit}' "$CONFIG_PATH")
+          if [ -z "$REDIS_PASS" ]; then
+              echo "[$APP] redis.default.pass is required" >&2
+              exit 1
+          fi
+          redis-cli -a "$REDIS_PASS" ping >/dev/null
+          echo "[$APP] Local mysql/redis config check: ok"
 
           printf '%s\n' \
               '[Unit]' \
