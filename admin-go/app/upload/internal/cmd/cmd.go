@@ -12,7 +12,6 @@ import (
 	"gbaseadmin/app/upload/internal/controller/dir_rule"
 	"gbaseadmin/app/upload/internal/controller/file"
 	"gbaseadmin/app/upload/internal/controller/health"
-	"gbaseadmin/app/upload/internal/controller/uploader"
 
 	"gbaseadmin/app/upload/internal/middleware"
 	"gbaseadmin/utility/httpmeta"
@@ -37,7 +36,6 @@ var (
 						dir.Dir,
 						dir_rule.DirRule,
 						file.File,
-						uploader.Uploader,
 					)
 				})
 			})

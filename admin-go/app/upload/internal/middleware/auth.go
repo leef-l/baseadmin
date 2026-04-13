@@ -95,8 +95,6 @@ func resolveUploadAction(action string) string {
 
 func normalizeUploadModule(module string) string {
 	switch module {
-	case "uploader":
-		return "file"
 	case "config", "dir", "dir_rule", "file":
 		return module
 	default:

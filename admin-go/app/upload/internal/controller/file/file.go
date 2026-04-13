@@ -12,6 +12,24 @@ var File = cFile{}
 
 type cFile struct{}
 
+// Upload 上传文件
+func (c *cFile) Upload(ctx context.Context, req *v1.FileUploadReq) (res *v1.FileUploadRes, err error) {
+	out, err := service.Uploader().Upload(ctx)
+	if err != nil {
+		return nil, err
+	}
+	res = &v1.FileUploadRes{
+		ID:      out.ID,
+		URL:     out.URL,
+		Name:    out.Name,
+		Size:    out.Size,
+		Ext:     out.Ext,
+		Mime:    out.Mime,
+		IsImage: out.IsImage,
+	}
+	return
+}
+
 // Create 创建文件记录
 func (c *cFile) Create(ctx context.Context, req *v1.FileCreateReq) (res *v1.FileCreateRes, err error) {
 	err = service.File().Create(ctx, &model.FileCreateInput{

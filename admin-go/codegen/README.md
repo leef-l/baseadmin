@@ -401,7 +401,7 @@ menu_modules:
 | `*_content`、`*_body`、`*_html` | `RichText` | TinyMCE 富文本编辑器 |
 | `*_json`、`*_config`、`*_settings` | `JsonEditor` | JSON 编辑器（tree + code 双模式） |
 
-这些组件在 `adapter/component/index.ts` 中注册，上传类组件调用 `/upload/uploader/upload` 接口。
+这些组件在 `adapter/component/index.ts` 中注册，上传类组件调用 `/upload/file/upload` 接口。
 
 > **注意**：使用 `ImageUpload` 或 `FileUpload` 组件的表单页面需要 `upload` 应用处于运行状态，否则文件管理 API 不可用。
 

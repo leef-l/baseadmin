@@ -29,7 +29,7 @@
 |------|------|------|------|
 | 健康检查 | `GET /healthz` | 否 | 返回 `{ status: "ok", service: "upload" }` |
 | 就绪检查 | `GET /readyz` | 否 | 返回数据库与上传存储检查结果 |
-| 文件上传 | `POST /api/upload/uploader/upload` | 是 | 上传文件（multipart/form-data） |
+| 文件上传 | `POST /api/upload/file/upload` | 是 | 上传文件（multipart/form-data） |
 | 文件目录 | `/api/upload/dir/list,create,update,delete,batch-delete,detail,tree` | 是 | 目录管理（树形） |
 | 文件记录 | `/api/upload/file/list,create,update,delete,batch-delete,detail` | 是 | 文件管理 |
 | 上传配置 | `/api/upload/config/list,create,update,delete,batch-delete,detail` | 是 | 配置管理 |
@@ -57,7 +57,7 @@
 
 ## 上传流程
 
-1. 前端调用 `POST /api/upload/uploader/upload`，发送 `file`（文件）+ `dirId`（可选目录ID）
+1. 前端调用 `POST /api/upload/file/upload`，发送 `file`（文件）+ `dirId`（可选目录ID）
 2. 后端读取 `upload_config` 中 `is_default=1` 的默认配置，获取存储类型和大小限制
 3. 验证文件大小，解析扩展名和 MIME 类型，判断是否为图片
 4. 本地存储：保存到 `resource/upload/{日期}/{唯一文件名}`
@@ -140,8 +140,7 @@ import FileManagerModal from '#/components/file-manager/modal.vue';
 
 | API 文件 | 前缀 | 说明 |
 |---------|------|------|
-| `api/upload/uploader/index.ts` | `/upload/uploader/upload` | 文件上传 |
-| `api/upload/file/index.ts` | `/upload/file/` | 文件记录 CRUD |
+| `api/upload/file/index.ts` | `/upload/file/upload` + `/upload/file/` | 文件上传 + 文件记录 CRUD |
 | `api/upload/dir/index.ts` | `/upload/dir/` | 目录 CRUD + tree |
 | `api/upload/config/index.ts` | `/upload/config/` | 配置 CRUD |
 | `api/upload/dir_rule/index.ts` | `/upload/dir_rule/` | 目录规则 CRUD |

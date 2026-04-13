@@ -31,6 +31,25 @@ type FileCreateRes struct {
 	g.Meta `mime:"application/json"`
 }
 
+// FileUploadReq 上传文件请求
+type FileUploadReq struct {
+	g.Meta `path:"/file/upload" method:"post" mime:"multipart/form-data" tags:"文件记录" summary:"上传文件"`
+	DirID  string `json:"dirId" dc:"目录ID"`
+	Source string `json:"source" dc:"上传来源标识，通常为当前页面路由"`
+}
+
+// FileUploadRes 上传文件响应
+type FileUploadRes struct {
+	g.Meta  `mime:"application/json"`
+	ID      snowflake.JsonInt64 `json:"id"`
+	URL     string              `json:"url"`
+	Name    string              `json:"name"`
+	Size    int64               `json:"size"`
+	Ext     string              `json:"ext"`
+	Mime    string              `json:"mime"`
+	IsImage int                 `json:"isImage"`
+}
+
 // FileUpdateReq 更新文件记录请求
 type FileUpdateReq struct {
 	g.Meta  `path:"/file/update" method:"put" tags:"文件记录" summary:"更新文件记录"`

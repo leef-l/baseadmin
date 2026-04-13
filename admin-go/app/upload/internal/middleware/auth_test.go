@@ -9,7 +9,7 @@ func TestResolveUploadPermission(t *testing.T) {
 		want   string
 	}{
 		{method: "GET", path: "/api/upload/dir/tree", want: "upload:dir:list"},
-		{method: "POST", path: "/api/upload/uploader/upload", want: "upload:file:create"},
+		{method: "POST", path: "/api/upload/file/upload", want: "upload:file:create"},
 		{method: "DELETE", path: "/api/upload/config/delete", want: "upload:config:delete"},
 		{method: "GET", path: "/api/upload/dir_rule/detail", want: "upload:dir_rule:list"},
 		{method: "DELETE", path: "/api/upload/file/batch-delete", want: "upload:file:batch-delete"},

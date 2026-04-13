@@ -20,9 +20,8 @@ import type { UploadProps } from 'ant-design-vue';
 
 import { getDirTree } from '#/api/upload/dir';
 import type { DirItem } from '#/api/upload/dir/types';
-import { getFileList } from '#/api/upload/file';
+import { getFileList, uploadFile } from '#/api/upload/file';
 import type { FileItem } from '#/api/upload/file/types';
-import { uploadFile } from '#/api/upload/uploader';
 
 export interface FileManagerItem {
   id: string;

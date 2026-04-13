@@ -756,7 +756,7 @@ jobs:
             -H "Authorization: Bearer $TOKEN" \
             -F "source=$SOURCE" \
             -F "file=@$TMP_FILE;type=text/plain" \
-            "$BASE_URL/upload/uploader/upload")
+            "$BASE_URL/upload/file/upload")
 
           FILE_ID=$(printf '%s' "$UPLOAD_JSON" | sed -n 's/.*"id":"\([0-9]*\)".*/\1/p')
           FILE_URL=$(printf '%s' "$UPLOAD_JSON" | sed -n 's/.*"url":"\([^"]*\)".*/\1/p')
