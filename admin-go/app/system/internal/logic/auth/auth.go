@@ -595,7 +595,7 @@ func markTicketUsedLocal(key string, ttl time.Duration) bool {
 	if key == "" {
 		return false
 	}
-	if ttl < time.Second {
+	if ttl <= 0 {
 		ttl = time.Second
 	}
 	now := time.Now()
