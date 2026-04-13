@@ -3,6 +3,7 @@ package auth
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/utility/snowflake"
@@ -104,6 +105,20 @@ func TestNormalizeAuthIssueTicketInput(t *testing.T) {
 	normalizeAuthIssueTicketInput(in)
 	if in.TargetApp != "crm" {
 		t.Fatalf("normalizeAuthIssueTicketInput mismatch: %+v", in)
+	}
+}
+
+func TestMarkTicketUsedLocal(t *testing.T) {
+	key := "system:auth:ticket:used:test-local"
+	if replayed := markTicketUsedLocal(key, 50*time.Millisecond); replayed {
+		t.Fatal("first local ticket use should not be treated as replay")
+	}
+	if replayed := markTicketUsedLocal(key, 50*time.Millisecond); !replayed {
+		t.Fatal("second local ticket use should be treated as replay")
+	}
+	time.Sleep(110 * time.Millisecond)
+	if replayed := markTicketUsedLocal(key, 50*time.Millisecond); replayed {
+		t.Fatal("expired local ticket marker should be evicted")
 	}
 }
 

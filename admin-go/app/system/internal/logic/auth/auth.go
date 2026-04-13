@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gogf/gf/v2/database/gdb"
@@ -59,6 +60,11 @@ const (
 	authLoginFailWindow = 10 * time.Minute
 	authInfoCacheTTL    = time.Minute
 	authMenusCacheTTL   = time.Minute
+)
+
+var (
+	localTicketReplayMu sync.Mutex
+	localTicketReplay   = make(map[string]time.Time)
 )
 
 func normalizeAuthLoginInput(in *model.AuthLoginInput) {
@@ -574,11 +580,39 @@ func (s *sAuth) loadUserByID(ctx context.Context, userID int64) (*authUserRecord
 }
 
 func (s *sAuth) markTicketUsed(ctx context.Context, claims *appticket.Claims, rawTicket string) (bool, error) {
-	count, err := cache.IncrWithTTL(ctx, appticket.ReplayCacheKey(claims, rawTicket), appticket.ReplayTTL(claims))
+	key := appticket.ReplayCacheKey(claims, rawTicket)
+	ttl := appticket.ReplayTTL(claims)
+	count, err := cache.IncrWithTTL(ctx, key, ttl)
 	if err != nil {
-		return false, err
+		g.Log().Warningf(ctx, "redis replay protection unavailable, fallback to local ticket cache: %v", err)
+		return markTicketUsedLocal(key, ttl), nil
 	}
 	return count > 1, nil
+}
+
+func markTicketUsedLocal(key string, ttl time.Duration) bool {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return false
+	}
+	if ttl < time.Second {
+		ttl = time.Second
+	}
+	now := time.Now()
+
+	localTicketReplayMu.Lock()
+	defer localTicketReplayMu.Unlock()
+
+	for cacheKey, expiresAt := range localTicketReplay {
+		if !expiresAt.After(now) {
+			delete(localTicketReplay, cacheKey)
+		}
+	}
+	if expiresAt, ok := localTicketReplay[key]; ok && expiresAt.After(now) {
+		return true
+	}
+	localTicketReplay[key] = now.Add(ttl)
+	return false
 }
 
 func normalizeAuthKeyPart(value string) string {
