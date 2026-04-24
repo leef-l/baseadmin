@@ -4,9 +4,11 @@
 
 1. [仓库总说明](README.MD)
 2. [代码库导读](docs/代码库导读.md)（首选入口）
-3. [Docker 开发说明](docs/Docker开发说明.md)
-4. [system 服务路由入口](admin-go/app/system/internal/cmd/cmd.go)
-5. [upload 服务路由入口](admin-go/app/upload/internal/cmd/cmd.go)
+3. [Codegen AI 执行手册](docs/Codegen-AI执行手册.md)（涉及 `admin-go/codegen/`、CRUD 生成、模板或 Vben 生成页时必读）
+4. [代码生成器说明](admin-go/codegen/README.md)
+5. [Docker 开发说明](docs/Docker开发说明.md)
+6. [system 服务路由入口](admin-go/app/system/internal/cmd/cmd.go)
+7. [upload 服务路由入口](admin-go/app/upload/internal/cmd/cmd.go)
 
 当前仓库已经收缩为后台基础框架，AI/代理默认只围绕以下范围工作：
 

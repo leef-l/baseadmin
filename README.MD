@@ -21,6 +21,7 @@
 - [System 应用说明](admin-go/app/system/README.MD)
 - [Upload 应用说明](admin-go/app/upload/README.MD)
 - [代码生成器说明](admin-go/codegen/README.md)
+- [Codegen AI 执行手册](docs/Codegen-AI执行手册.md)
 - [Docker 开发说明](docs/Docker开发说明.md)
 - [生产运维说明](docs/生产运维说明.md)
 - [Git 提交流程铁律](docs/Git提交流程铁律.md)
@@ -83,13 +84,15 @@ env 同步、国内镜像、profile、代理、初始化迁移等完整细节见
 从仓库根目录执行：
 
 ```bash
+./scripts/wait-for-cpu-idle.sh
+
 # 仓库范围与页面规范
 bash ./scripts/verify-baseadmin-scope.sh
 bash ./scripts/verify-vben-pages.sh
 
 # 后端与 codegen 测试（带负载守卫）
-cd admin-go && ../scripts/run-go-task-with-limits.sh go test ./...
-cd admin-go/codegen && ../../scripts/run-go-task-with-limits.sh go test ./...
+(cd admin-go && ../scripts/run-go-task-with-limits.sh go test ./...)
+(cd admin-go/codegen && ../../scripts/run-go-task-with-limits.sh go test ./...)
 
 # 前端校验（带负载守卫）
 bash ./scripts/run-node-task-with-limits.sh pnpm -C vue-vben-admin -F @vben/web-antd typecheck
@@ -107,5 +110,6 @@ bash ./scripts/run-node-task-with-limits.sh pnpm -C vue-vben-admin test:web-antd
 更多说明见：
 
 - [代码库导读](docs/代码库导读.md)
+- [Codegen AI 执行手册](docs/Codegen-AI执行手册.md)
 - [Git 提交流程铁律](docs/Git提交流程铁律.md)
 - [Docker 开发说明](docs/Docker开发说明.md)

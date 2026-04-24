@@ -1,5 +1,22 @@
 # GBaseAdmin 代码生成器
 
+## AI 快速入口
+
+AI/代理处理 codegen 前必须先读：
+
+1. `CLAUDE.md`
+2. `docs/Codegen-AI执行手册.md`
+3. 本文
+
+服务器上执行 codegen、测试、端到端验证时，必须先跑负载守卫，并通过受限 Go 入口执行：
+
+```bash
+../../scripts/wait-for-cpu-idle.sh
+../../scripts/run-go-task-with-limits.sh go run . --table upload_dir_rule --dry-run
+```
+
+不要在文档或流程里引导裸跑 `pnpm`、`npm`、`npx` 或 Docker。需要前端排查时只能走根目录的 `scripts/run-node-task-with-limits.sh`。
+
 ## 铁律
 
 - 数据库结构和初始化真源在 `admin-go/database/migrations/`
@@ -37,37 +54,37 @@
 cd admin-go/codegen
 
 # 生成单表
-go run . --table system_dept
+../../scripts/run-go-task-with-limits.sh go run . --table system_dept
 
 # 生成单表后端/前端代码，不触发 gf gen dao
-go run . --table system_dept --only backend
+../../scripts/run-go-task-with-limits.sh go run . --table system_dept --only backend
 
 # 生成多表
-go run . --table system_dept,system_role
+../../scripts/run-go-task-with-limits.sh go run . --table system_dept,system_role
 
 # 只生成前端
-go run . --table system_dept --only frontend
+../../scripts/run-go-task-with-limits.sh go run . --table system_dept --only frontend
 
 # 如需执行 gf gen dao，显式开启
-go run . --table system_dept --only backend --with-dao
+../../scripts/run-go-task-with-limits.sh go run . --table system_dept --only backend --with-dao
 
 # 如需新建应用骨架，显式开启 gf init
-go run . --table demo_demo --with-init
+../../scripts/run-go-task-with-limits.sh go run . --table demo_demo --with-init
 
 # 强制覆盖已有文件
-go run . --table system_dept --force
+../../scripts/run-go-task-with-limits.sh go run . --table system_dept --force
 
 # 预览（不写入文件）
-go run . --table system_dept --dry-run
+../../scripts/run-go-task-with-limits.sh go run . --table system_dept --dry-run
 
 # 预览并输出结构化 manifest
-go run . --table system_dept --dry-run --manifest-out ./tmp/codegen-manifest.json
+../../scripts/run-go-task-with-limits.sh go run . --table system_dept --dry-run --manifest-out /tmp/baseadmin-codegen-manifest.json
 
 # 只生成菜单数据（写入数据库）
-go run . --table system_dept --only menu
+../../scripts/run-go-task-with-limits.sh go run . --table system_dept --only menu
 
 # 生成代码同时写入菜单
-go run . --table system_dept --menu
+../../scripts/run-go-task-with-limits.sh go run . --table system_dept --menu
 ```
 
 ## 验证方式
@@ -78,13 +95,13 @@ go run . --table system_dept --menu
 cd admin-go/codegen
 
 # 1. 离线模板验证：不依赖真实生成目录
-go run verify_codegen.go
+../../scripts/run-go-task-with-limits.sh go run verify_codegen.go
 
 # 2. 语法/单测验证
-go test ./...
+../../scripts/run-go-task-with-limits.sh go test ./...
 
 # 如模板有预期变更，更新 golden snapshot
-go test ./... -run TestTemplateGoldenSnapshots -args -update-golden
+../../scripts/run-go-task-with-limits.sh go test ./... -run TestTemplateGoldenSnapshots -args -update-golden
 ```
 
 如果本机有可用 MySQL 且 `admin-go/.env` 已配置完成，还可以继续跑生成级端到端验证：
@@ -93,12 +110,12 @@ go test ./... -run TestTemplateGoldenSnapshots -args -update-golden
 cd admin-go/codegen
 
 # 低资源服务器建议分阶段执行
-go run ./cmd/verifye2e --stage render --keep-temp
-go run ./cmd/verifye2e --stage dao --temp-root /tmp/baseadmin-codegen-e2e-xxxx
-go run ./cmd/verifye2e --stage build --temp-root /tmp/baseadmin-codegen-e2e-xxxx
+../../scripts/run-go-task-with-limits.sh go run ./cmd/verifye2e --stage render --keep-temp
+../../scripts/run-go-task-with-limits.sh go run ./cmd/verifye2e --stage dao --temp-root /tmp/baseadmin-codegen-e2e-xxxx
+../../scripts/run-go-task-with-limits.sh go run ./cmd/verifye2e --stage build --temp-root /tmp/baseadmin-codegen-e2e-xxxx
 
 # 资源充足时也可以一次跑完
-go run ./cmd/verifye2e --stage all
+../../scripts/run-go-task-with-limits.sh go run ./cmd/verifye2e --stage all
 ```
 
 说明：
