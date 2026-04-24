@@ -19,6 +19,7 @@ type DirCreateReq struct {
 	ParentID snowflake.JsonInt64 `json:"parentID"  dc:"上级目录"`
 	Name     string              `json:"name" v:"required#目录名称不能为空" dc:"目录名称"`
 	Path     string              `json:"path" v:"required#目录路径不能为空" dc:"目录路径"`
+	KeepName int                 `json:"keepName" dc:"保留原文件名:0=否,1=是"`
 	Sort     int                 `json:"sort"  dc:"排序"`
 	Status   int                 `json:"status"  dc:"状态"`
 }
@@ -35,6 +36,7 @@ type DirUpdateReq struct {
 	ParentID snowflake.JsonInt64 `json:"parentID" dc:"上级目录"`
 	Name     string              `json:"name" dc:"目录名称"`
 	Path     string              `json:"path" dc:"目录路径"`
+	KeepName int                 `json:"keepName" dc:"保留原文件名:0=否,1=是"`
 	Sort     int                 `json:"sort" dc:"排序"`
 	Status   int                 `json:"status" dc:"状态"`
 }

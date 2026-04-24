@@ -7,6 +7,7 @@ export interface DirItem {
   dirName?: string;
   name: string;
   path: string;
+  keepName?: number;
   sort?: number;
   status?: number;
   createdAt?: string;
@@ -33,6 +34,7 @@ export interface DirCreateParams {
   parentID?: string;
   name: string;
   path: string;
+  keepName?: number;
   sort?: number;
   status?: number;
 }
@@ -43,6 +45,7 @@ export interface DirUpdateParams {
   parentID?: string;
   name: string;
   path: string;
+  keepName?: number;
   sort?: number;
   status?: number;
 }

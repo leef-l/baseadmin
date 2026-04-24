@@ -320,6 +320,7 @@ CREATE TABLE `upload_dir` (
   `parent_id` bigint unsigned DEFAULT '0' COMMENT '上级目录',
   `name` varchar(100) NOT NULL COMMENT '目录名称',
   `path` varchar(500) NOT NULL COMMENT '目录路径',
+  `keep_name` tinyint(1) NOT NULL DEFAULT '0' COMMENT '保留原文件名:0=否,1=是',
   `sort` int DEFAULT '0' COMMENT '排序',
   `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态:0=禁用,1=启用',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -331,10 +332,10 @@ CREATE TABLE `upload_dir` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件目录';
 
 INSERT INTO `upload_dir` (
-  `id`, `parent_id`, `name`, `path`, `sort`, `status`,
+  `id`, `parent_id`, `name`, `path`, `keep_name`, `sort`, `status`,
   `created_at`, `updated_at`, `deleted_at`, `created_by`, `dept_id`
 ) VALUES (
-  314696302266945536, 0, 'uploads', 'uploads', 0, 1,
+  314696302266945536, 0, 'uploads', 'uploads', 0, 0, 1,
   '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL, NULL, NULL
 );
 
@@ -346,9 +347,10 @@ CREATE TABLE `upload_dir_rule` (
   `id` bigint unsigned NOT NULL COMMENT 'ID',
   `dir_id` bigint unsigned NOT NULL COMMENT '目录ID',
   `category` tinyint(1) NOT NULL DEFAULT '1' COMMENT '类别:1=默认,2=类型,3=接口',
-  `file_type` varchar(255) DEFAULT '' COMMENT '文件类型，多个用逗号分隔',
+  `file_type` text COMMENT '匹配条件，多个可换行',
   `storage_types` varchar(20) DEFAULT '1,2,3' COMMENT '适用存储类型，多个用逗号分隔',
   `save_path` varchar(500) DEFAULT '' COMMENT '保存目录',
+  `keep_name` tinyint(1) NOT NULL DEFAULT '0' COMMENT '保留原文件名:0=否,1=是',
   `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态:0=禁用,1=启用',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -360,10 +362,10 @@ CREATE TABLE `upload_dir_rule` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件目录规则';
 
 INSERT INTO `upload_dir_rule` (
-  `id`, `dir_id`, `category`, `file_type`, `storage_types`, `save_path`, `status`,
+  `id`, `dir_id`, `category`, `file_type`, `storage_types`, `save_path`, `keep_name`, `status`,
   `created_at`, `updated_at`, `deleted_at`, `created_by`, `dept_id`
 ) VALUES (
-  314720336681635840, 314696302266945536, 1, '', '1,2,3', '{Y-m-d}', 1,
+  314720336681635840, 314696302266945536, 1, '', '1,2,3', '{Y-m-d}', 0, 1,
   '2026-04-07 00:00:00', '2026-04-07 00:00:00', NULL, NULL, NULL
 );
 

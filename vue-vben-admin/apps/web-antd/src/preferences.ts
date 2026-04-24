@@ -12,4 +12,7 @@ export const overridesPreferences = defineOverridesPreferences({
     defaultHomePath: '/system/dept',
     enableRefreshToken: false,
   },
+  tabbar: {
+    persist: false,
+  },
 });

@@ -10,8 +10,9 @@ export interface DirRuleItem {
   dirName?: string;
   category?: number;
   fileType?: string;
-  storageTypes?: string;
+  storageTypes?: DirRuleStorageTypesValue;
   savePath?: string;
+  keepName?: number;
   status?: number;
   createdAt?: string;
   updatedAt?: string;
@@ -33,6 +34,7 @@ export interface DirRuleCreateParams {
   fileType?: string;
   storageTypes?: DirRuleStorageTypesValue;
   savePath?: string;
+  keepName?: number;
   status?: number;
 }
 
@@ -44,5 +46,6 @@ export interface DirRuleUpdateParams {
   fileType?: string;
   storageTypes?: DirRuleStorageTypesValue;
   savePath?: string;
+  keepName?: number;
   status?: number;
 }

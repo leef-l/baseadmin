@@ -60,18 +60,33 @@ const router = useRouter();
 
 const REMEMBER_ME_KEY = `REMEMBER_ME_USERNAME_${location.hostname}`;
 
-const localUsername = localStorage.getItem(REMEMBER_ME_KEY) || '';
+const localUsername = props.showRememberMe
+  ? localStorage.getItem(REMEMBER_ME_KEY) || ''
+  : '';
 
-const rememberMe = ref(!!localUsername);
+const rememberMe = ref(props.showRememberMe && !!localUsername);
+
+function persistRememberedUsername(username?: string) {
+  if (!props.showRememberMe || !rememberMe.value) {
+    localStorage.removeItem(REMEMBER_ME_KEY);
+    return;
+  }
+
+  const normalizedUsername =
+    typeof username === 'string' ? username.trim() : '';
+  if (!normalizedUsername) {
+    localStorage.removeItem(REMEMBER_ME_KEY);
+    return;
+  }
+
+  localStorage.setItem(REMEMBER_ME_KEY, normalizedUsername);
+}
 
 async function handleSubmit() {
   const { valid } = await formApi.validate();
   const values = await formApi.getValues();
   if (valid) {
-    localStorage.setItem(
-      REMEMBER_ME_KEY,
-      rememberMe.value ? values?.username : '',
-    );
+    persistRememberedUsername(values?.username);
     emit('submit', values);
   }
 }
@@ -81,6 +96,10 @@ function handleGo(path: string) {
 }
 
 onMounted(() => {
+  if (!props.showRememberMe) {
+    localStorage.removeItem(REMEMBER_ME_KEY);
+    return;
+  }
   if (localUsername) {
     formApi.setFieldValue('username', localUsername);
   }

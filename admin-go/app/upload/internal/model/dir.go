@@ -13,6 +13,7 @@ type DirCreateInput struct {
 	ParentID snowflake.JsonInt64 `json:"parentID"`
 	Name     string              `json:"name"`
 	Path     string              `json:"path"`
+	KeepName int                 `json:"keepName"`
 	Sort     int                 `json:"sort"`
 	Status   int                 `json:"status"`
 }
@@ -23,6 +24,7 @@ type DirUpdateInput struct {
 	ParentID snowflake.JsonInt64 `json:"parentID"`
 	Name     string              `json:"name"`
 	Path     string              `json:"path"`
+	KeepName int                 `json:"keepName"`
 	Sort     int                 `json:"sort"`
 	Status   int                 `json:"status"`
 }
@@ -34,6 +36,7 @@ type DirDetailOutput struct {
 	DirName   string              `json:"dirName"`
 	Name      string              `json:"name"`
 	Path      string              `json:"path"`
+	KeepName  int                 `json:"keepName" orm:"keep_name"`
 	Sort      int                 `json:"sort"`
 	Status    int                 `json:"status"`
 	CreatedAt *gtime.Time         `json:"createdAt"`
@@ -47,6 +50,7 @@ type DirListOutput struct {
 	DirName   string              `json:"dirName"`
 	Name      string              `json:"name"`
 	Path      string              `json:"path"`
+	KeepName  int                 `json:"keepName" orm:"keep_name"`
 	Sort      int                 `json:"sort"`
 	Status    int                 `json:"status"`
 	CreatedAt *gtime.Time         `json:"createdAt"`
@@ -74,6 +78,7 @@ type DirTreeOutput struct {
 	DirName  string              `json:"dirName"`
 	Name     string              `json:"name"`
 	Path     string              `json:"path"`
+	KeepName int                 `json:"keepName" orm:"keep_name"`
 	Sort     int                 `json:"sort"`
 	Status   int                 `json:"status"`
 	Children []*DirTreeOutput    `json:"children"`

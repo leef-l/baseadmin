@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
+import type { DirItem } from '#/api/upload/dir/types';
 
 import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
+
 import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { batchDeleteDir, deleteDir, getDirTree } from '#/api/upload/dir';
-import type { DirItem } from '#/api/upload/dir/types';
 import { getGridSelectedIds } from '#/utils/grid-selection';
+
 import FormModal from './modules/form.vue';
 
 /** 标签颜色池 */
@@ -27,11 +29,16 @@ const statusMap: Record<number, string> = {
   1: '启用',
 };
 
+const keepNameMap: Record<number, string> = {
+  0: '否',
+  1: '是',
+};
+
 /** 状态颜色 */
 function getStatusColor(val: number): string {
   const keys = [0, 1];
   const idx = keys.indexOf(val);
-  return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
+  return TAG_COLORS[idx === -1 ? 0 : idx % TAG_COLORS.length] ?? 'default';
 }
 
 /** 表单弹窗 */
@@ -79,6 +86,7 @@ const gridOptions: VxeGridProps<DirItem> = {
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { field: 'name', title: '目录名称', treeNode: true },
     { field: 'path', title: '目录路径' },
+    { field: 'keepName', title: '保留原名', width: 110, slots: { default: 'keep_name_cell' } },
     { field: 'sort', title: '排序' },
     { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' } },
     { field: 'createdAt', title: '创建时间', width: 180, formatter: 'formatDateTime' },
@@ -167,6 +175,11 @@ function handleBatchDelete() {
       <template #status_cell="{ row }">
         <Tag :color="getStatusColor(row.status ?? 0)">
           {{ statusMap[row.status ?? 0] || row.status }}
+        </Tag>
+      </template>
+      <template #keep_name_cell="{ row }">
+        <Tag :color="getStatusColor(row.keepName ?? 0)">
+          {{ keepNameMap[row.keepName ?? 0] || row.keepName }}
         </Tag>
       </template>
       <template #action="{ row }">

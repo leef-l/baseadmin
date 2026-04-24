@@ -39,6 +39,7 @@ func (s *sMenu) Create(ctx context.Context, in *model.MenuCreateInput) error {
 	}
 	normalizeMenuCreateInput(in)
 	normalizeMenuTypeFields(in.Type, &in.Path, &in.Component, &in.LinkURL)
+	normalizeMenuCache(&in.IsCache, in.Type)
 	if err := validateMenuFields(in.Title, in.Type, in.Path, in.Component, in.Permission, in.LinkURL, in.IsShow, in.IsCache, in.Status, in.Sort); err != nil {
 		return err
 	}
@@ -80,6 +81,7 @@ func (s *sMenu) Update(ctx context.Context, in *model.MenuUpdateInput) error {
 	}
 	normalizeMenuUpdateInput(in)
 	normalizeMenuTypeFields(in.Type, &in.Path, &in.Component, &in.LinkURL)
+	normalizeMenuCache(&in.IsCache, in.Type)
 	if err := validateMenuFields(in.Title, in.Type, in.Path, in.Component, in.Permission, in.LinkURL, in.IsShow, in.IsCache, in.Status, in.Sort); err != nil {
 		return err
 	}
@@ -344,6 +346,19 @@ func normalizeMenuTypeFields(menuType int, path, component, linkURL *string) {
 		*path = ""
 		*component = ""
 		*linkURL = ""
+	}
+}
+
+func normalizeMenuCache(isCache *int, menuType int) {
+	if isCache == nil {
+		return
+	}
+	if menuType != 2 {
+		*isCache = 0
+		return
+	}
+	if *isCache != 1 {
+		*isCache = 0
 	}
 }
 

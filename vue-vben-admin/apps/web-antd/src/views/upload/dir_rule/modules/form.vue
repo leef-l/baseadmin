@@ -1,14 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useVbenModal } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import { message } from 'ant-design-vue';
-import {
-  getDirRuleDetail,
-  createDirRule,
-  updateDirRule,
-} from '#/api/upload/dir_rule';
-import { getDirTree } from '#/api/upload/dir';
 import type { DirItem } from '#/api/upload/dir/types';
 import type {
   DirRuleCreateParams,
@@ -16,6 +6,22 @@ import type {
   DirRuleStorageType,
   DirRuleUpdateParams,
 } from '#/api/upload/dir_rule/types';
+
+import { ref } from 'vue';
+
+import { useVbenModal } from '@vben/common-ui';
+
+import { message } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
+import { getDirTree } from '#/api/upload/dir';
+import {
+  createDirRule,
+  getDirRuleDetail,
+  updateDirRule,
+} from '#/api/upload/dir_rule';
+
+const emit = defineEmits<{ success: [] }>();
 
 /** 类别选项 */
 const categoryOptions = [
@@ -30,7 +36,6 @@ const storageTypeOptions = [
   { label: 'COS', value: 3 },
 ];
 
-const emit = defineEmits<{ success: [] }>();
 const isEdit = ref(false);
 const editId = ref('');
 const openToken = ref(0);
@@ -67,14 +72,12 @@ function flattenDirTree(
 
 /** 加载目录选项 */
 async function loadDirOptions() {
-  let options: { label: string; value: string }[] = [];
   try {
     const list = await getDirTree();
-    options = flattenDirTree(list);
+    return flattenDirTree(list);
   } catch {
-    options = [];
+    return [];
   }
-  return options;
 }
 
 function applyDirOptions(options: { label: string; value: string }[]) {
@@ -90,9 +93,9 @@ function applyDirOptions(options: { label: string; value: string }[]) {
 function normalizeStorageTypes(value: unknown): DirRuleStorageType[] {
   const rawValues = Array.isArray(value)
     ? value
-    : typeof value === 'string'
+    : (typeof value === 'string'
       ? value.split(/[,\s，；;]+/g)
-      : [];
+      : []);
   const normalized: DirRuleStorageType[] = [];
   const seen = new Set<DirRuleStorageType>();
   for (const item of rawValues) {
@@ -140,13 +143,14 @@ const [Form, formApi] = useVbenForm({
       componentProps: { options: categoryOptions, placeholder: '请选择类别', allowClear: true, class: 'w-full' },
     },
     {
-      component: 'Input',
+      component: 'Textarea',
       fieldName: 'fileType',
       label: '匹配条件',
       dependencies: fileTypeDeps,
       componentProps: {
-        placeholder: '类型规则填扩展名；来源规则填页面路由，多个用逗号分隔，如 txt,doc 或 /system/users,/upload/file/*',
-        maxlength: 255,
+        placeholder: '类型规则可填扩展名、image、image/*、application/pdf；来源规则可填页面路由或上传场景，每行一个',
+        autoSize: { minRows: 4, maxRows: 8 },
+        maxlength: 1000,
       },
     },
     {
@@ -168,7 +172,14 @@ const [Form, formApi] = useVbenForm({
       component: 'Input',
       fieldName: 'savePath',
       label: '保存目录',
-      componentProps: { placeholder: '请输入保存目录', maxlength: 500 },
+      componentProps: { placeholder: '如 uploads/{systemUserId}/{Y-m-d}；本地存储可用 @up/cert/{ext}', maxlength: 500 },
+    },
+    {
+      component: 'Switch',
+      fieldName: 'keepName',
+      label: '保留原文件名',
+      componentProps: { checkedValue: 1, unCheckedValue: 0 },
+      defaultValue: 0,
     },
     {
       component: 'Switch',
@@ -195,6 +206,7 @@ const [Modal, modalApi] = useVbenModal({
       ...values,
       fileType: values.category === 2 || values.category === 3 ? values.fileType?.trim() : '',
       storageTypes: stringifyStorageTypes(values.storageTypes),
+      keepName: values.keepName ?? 0,
     };
     modalApi.lock();
     try {

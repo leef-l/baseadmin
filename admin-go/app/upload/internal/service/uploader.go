@@ -8,6 +8,7 @@ import (
 
 type IUploader interface {
 	Upload(ctx context.Context) (*model.UploadOutput, error)
+	UploadByTicket(ctx context.Context, ticket string) (*model.UploadOutput, error)
 }
 
 var localUploader IUploader

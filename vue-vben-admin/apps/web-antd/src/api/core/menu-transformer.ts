@@ -21,6 +21,10 @@ export interface BackendMenu {
 
 const routeMenuTypes = new Set([1, 2, 4, 5]);
 
+function supportsKeepAlive(menuType: number) {
+  return menuType === 2;
+}
+
 function getMenuLink(menu: BackendMenu) {
   return menu.linkUrl?.trim() || menu.linkURL?.trim() || '';
 }
@@ -82,7 +86,7 @@ export function transformMenus(
         icon: menu.icon || undefined,
         order: menu.sort,
         hideInMenu: menu.isShow !== 1,
-        keepAlive: menu.isCache === 1,
+        keepAlive: supportsKeepAlive(menu.type) && menu.isCache === 1,
         authority: menu.permission ? [menu.permission] : undefined,
       };
       const route: RouteRecordStringComponent = {

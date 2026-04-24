@@ -10,7 +10,7 @@ import (
 func TestNormalizeDirRuleInputs(t *testing.T) {
 	createIn := &model.DirRuleCreateInput{
 		Category:     2,
-		FileType:     " .TXT,doc；pdf ",
+		FileType:     " .TXT,doc；image/* application/pdf ",
 		StorageTypes: " 1,2；3 ",
 		SavePath:     " {Y}/{m}/{d} ",
 	}
@@ -18,7 +18,7 @@ func TestNormalizeDirRuleInputs(t *testing.T) {
 	if createIn.SavePath != "{Y}/{m}/{d}" {
 		t.Fatalf("normalizeDirRuleCreateInput mismatch: %+v", createIn)
 	}
-	if createIn.FileType != "txt,doc,pdf" {
+	if createIn.FileType != "txt,doc,image/*,application/pdf" {
 		t.Fatalf("normalizeDirRuleCreateInput fileType mismatch: %+v", createIn)
 	}
 	if createIn.StorageTypes != "1,2,3" {
@@ -72,26 +72,35 @@ func TestDirRuleInputValidation(t *testing.T) {
 	if err := dirRuleSvc.Update(nil, nil); err == nil || err.Error() != "请求参数不能为空" {
 		t.Fatalf("Update nil input mismatch: %v", err)
 	}
-	if err := validateDirRuleFields(0, 1, 1, "", "1", ""); err == nil || err.Error() != "目录ID不能为空" {
+	if err := validateDirRuleFields(0, 1, 1, "", "1", "", 0); err == nil || err.Error() != "目录ID不能为空" {
 		t.Fatalf("validateDirRuleFields missing dirID mismatch: %v", err)
 	}
-	if err := validateDirRuleFields(1, 9, 1, "", "1", ""); err == nil || err.Error() != "类别值不合法" {
+	if err := validateDirRuleFields(1, 9, 1, "", "1", "", 0); err == nil || err.Error() != "类别值不合法" {
 		t.Fatalf("validateDirRuleFields invalid category mismatch: %v", err)
 	}
-	if err := validateDirRuleFields(1, 1, 1, "", "9", ""); err == nil || err.Error() != "适用存储值不合法" {
+	if err := validateDirRuleFields(1, 1, 1, "", "9", "", 0); err == nil || err.Error() != "适用存储值不合法" {
 		t.Fatalf("validateDirRuleFields invalid storageTypes mismatch: %v", err)
 	}
-	if err := validateDirRuleFields(1, 2, 1, "", "1", ""); err == nil || err.Error() != "文件类型不能为空" {
+	if err := validateDirRuleFields(1, 2, 1, "", "1", "", 0); err == nil || err.Error() != "文件类型不能为空" {
 		t.Fatalf("validateDirRuleFields missing fileType mismatch: %v", err)
 	}
-	if err := validateDirRuleFields(1, 2, 1, "txt,doc$", "1", ""); err == nil || err.Error() != "文件类型格式不正确" {
+	if err := validateDirRuleFields(1, 2, 1, "txt,doc$", "1", "", 0); err == nil || err.Error() != "文件类型格式不正确" {
 		t.Fatalf("validateDirRuleFields invalid fileType mismatch: %v", err)
 	}
-	if err := validateDirRuleFields(1, 3, 1, "", "1", ""); err == nil || err.Error() != "来源标识不能为空" {
+	if err := validateDirRuleFields(1, 3, 1, "", "1", "", 0); err == nil || err.Error() != "来源标识不能为空" {
 		t.Fatalf("validateDirRuleFields missing source matcher mismatch: %v", err)
 	}
-	if err := validateDirRuleFields(1, 1, 1, "", "1,2", "../cert"); err == nil || err.Error() != "父级目录规则仅支持本地存储" {
+	if err := validateDirRuleFields(1, 1, 1, "", "1,2", "../cert", 0); err == nil || err.Error() != "父级目录规则仅支持本地存储" {
 		t.Fatalf("validateDirRuleFields parent path storage mismatch: %v", err)
+	}
+	if err := validateDirRuleFields(1, 1, 1, "", "1,2", "@up/cert", 0); err == nil || err.Error() != "父级目录规则仅支持本地存储" {
+		t.Fatalf("validateDirRuleFields @up path storage mismatch: %v", err)
+	}
+	if err := validateDirRuleFields(1, 1, 1, "", "1", "", 2); err == nil || err.Error() != "保留原文件名值不合法" {
+		t.Fatalf("validateDirRuleFields invalid keepName mismatch: %v", err)
+	}
+	if err := validateDirRuleFields(1, 2, 1, "image/*,application/pdf,img", "1", "", 1); err != nil {
+		t.Fatalf("validateDirRuleFields should allow mime aliases: %v", err)
 	}
 	if _, err := dirRuleSvc.Detail(nil, 0); err == nil || err.Error() != "目录规则不存在或已删除" {
 		t.Fatalf("Detail invalid id mismatch: %v", err)

@@ -21,6 +21,7 @@ type DirRuleCreateReq struct {
 	FileType     string              `json:"fileType" dc:"文件类型，多个用逗号分隔"`
 	StorageTypes string              `json:"storageTypes" dc:"适用存储类型，多个用逗号分隔"`
 	SavePath     string              `json:"savePath"  dc:"保存目录"`
+	KeepName     int                 `json:"keepName" dc:"保留原文件名"`
 	Status       int                 `json:"status"  dc:"状态"`
 }
 
@@ -38,6 +39,7 @@ type DirRuleUpdateReq struct {
 	FileType     string              `json:"fileType" dc:"文件类型，多个用逗号分隔"`
 	StorageTypes string              `json:"storageTypes" dc:"适用存储类型，多个用逗号分隔"`
 	SavePath     string              `json:"savePath" dc:"保存目录"`
+	KeepName     int                 `json:"keepName" dc:"保留原文件名"`
 	Status       int                 `json:"status" dc:"状态"`
 }
 

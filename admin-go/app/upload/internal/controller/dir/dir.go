@@ -18,6 +18,7 @@ func (c *cDir) Create(ctx context.Context, req *v1.DirCreateReq) (res *v1.DirCre
 		ParentID: req.ParentID,
 		Name:     req.Name,
 		Path:     req.Path,
+		KeepName: req.KeepName,
 		Sort:     req.Sort,
 		Status:   req.Status,
 	})
@@ -31,6 +32,7 @@ func (c *cDir) Update(ctx context.Context, req *v1.DirUpdateReq) (res *v1.DirUpd
 		ParentID: req.ParentID,
 		Name:     req.Name,
 		Path:     req.Path,
+		KeepName: req.KeepName,
 		Sort:     req.Sort,
 		Status:   req.Status,
 	})

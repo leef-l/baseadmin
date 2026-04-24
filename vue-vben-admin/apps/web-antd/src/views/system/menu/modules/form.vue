@@ -26,6 +26,13 @@ const typeOptions = [
   { label: '内链', value: 5 },
 ];
 
+const cacheDeps = {
+  triggerFields: ['type'],
+  show(values: Record<string, any>) {
+    return Number(values.type ?? 0) === 2;
+  },
+};
+
 const emit = defineEmits<{ success: [] }>();
 const isEdit = ref(false);
 const editId = ref('');
@@ -46,6 +53,7 @@ function normalizeMenuValues(values: MenuCreateParams): MenuCreateParams {
     permission: normalizeText(values.permission),
     icon: normalizeText(values.icon),
     linkURL: normalizeText(values.linkURL),
+    isCache: type === 2 ? Number(values.isCache ?? 0) : 0,
   };
 
   switch (type) {
@@ -166,6 +174,7 @@ const [Form, formApi] = useVbenForm({
       component: 'Switch',
       fieldName: 'isCache',
       label: '是否缓存',
+      dependencies: cacheDeps,
       componentProps: { checkedValue: 1, unCheckedValue: 0 },
       defaultValue: 0,
     },

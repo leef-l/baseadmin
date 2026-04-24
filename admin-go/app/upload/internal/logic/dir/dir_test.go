@@ -39,20 +39,23 @@ func TestNormalizeDirInputs(t *testing.T) {
 }
 
 func TestValidateDirFields(t *testing.T) {
-	if err := validateDirFields("", "/upload/demo", 0, 1); err == nil || err.Error() != "目录名称不能为空" {
+	if err := validateDirFields("", "/upload/demo", 0, 0, 1); err == nil || err.Error() != "目录名称不能为空" {
 		t.Fatalf("validateDirFields blank name mismatch: %v", err)
 	}
-	if err := validateDirFields("目录", "", 0, 1); err == nil || err.Error() != "目录路径不能为空" {
+	if err := validateDirFields("目录", "", 0, 0, 1); err == nil || err.Error() != "目录路径不能为空" {
 		t.Fatalf("validateDirFields blank path mismatch: %v", err)
 	}
-	if err := validateDirFields("目录", "/upload/demo", 0, 1); err != nil {
+	if err := validateDirFields("目录", "/upload/demo", 0, 0, 1); err != nil {
 		t.Fatalf("validateDirFields should succeed: %v", err)
 	}
-	if err := validateDirFields("目录", "/upload/demo", -1, 1); err == nil || err.Error() != "排序不能小于0" {
+	if err := validateDirFields("目录", "/upload/demo", 0, -1, 1); err == nil || err.Error() != "排序不能小于0" {
 		t.Fatalf("validateDirFields negative sort mismatch: %v", err)
 	}
-	if err := validateDirFields("目录", "/upload/demo", 0, 2); err == nil || err.Error() != "状态值不合法" {
+	if err := validateDirFields("目录", "/upload/demo", 0, 0, 2); err == nil || err.Error() != "状态值不合法" {
 		t.Fatalf("validateDirFields invalid status mismatch: %v", err)
+	}
+	if err := validateDirFields("目录", "/upload/demo", 2, 0, 1); err == nil || err.Error() != "保留原文件名值不合法" {
+		t.Fatalf("validateDirFields invalid keepName mismatch: %v", err)
 	}
 	if _, err := (&sDir{}).Detail(nil, 0); err == nil || err.Error() != "目录不存在或已删除" {
 		t.Fatalf("Detail invalid id mismatch: %v", err)

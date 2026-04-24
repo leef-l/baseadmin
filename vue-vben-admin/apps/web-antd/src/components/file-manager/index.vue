@@ -1,7 +1,13 @@
 <script setup lang="ts">
+import type { UploadProps } from 'ant-design-vue';
+
+import type { DirItem } from '#/api/upload/dir/types';
+import type { UploadResult } from '#/api/upload/file';
+import type { FileItem } from '#/api/upload/file/types';
+
 import { computed, onMounted, reactive, ref } from 'vue';
 
-import { PlusOutlined } from '@ant-design/icons-vue';
+import { DeleteOutlined, FolderAddOutlined, PlusOutlined } from '@ant-design/icons-vue';
 import {
   Button,
   Card,
@@ -10,18 +16,17 @@ import {
   Empty,
   Input,
   message,
+  Modal,
   Pagination,
   Row,
   Spin,
+  Switch,
   Tree,
   Upload,
 } from 'ant-design-vue';
-import type { UploadProps } from 'ant-design-vue';
 
-import { getDirTree } from '#/api/upload/dir';
-import type { DirItem } from '#/api/upload/dir/types';
-import { getFileList, uploadFile } from '#/api/upload/file';
-import type { FileItem } from '#/api/upload/file/types';
+import { createDir, getDirTree } from '#/api/upload/dir';
+import { deleteFile, getFileList, uploadFile } from '#/api/upload/file';
 
 export interface FileManagerItem {
   id: string;
@@ -60,6 +65,9 @@ const emit = defineEmits<{
 
 const effectiveMax = computed(() => (props.multiple ? props.maxCount : 1));
 const uploadMultiple = computed(() => props.multiple && effectiveMax.value > 1);
+const remainingSelectCount = computed(() =>
+  Math.max(0, effectiveMax.value - selectedIds.value.size),
+);
 
 /** State */
 const loading = ref(false);
@@ -71,10 +79,15 @@ const selectedDirId = ref<string | undefined>(undefined);
 const fileListData = ref<FileItem[]>([]);
 const selectedIds = ref<Set<string>>(new Set());
 const dirTreeData = ref<DirItem[]>([]);
+const dirCreateOpen = ref(false);
+const dirCreateLoading = ref(false);
+const newDirName = ref('');
+const newDirPath = ref('');
+const newDirKeepName = ref(0);
 const pagination = reactive({ current: 1, pageSize: 20, total: 0 });
 
 /** 图片扩展名集合 */
-const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico']);
+const IMAGE_EXTS = new Set(['bmp', 'gif', 'heic', 'heif', 'jpeg', 'jpg', 'png', 'webp']);
 
 function isImageFile(file: FileItem): boolean {
   if (file.isImage === 1) return true;
@@ -88,9 +101,9 @@ function getFileIcon(ext: string): string {
   if (['doc', 'docx'].includes(e)) return '📝';
   if (['xls', 'xlsx'].includes(e)) return '📊';
   if (['ppt', 'pptx'].includes(e)) return '📎';
-  if (['zip', 'rar', '7z', 'gz', 'tar'].includes(e)) return '📦';
-  if (['mp4', 'avi', 'mov', 'mkv'].includes(e)) return '🎬';
-  if (['mp3', 'wav', 'flac', 'aac'].includes(e)) return '🎵';
+  if (['7z', 'gz', 'rar', 'tar', 'zip'].includes(e)) return '📦';
+  if (['avi', 'mkv', 'mov', 'mp4'].includes(e)) return '🎬';
+  if (['aac', 'flac', 'mp3', 'wav'].includes(e)) return '🎵';
   return '📁';
 }
 
@@ -107,6 +120,41 @@ const treeNodes = computed(() => {
   return [{ id: undefined, name: '全部文件', children: dirTreeData.value }] as any[];
 });
 
+const selectedDir = computed(() => {
+  if (!selectedDirId.value) {
+    return undefined;
+  }
+  return findDirById(dirTreeData.value, selectedDirId.value);
+});
+
+const autoDirPathPlaceholder = computed(() => {
+  const parentPath = normalizeDirPath(selectedDir.value?.path ?? '');
+  const namePath = normalizeDirPath(newDirName.value);
+  const fallback = normalizeDirPath([parentPath, namePath].filter(Boolean).join('/'));
+  return fallback || '留空时按目录名称生成';
+});
+
+function findDirById(list: DirItem[], id: string): DirItem | undefined {
+  for (const item of list) {
+    if (String(item.id) === id) {
+      return item;
+    }
+    const child = findDirById(item.children ?? [], id);
+    if (child) {
+      return child;
+    }
+  }
+  return undefined;
+}
+
+function normalizeDirPath(value: string): string {
+  return value
+    .trim()
+    .replaceAll('\\', '/')
+    .replaceAll(/^\/+|\/+$/g, '')
+    .replaceAll(/\/+/g, '/');
+}
+
 /** 加载目录树 */
 async function loadDirTree() {
   treeLoading.value = true;
@@ -121,7 +169,7 @@ async function loadDirTree() {
 async function loadFileList() {
   loading.value = true;
   try {
-    const isImageParam = props.mode === 'image' ? 1 : props.mode === 'file' ? 0 : undefined;
+    const isImageParam = props.mode === 'image' ? 1 : (props.mode === 'file' ? 0 : undefined);
     const res = await getFileList({
       pageNum: pagination.current,
       pageSize: pagination.pageSize,
@@ -158,22 +206,60 @@ function toggleSelect(file: FileItem) {
     }
     if (nextIds.size < effectiveMax.value) {
       nextIds.add(file.id);
+    } else {
+      message.warning(`最多只能选择 ${effectiveMax.value} 个文件`);
     }
   }
   selectedIds.value = nextIds;
 }
 
 /** 目录选择 */
-function onDirSelect(keys: Array<string | number>) {
+function onDirSelect(keys: Array<number | string>) {
   const first = keys[0];
   selectedDirId.value
     = typeof first === 'string'
       ? first
-      : first == null
+      : (first == null
         ? undefined
-        : String(first);
+        : String(first));
   pagination.current = 1;
   loadFileList();
+}
+
+function openCreateDir() {
+  newDirName.value = '';
+  newDirPath.value = '';
+  newDirKeepName.value = 0;
+  dirCreateOpen.value = true;
+}
+
+async function handleCreateDir() {
+  const name = newDirName.value.trim();
+  if (!name) {
+    message.warning('请输入目录名称');
+    return;
+  }
+  const path = normalizeDirPath(newDirPath.value) || autoDirPathPlaceholder.value;
+  if (!path || path === '留空时按目录名称生成') {
+    message.warning('请输入目录路径');
+    return;
+  }
+  dirCreateLoading.value = true;
+  try {
+    await createDir({
+      parentID: selectedDirId.value,
+      name,
+      path,
+      keepName: newDirKeepName.value,
+      sort: 0,
+      status: 1,
+    });
+    message.success('目录已创建');
+    dirCreateOpen.value = false;
+    await loadDirTree();
+  } finally {
+    dirCreateLoading.value = false;
+  }
 }
 
 /** 搜索 */
@@ -194,6 +280,77 @@ function onPageSizeChange(_current: number, size: number) {
   loadFileList();
 }
 
+function uploadResultToFileItem(result: UploadResult): FileItem {
+  return {
+    id: result.id,
+    dirID: selectedDirId.value,
+    name: result.name,
+    url: result.url,
+    ext: result.ext,
+    size: result.size,
+    mime: result.mime,
+    isImage: result.isImage,
+  };
+}
+
+function matchesCurrentMode(file: FileItem) {
+  if (props.mode === 'all') {
+    return true;
+  }
+  const isImage = isImageFile(file);
+  return props.mode === 'image' ? isImage : !isImage;
+}
+
+function prependUploadedFile(result: UploadResult) {
+  const uploaded = uploadResultToFileItem(result);
+  if (!matchesCurrentMode(uploaded)) {
+    return;
+  }
+  fileListData.value = [
+    uploaded,
+    ...fileListData.value.filter((item) => item.id !== uploaded.id),
+  ];
+  pagination.total += 1;
+  if (remainingSelectCount.value > 0) {
+    selectedIds.value = new Set([...selectedIds.value, uploaded.id]);
+  }
+}
+
+function handleDeleteFile(file: FileItem) {
+  Modal.confirm({
+    title: '确认删除文件',
+    content: `确定要删除 ${file.name} 吗？`,
+    okType: 'danger',
+    async onOk() {
+      await deleteFile(file.id);
+      fileListData.value = fileListData.value.filter((item) => item.id !== file.id);
+      const nextIds = new Set(selectedIds.value);
+      nextIds.delete(file.id);
+      selectedIds.value = nextIds;
+      pagination.total = Math.max(0, pagination.total - 1);
+      message.success('删除成功');
+      if (fileListData.value.length === 0 && pagination.total > 0) {
+        await loadFileList();
+      }
+    },
+  });
+}
+
+const beforeUpload: UploadProps['beforeUpload'] = (file, fileList) => {
+  const batchIndex = fileList.findIndex((item) => item.uid === file.uid);
+  const allowedCount = Math.max(
+    0,
+    effectiveMax.value - selectedIds.value.size - uploadingCount.value,
+  );
+  if (allowedCount <= 0 || batchIndex >= allowedCount) {
+    if (batchIndex === 0 || batchIndex === allowedCount) {
+      message.warning(`最多只能选择 ${effectiveMax.value} 个文件`);
+    }
+    return false;
+  }
+  return true;
+};
+
 /** 上传 */
 const customUpload: UploadProps['customRequest'] = async (options) => {
   const { file, onSuccess, onError } = options;
@@ -205,13 +362,13 @@ const customUpload: UploadProps['customRequest'] = async (options) => {
   }
   uploadingCount.value += 1;
   try {
-    await uploadFile(f, selectedDirId.value);
+    const result = await uploadFile(f, selectedDirId.value);
+    prependUploadedFile(result);
     message.success('上传成功');
     onSuccess?.({});
-    loadFileList();
-  } catch (err: any) {
+  } catch (error: any) {
     message.error('上传失败');
-    onError?.(err);
+    onError?.(error);
   } finally {
     uploadingCount.value = Math.max(0, uploadingCount.value - 1);
   }
@@ -258,6 +415,7 @@ onMounted(() => {
     <div class="fm-header">
       <Upload
         :accept="accept"
+        :before-upload="beforeUpload"
         :custom-request="customUpload"
         :show-upload-list="false"
         :multiple="uploadMultiple"
@@ -267,6 +425,9 @@ onMounted(() => {
           <PlusOutlined /> 上传文件
         </Button>
       </Upload>
+      <Button :disabled="treeLoading" style="margin-left: 8px" @click="openCreateDir">
+        <FolderAddOutlined /> 新建目录
+      </Button>
       <Input.Search
         v-model:value="keyword"
         placeholder="搜索文件名"
@@ -305,7 +466,7 @@ onMounted(() => {
                 <Card
                   size="small"
                   hoverable
-                  :class="['fm-card', { 'fm-card--selected': selectedIds.has(file.id) }]"
+                  class="fm-card" :class="[{ 'fm-card--selected': selectedIds.has(file.id) }]"
                   @click="toggleSelect(file)"
                 >
                   <template #cover>
@@ -316,6 +477,16 @@ onMounted(() => {
                         @click.stop
                         @change="toggleSelect(file)"
                       />
+                      <Button
+                        class="fm-delete"
+                        type="text"
+                        danger
+                        shape="circle"
+                        size="small"
+                        @click.stop="handleDeleteFile(file)"
+                      >
+                        <DeleteOutlined />
+                      </Button>
                       <img v-if="isImageFile(file)" :src="file.url" :alt="file.name" />
                       <span v-else class="fm-icon">{{ getFileIcon(file.ext || '') }}</span>
                     </div>
@@ -349,6 +520,33 @@ onMounted(() => {
         </div>
       </div>
     </div>
+    <Modal
+      v-model:open="dirCreateOpen"
+      title="新建目录"
+      :confirm-loading="dirCreateLoading"
+      @ok="handleCreateDir"
+    >
+      <div class="fm-dir-form">
+        <Input
+          v-model:value="newDirName"
+          placeholder="目录名称"
+          :maxlength="100"
+        />
+        <Input
+          v-model:value="newDirPath"
+          :placeholder="autoDirPathPlaceholder"
+          :maxlength="500"
+        />
+        <div class="fm-switch-row">
+          <span>保留文件原名</span>
+          <Switch
+            v-model:checked="newDirKeepName"
+            :checked-value="1"
+            :un-checked-value="0"
+          />
+        </div>
+      </div>
+    </Modal>
   </div>
 </template>
 
@@ -434,6 +632,14 @@ onMounted(() => {
   z-index: 1;
 }
 
+.fm-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.88);
+}
+
 .fm-name {
   font-size: 12px;
   overflow: hidden;
@@ -452,5 +658,17 @@ onMounted(() => {
   justify-content: flex-end;
   padding-top: 12px;
   margin-top: auto;
+}
+
+.fm-dir-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fm-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 </style>

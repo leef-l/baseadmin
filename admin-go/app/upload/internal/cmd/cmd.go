@@ -12,6 +12,7 @@ import (
 	"gbaseadmin/app/upload/internal/controller/dir_rule"
 	"gbaseadmin/app/upload/internal/controller/file"
 	"gbaseadmin/app/upload/internal/controller/health"
+	"gbaseadmin/app/upload/internal/controller/uploader"
 
 	"gbaseadmin/app/upload/internal/middleware"
 	"gbaseadmin/utility/httpmeta"
@@ -30,12 +31,18 @@ var (
 					health.NewV1(),
 				)
 				group.Group("/api/upload", func(group *ghttp.RouterGroup) {
+					group.Bind(
+						uploader.PublicUploader,
+					)
+				})
+				group.Group("/api/upload", func(group *ghttp.RouterGroup) {
 					group.Middleware(middleware.Auth)
 					group.Bind(
 						config.Config,
 						dir.Dir,
 						dir_rule.DirRule,
 						file.File,
+						uploader.Uploader,
 					)
 				})
 			})

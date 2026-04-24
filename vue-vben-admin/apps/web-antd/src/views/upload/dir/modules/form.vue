@@ -1,23 +1,28 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useVbenModal } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
-import { message } from 'ant-design-vue';
-import {
-  getDirDetail,
-  createDir,
-  updateDir,
-  getDirTree,
-} from '#/api/upload/dir';
 import type {
   DirCreateParams,
   DirItem,
   DirUpdateParams,
 } from '#/api/upload/dir/types';
 
-const treeData = ref<DirItem[]>([]);
+import { ref } from 'vue';
+
+import { useVbenModal } from '@vben/common-ui';
+
+import { message } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
+import {
+  createDir,
+  getDirDetail,
+  getDirTree,
+  updateDir,
+} from '#/api/upload/dir';
 
 const emit = defineEmits<{ success: [] }>();
+
+const treeData = ref<DirItem[]>([]);
+
 const isEdit = ref(false);
 const editId = ref('');
 const openToken = ref(0);
@@ -54,6 +59,13 @@ const [Form, formApi] = useVbenForm({
       componentProps: { placeholder: '请输入目录路径', maxlength: 500 },
     },
     {
+      component: 'Switch',
+      fieldName: 'keepName',
+      label: '保留原文件名',
+      componentProps: { checkedValue: 1, unCheckedValue: 0 },
+      defaultValue: 0,
+    },
+    {
       component: 'InputNumber',
       fieldName: 'sort',
       label: '排序',
@@ -82,6 +94,7 @@ const [Modal, modalApi] = useVbenModal({
     if (!values) return;
     modalApi.lock();
     try {
+      values.keepName = values.keepName ?? 0;
       if (isEdit.value) {
         await updateDir({ id: editId.value, ...values } as DirUpdateParams);
         message.success('更新成功');

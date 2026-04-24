@@ -91,4 +91,28 @@ func TestNormalizeMenuTypeFields(t *testing.T) {
 	if path != "" || component != "" || linkURL != "" {
 		t.Fatalf("normalizeMenuTypeFields button mismatch: path=%q component=%q linkURL=%q", path, component, linkURL)
 	}
+
+	isCache := 1
+	normalizeMenuCache(&isCache, 1)
+	if isCache != 0 {
+		t.Fatalf("normalizeMenuCache directory mismatch: got=%d", isCache)
+	}
+
+	isCache = 1
+	normalizeMenuCache(&isCache, 4)
+	if isCache != 0 {
+		t.Fatalf("normalizeMenuCache link mismatch: got=%d", isCache)
+	}
+
+	isCache = 2
+	normalizeMenuCache(&isCache, 2)
+	if isCache != 0 {
+		t.Fatalf("normalizeMenuCache invalid menu cache mismatch: got=%d", isCache)
+	}
+
+	isCache = 1
+	normalizeMenuCache(&isCache, 2)
+	if isCache != 1 {
+		t.Fatalf("normalizeMenuCache menu mismatch: got=%d", isCache)
+	}
 }

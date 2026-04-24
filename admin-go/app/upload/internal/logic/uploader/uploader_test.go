@@ -35,6 +35,68 @@ func TestBuildUniqueNameNormalizesExtension(t *testing.T) {
 	}
 }
 
+func TestBuildPreservedUploadName(t *testing.T) {
+	got := buildPreservedUploadName("../apiclient_key", "pem")
+	if got != "apiclient_key.pem" {
+		t.Fatalf("buildPreservedUploadName mismatch: %q", got)
+	}
+	got = buildPreservedUploadName("demo.JPG", "jpg")
+	if got != "demo.JPG" {
+		t.Fatalf("buildPreservedUploadName should keep matching name: %q", got)
+	}
+}
+
+func TestEnsureUniqueUploadName(t *testing.T) {
+	dir := t.TempDir()
+	existing := filepath.Join(dir, "demo.txt")
+	if err := os.WriteFile(existing, []byte("demo"), 0o644); err != nil {
+		t.Fatalf("write existing file: %v", err)
+	}
+	got := ensureUniqueUploadName(dir, "demo.txt")
+	if got != "demo_1.txt" {
+		t.Fatalf("ensureUniqueUploadName mismatch: %q", got)
+	}
+}
+
+func TestUploadPolicyAllowedExtensionsNormalize(t *testing.T) {
+	got := sliceToSet([]string{" .JPG ", "png", ".webp"})
+	for _, ext := range []string{"jpg", "png", "webp"} {
+		if _, ok := got[ext]; !ok {
+			t.Fatalf("expected extension %q in set: %#v", ext, got)
+		}
+	}
+}
+
+func TestBlockedDetectedMime(t *testing.T) {
+	for _, mimeType := range []string{"text/html", "image/svg+xml; charset=utf-8", "application/xml"} {
+		if !isBlockedDetectedMime(mimeType) {
+			t.Fatalf("expected mime type to be blocked: %s", mimeType)
+		}
+	}
+	if isBlockedDetectedMime("image/png") {
+		t.Fatal("image/png should not be blocked")
+	}
+}
+
+func TestSniffImageExt(t *testing.T) {
+	if got := sniffImageExt([]byte{0xFF, 0xD8, 0xFF, 0x00}); got != "jpg" {
+		t.Fatalf("jpeg sniff mismatch: %q", got)
+	}
+	if got := sniffImageExt([]byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}); got != "png" {
+		t.Fatalf("png sniff mismatch: %q", got)
+	}
+}
+
+func TestMimePrefixMatching(t *testing.T) {
+	prefixes := normalizeMimePrefixes([]string{" IMAGE/", "application/pdf"})
+	if !matchMimePrefixes("image/png", prefixes) {
+		t.Fatal("expected image/png to match image prefix")
+	}
+	if matchMimePrefixes("text/plain", prefixes) {
+		t.Fatal("text/plain should not match")
+	}
+}
+
 func TestGetInt64AndGetStringSupportCommonScanTypes(t *testing.T) {
 	values := map[string]interface{}{
 		"max_size":   []byte("20"),

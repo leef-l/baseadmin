@@ -93,6 +93,7 @@ onMounted(() => {
     :show-forget-password="false"
     :show-qrcode-login="false"
     :show-register="false"
+    :show-remember-me="false"
     :show-third-party-login="false"
     @submit="handleSubmit"
   />

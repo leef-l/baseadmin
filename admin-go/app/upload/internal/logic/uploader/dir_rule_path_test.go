@@ -3,22 +3,26 @@ package uploader
 import (
 	"testing"
 	"time"
-
-	"gbaseadmin/app/upload/internal/model/entity"
 )
 
 func TestNormalizeUploadRuleFileTypes(t *testing.T) {
-	got := normalizeUploadRuleFileTypes(" .TXT,doc；pdf txt ")
-	if got != "txt,doc,pdf" {
+	got := normalizeUploadRuleFileTypes(" .TXT,doc；pdf txt image/* application/pdf ")
+	if got != "txt,doc,pdf,image/*,application/pdf" {
 		t.Fatalf("normalizeUploadRuleFileTypes mismatch: %q", got)
 	}
 }
 
 func TestDirRuleFileTypeMatches(t *testing.T) {
-	if !dirRuleFileTypeMatches("txt,doc,pdf", ".DOC") {
+	if !dirRuleFileTypeMatches("txt,doc,pdf", ".DOC", "application/msword") {
 		t.Fatal("expected dirRuleFileTypeMatches to match normalized extension")
 	}
-	if dirRuleFileTypeMatches("txt,doc,pdf", "xls") {
+	if !dirRuleFileTypeMatches("image,image/*,application/pdf", ".webp", "image/webp") {
+		t.Fatal("expected dirRuleFileTypeMatches to match mime alias and prefix")
+	}
+	if !dirRuleFileTypeMatches("application/pdf", ".bin", "application/pdf; charset=binary") {
+		t.Fatal("expected dirRuleFileTypeMatches to match exact mime")
+	}
+	if dirRuleFileTypeMatches("txt,doc,pdf", "xls", "application/vnd.ms-excel") {
 		t.Fatal("expected dirRuleFileTypeMatches to reject unmatched extension")
 	}
 }
@@ -34,17 +38,33 @@ func TestDirRuleSourceMatches(t *testing.T) {
 
 func TestRenderUploadRulePath(t *testing.T) {
 	now := time.Date(2026, 4, 12, 18, 30, 15, 0, time.Local)
-	got := renderUploadRulePath("docs/{Y}/{m}/{ext}", now, ".PDF")
+	got := renderUploadRulePath("docs/{Y}/{m}/{ext}", now, ".PDF", 0)
 	if got != "docs/2026/04/pdf" {
 		t.Fatalf("renderUploadRulePath mismatch: %q", got)
 	}
 }
 
+func TestRenderUploadRulePathSupportsSystemUserID(t *testing.T) {
+	now := time.Date(2026, 4, 12, 18, 30, 15, 0, time.Local)
+	got := renderUploadRulePath("users/{systemUserId}/{Y-m-d}/{ext}", now, ".PNG", 12345)
+	if got != "users/12345/2026-04-12/png" {
+		t.Fatalf("renderUploadRulePath system user mismatch: %q", got)
+	}
+}
+
 func TestRenderUploadRulePathKeepsParentRelative(t *testing.T) {
 	now := time.Date(2026, 4, 12, 18, 30, 15, 0, time.Local)
-	got := renderUploadRulePath("../cert/{ext}", now, ".PEM")
+	got := renderUploadRulePath("../cert/{ext}", now, ".PEM", 0)
 	if got != "../cert/pem" {
 		t.Fatalf("renderUploadRulePath parent mismatch: %q", got)
+	}
+}
+
+func TestRenderUploadRulePathSupportsUpAlias(t *testing.T) {
+	now := time.Date(2026, 4, 12, 18, 30, 15, 0, time.Local)
+	got := renderUploadRulePath("@up/cert/{ext}", now, ".PEM", 0)
+	if got != "../cert/pem" {
+		t.Fatalf("renderUploadRulePath @up mismatch: %q", got)
 	}
 }
 
@@ -56,7 +76,7 @@ func TestBuildObjectKey(t *testing.T) {
 }
 
 func TestSelectUploadRulePathPrefersTypeRule(t *testing.T) {
-	rules := []*entity.UploadDirRule{
+	rules := []*uploadDirRuleRecord{
 		{Category: 1, StorageTypes: "2,3", SavePath: "cloud/default/{Y-m-d}"},
 		{Category: 1, StorageTypes: "1", SavePath: "local/default/{Y-m-d}"},
 		{Category: 2, FileType: "txt,doc", StorageTypes: "2", SavePath: "cloud/docs/{ext}"},
@@ -71,7 +91,7 @@ func TestSelectUploadRulePathPrefersTypeRule(t *testing.T) {
 }
 
 func TestSelectUploadRulePathPrefersSourceRule(t *testing.T) {
-	rules := []*entity.UploadDirRule{
+	rules := []*uploadDirRuleRecord{
 		{Category: 1, StorageTypes: "1", SavePath: "local/default/{Y-m-d}"},
 		{Category: 2, FileType: "txt,doc", StorageTypes: "1", SavePath: "local/docs/{ext}"},
 		{Category: 3, FileType: "/system/users/*", StorageTypes: "1", SavePath: "routes/users/{Y-m-d}"},
@@ -84,12 +104,12 @@ func TestSelectUploadRulePathPrefersSourceRule(t *testing.T) {
 }
 
 func TestSelectUploadRuleReturnsMatchedDirID(t *testing.T) {
-	rules := []*entity.UploadDirRule{
+	rules := []*uploadDirRuleRecord{
 		{Id: 1, DirId: 11, Category: 1, StorageTypes: "1", SavePath: "local/default/{Y-m-d}"},
 		{Id: 2, DirId: 22, Category: 3, FileType: "/system/users/*", StorageTypes: "1", SavePath: "routes/users/{Y-m-d}"},
 	}
 
-	got := selectUploadRule(rules, 1, ".DOC", "/system/users/edit")
+	got := selectUploadRule(rules, 1, ".DOC", "application/msword", "/system/users/edit")
 	if got == nil {
 		t.Fatal("expected selectUploadRule to return matched rule")
 	}
@@ -102,7 +122,7 @@ func TestSelectUploadRuleReturnsMatchedDirID(t *testing.T) {
 }
 
 func TestSelectUploadRulePathFallsBackToDefaultRule(t *testing.T) {
-	rules := []*entity.UploadDirRule{
+	rules := []*uploadDirRuleRecord{
 		{Category: 1, StorageTypes: "2,3", SavePath: "cloud/default/{Y-m-d}"},
 		{Category: 1, StorageTypes: "1", SavePath: "local/default/{Y-m-d}"},
 		{Category: 2, FileType: "jpg,png", StorageTypes: "1", SavePath: "images/{ext}"},
@@ -129,6 +149,9 @@ func TestDirRuleSupportsStorageType(t *testing.T) {
 func TestHasParentRelativeDir(t *testing.T) {
 	if !hasParentRelativeDir("../cert") {
 		t.Fatal("expected hasParentRelativeDir to detect parent path")
+	}
+	if !hasParentRelativeDir("@up/cert") {
+		t.Fatal("expected hasParentRelativeDir to detect @up path")
 	}
 	if hasParentRelativeDir("cert/demo") {
 		t.Fatal("expected hasParentRelativeDir to ignore normal path")

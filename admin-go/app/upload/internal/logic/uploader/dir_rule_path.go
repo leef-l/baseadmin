@@ -5,56 +5,103 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/logic/shared"
-	"gbaseadmin/app/upload/internal/model/entity"
 )
+
+type uploadDirRuleRecord struct {
+	Id           uint64 `orm:"id"`
+	DirId        uint64 `orm:"dir_id"`
+	Category     int    `orm:"category"`
+	FileType     string `orm:"file_type"`
+	StorageTypes string `orm:"storage_types"`
+	SavePath     string `orm:"save_path"`
+	KeepName     int    `orm:"keep_name"`
+}
 
 func resolveUploadSavePath(
 	ctx context.Context,
 	cfg uploadStorageConfig,
 	dirID int64,
 	fileExt string,
+	mimeType string,
 	source string,
 	now time.Time,
-) (resolvedDirID int64, relativeDir string, physicalDir string, err error) {
-	resolvedDirID, relativeDir, err = resolveUploadRelativeDir(ctx, dirID, cfg.StorageType, fileExt, source, now)
+	fallbackRelativeDir string,
+	systemUserID int64,
+) (resolvedDirID int64, relativeDir string, physicalDir string, keepName bool, err error) {
+	resolvedDirID, relativeDir, keepName, err = resolveUploadRelativeDir(ctx, dirID, cfg.StorageType, fileExt, mimeType, source, now, fallbackRelativeDir, systemUserID)
 	if err != nil {
-		return 0, "", "", err
+		return 0, "", "", false, err
 	}
 	physicalDir, ok := shared.ResolveLocalStorageDir(cfg.LocalPath, relativeDir)
 	if !ok {
-		return 0, "", "", fmt.Errorf("保存目录超出允许范围")
+		return 0, "", "", false, fmt.Errorf("保存目录超出允许范围")
 	}
 	if cfg.StorageType != 1 && hasParentRelativeDir(relativeDir) {
-		return 0, "", "", fmt.Errorf("云存储不支持父级目录规则")
+		return 0, "", "", false, fmt.Errorf("云存储不支持父级目录规则")
 	}
-	return resolvedDirID, relativeDir, physicalDir, nil
+	return resolvedDirID, relativeDir, physicalDir, keepName, nil
 }
 
-func resolveUploadRelativeDir(ctx context.Context, dirID int64, storageType int, fileExt, source string, now time.Time) (int64, string, error) {
+func resolveUploadRelativeDir(
+	ctx context.Context,
+	dirID int64,
+	storageType int,
+	fileExt string,
+	mimeType string,
+	source string,
+	now time.Time,
+	fallbackRelativeDir string,
+	systemUserID int64,
+) (int64, string, bool, error) {
 	defaultDir := now.Format("2006-01-02")
 	rules, err := loadUploadRules(ctx, dirID)
 	if err != nil {
-		return 0, "", err
+		return 0, "", false, err
+	}
+	selectedDirKeepName := false
+	if dirID > 0 {
+		selectedDirKeepName, err = loadUploadDirKeepName(ctx, dirID)
+		if err != nil {
+			return 0, "", false, err
+		}
 	}
 
-	selectedRule := selectUploadRule(rules, storageType, fileExt, source)
-	renderedDir := renderUploadRulePath(selectedRuleSavePath(selectedRule), now, fileExt)
-	if renderedDir == "" {
-		renderedDir = defaultDir
-	}
-	resolvedDirID := dirID
+	selectedRule := selectUploadRule(rules, storageType, fileExt, mimeType, source)
+	renderedDir := renderUploadRulePath(selectedRuleSavePath(selectedRule), now, fileExt, systemUserID)
 	if selectedRule != nil && selectedRule.DirId > 0 {
-		resolvedDirID = int64(selectedRule.DirId)
+		if renderedDir == "" {
+			renderedDir = defaultDir
+		}
+		resolvedDirID := int64(selectedRule.DirId)
+		dirKeepName := selectedDirKeepName
+		if resolvedDirID != dirID {
+			dirKeepName, err = loadUploadDirKeepName(ctx, resolvedDirID)
+			if err != nil {
+				return 0, "", false, err
+			}
+		}
+		return resolvedDirID, renderedDir, selectedRule.KeepName == 1 || dirKeepName, nil
 	}
-	return resolvedDirID, renderedDir, nil
+	if selectedRule != nil {
+		if renderedDir == "" {
+			renderedDir = defaultDir
+		}
+		return dirID, renderedDir, selectedRule.KeepName == 1 || selectedDirKeepName, nil
+	}
+	fallbackRelativeDir = sanitizeUploadSubdir(fallbackRelativeDir)
+	if fallbackRelativeDir != "" {
+		return dirID, path.Join(fallbackRelativeDir, defaultDir), selectedDirKeepName, nil
+	}
+	return dirID, defaultDir, selectedDirKeepName, nil
 }
 
-func loadUploadRules(ctx context.Context, dirID int64) ([]*entity.UploadDirRule, error) {
+func loadUploadRules(ctx context.Context, dirID int64) ([]*uploadDirRuleRecord, error) {
 	m := dao.UploadDirRule.Ctx(ctx).
 		Where(dao.UploadDirRule.Columns().Status, 1).
 		Where(dao.UploadDirRule.Columns().DeletedAt, nil).
@@ -62,31 +109,43 @@ func loadUploadRules(ctx context.Context, dirID int64) ([]*entity.UploadDirRule,
 	if dirID > 0 {
 		m = m.Where(dao.UploadDirRule.Columns().DirId, dirID)
 	}
-	var rules []*entity.UploadDirRule
+	var rules []*uploadDirRuleRecord
 	if err := m.Scan(&rules); err != nil {
 		return nil, fmt.Errorf("读取目录规则失败: %w", err)
 	}
 	return rules, nil
 }
 
-func selectUploadRulePath(rules []*entity.UploadDirRule, storageType int, fileExt, source string) string {
-	return selectedRuleSavePath(selectUploadRule(rules, storageType, fileExt, source))
+func loadUploadDirKeepName(ctx context.Context, dirID int64) (bool, error) {
+	if dirID <= 0 {
+		return false, nil
+	}
+	value, err := dao.UploadDir.Ctx(ctx).
+		Fields("keep_name").
+		Where(dao.UploadDir.Columns().Id, dirID).
+		Where(dao.UploadDir.Columns().DeletedAt, nil).
+		Value("keep_name")
+	if err != nil {
+		return false, fmt.Errorf("读取目录配置失败: %w", err)
+	}
+	return value.Int() == 1, nil
 }
 
-func selectedRuleSavePath(rule *entity.UploadDirRule) string {
+func selectUploadRulePath(rules []*uploadDirRuleRecord, storageType int, fileExt, source string) string {
+	return selectedRuleSavePath(selectUploadRule(rules, storageType, fileExt, "", source))
+}
+
+func selectedRuleSavePath(rule *uploadDirRuleRecord) string {
 	if rule == nil {
 		return ""
 	}
 	return rule.SavePath
 }
 
-func selectUploadRule(rules []*entity.UploadDirRule, storageType int, fileExt, source string) *entity.UploadDirRule {
-	var sourcePath string
-	var typePath string
-	var defaultPath string
-	var sourceRule *entity.UploadDirRule
-	var typeRule *entity.UploadDirRule
-	var defaultRule *entity.UploadDirRule
+func selectUploadRule(rules []*uploadDirRuleRecord, storageType int, fileExt, mimeType, source string) *uploadDirRuleRecord {
+	var sourceRule *uploadDirRuleRecord
+	var typeRule *uploadDirRuleRecord
+	var defaultRule *uploadDirRuleRecord
 	normalizedExt := normalizeExt(fileExt)
 	normalizedSource := shared.NormalizeUploadRuleSource(source)
 	for _, rule := range rules {
@@ -98,29 +157,26 @@ func selectUploadRule(rules []*entity.UploadDirRule, storageType int, fileExt, s
 		}
 		switch rule.Category {
 		case 3:
-			if sourcePath == "" && dirRuleSourceMatches(rule.FileType, normalizedSource) {
-				sourcePath = rule.SavePath
+			if sourceRule == nil && dirRuleSourceMatches(rule.FileType, normalizedSource) {
 				sourceRule = rule
 			}
 		case 2:
-			if typePath == "" && dirRuleFileTypeMatches(rule.FileType, normalizedExt) {
-				typePath = rule.SavePath
+			if typeRule == nil && dirRuleFileTypeMatches(rule.FileType, normalizedExt, mimeType) {
 				typeRule = rule
 			}
 		case 1:
-			if defaultPath == "" {
-				defaultPath = rule.SavePath
+			if defaultRule == nil {
 				defaultRule = rule
 			}
 		}
 	}
-	if sourcePath != "" {
+	if sourceRule != nil {
 		return sourceRule
 	}
-	if typePath != "" {
+	if typeRule != nil {
 		return typeRule
 	}
-	if defaultPath != "" {
+	if defaultRule != nil {
 		return defaultRule
 	}
 	return nil
@@ -142,17 +198,42 @@ func dirRuleSupportsStorageType(storageTypes string, storageType int) bool {
 	return false
 }
 
-func dirRuleFileTypeMatches(fileTypes, fileExt string) bool {
+func dirRuleFileTypeMatches(fileTypes, fileExt, mimeType string) bool {
 	fileExt = normalizeExt(fileExt)
-	if fileExt == "" {
+	mimeType = normalizeMimeForRuleMatch(mimeType)
+	if fileExt == "" && mimeType == "" {
 		return false
 	}
 	for _, item := range strings.Split(normalizeUploadRuleFileTypes(fileTypes), ",") {
-		if item == fileExt {
+		if matchUploadRuleFileTypeToken(item, fileExt, mimeType) {
 			return true
 		}
 	}
 	return false
+}
+
+func matchUploadRuleFileTypeToken(token, fileExt, mimeType string) bool {
+	token = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(token)), ".")
+	if token == "" {
+		return false
+	}
+	switch token {
+	case "image", "img":
+		return strings.HasPrefix(mimeType, "image/")
+	case "video":
+		return strings.HasPrefix(mimeType, "video/")
+	case "audio":
+		return strings.HasPrefix(mimeType, "audio/")
+	case "pdf":
+		return fileExt == "pdf" || mimeType == "application/pdf"
+	}
+	if strings.HasSuffix(token, "/*") {
+		return strings.HasPrefix(mimeType, strings.TrimSuffix(token, "*"))
+	}
+	if strings.Contains(token, "/") {
+		return mimeType == token
+	}
+	return fileExt == token
 }
 
 func dirRuleSourceMatches(matchers, source string) bool {
@@ -185,7 +266,7 @@ func normalizeUploadRuleFileTypes(value string) string {
 	normalized := make([]string, 0, len(parts))
 	seen := make(map[string]struct{}, len(parts))
 	for _, part := range parts {
-		part = normalizeExt(part)
+		part = normalizeUploadRuleFileType(part)
 		if part == "" {
 			continue
 		}
@@ -267,10 +348,14 @@ func normalizeUploadRuleStorageType(storageType int) string {
 	}
 }
 
-func renderUploadRulePath(savePath string, now time.Time, fileExt string) string {
+func renderUploadRulePath(savePath string, now time.Time, fileExt string, systemUserID int64) string {
 	savePath = strings.TrimSpace(savePath)
 	if savePath == "" {
 		return ""
+	}
+	systemUserIDText := "0"
+	if systemUserID > 0 {
+		systemUserIDText = strconv.FormatInt(systemUserID, 10)
 	}
 	rendered := strings.NewReplacer(
 		"{Y-m-d}", now.Format("2006-01-02"),
@@ -282,8 +367,10 @@ func renderUploadRulePath(savePath string, now time.Time, fileExt string) string
 		"{i}", now.Format("04"),
 		"{s}", now.Format("05"),
 		"{ext}", normalizeExt(fileExt),
+		"{systemUserId}", systemUserIDText,
 	).Replace(savePath)
 	rendered = strings.ReplaceAll(rendered, `\`, "/")
+	rendered = normalizeUploadRuleSavePathAlias(rendered)
 	rendered = path.Clean(strings.TrimSpace(rendered))
 	switch rendered {
 	case "", ".", "/":
@@ -307,7 +394,39 @@ func joinLocalStorageDir(baseDir, relativeDir string) string {
 
 func hasParentRelativeDir(relativeDir string) bool {
 	relativeDir = strings.TrimSpace(strings.ReplaceAll(relativeDir, `\`, "/"))
+	relativeDir = normalizeUploadRuleSavePathAlias(relativeDir)
 	return relativeDir == ".." || strings.HasPrefix(relativeDir, "../")
+}
+
+func normalizeUploadRuleFileType(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return ""
+	}
+	if !strings.Contains(value, "/") {
+		value = strings.TrimPrefix(value, ".")
+	}
+	return value
+}
+
+func normalizeMimeForRuleMatch(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if index := strings.Index(value, ";"); index >= 0 {
+		value = strings.TrimSpace(value[:index])
+	}
+	return value
+}
+
+func normalizeUploadRuleSavePathAlias(value string) string {
+	value = strings.TrimSpace(strings.ReplaceAll(value, `\`, "/"))
+	switch {
+	case value == "@up":
+		return ".."
+	case strings.HasPrefix(value, "@up/"):
+		return "../" + strings.TrimPrefix(value, "@up/")
+	default:
+		return value
+	}
 }
 
 func splitUploadStoragePath(path string) []string {

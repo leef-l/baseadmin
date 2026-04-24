@@ -27,3 +27,6 @@ redis:
 jwt:
   secret: "change_me"
   expire: 24  # Token 过期时间（小时）
+
+uploadTicket:
+  secret: "change_me_upload_ticket"

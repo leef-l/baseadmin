@@ -15,13 +15,13 @@ Purpose:
 Hard limits:
   timeout 固定 1h，超时后先 TERM，30s 后 KILL。
   MemoryMax 固定 1536M，防止 Node 任务拖垮宿主机。
-  本地 fallback 固定 ulimit -v 1572864，约 1.5G。
+  必须通过 systemd cgroup 执行；没有 cgroup 时拒绝运行。
   CPU guard 固定 80% 暂停、50% 恢复。
   FRONTEND_NODE_MAX_OLD_SPACE_SIZE 固定 1024M，低于硬上限。
 
 Fixed execution policy:
   RESOURCE_TASK_TIMEOUT=1h
-  RESOURCE_MEMORY_HIGH=1024M
+  RESOURCE_MEMORY_HIGH=1536M
   RESOURCE_MEMORY_MAX=1536M
   RESOURCE_MEMORY_SWAP_MAX=0
   RESOURCE_OOM_SCORE_ADJUST=500
@@ -30,7 +30,6 @@ Fixed execution policy:
   RESOURCE_NICE=10
   RESOURCE_LOAD_MAX_PERCENT=80
   RESOURCE_LOAD_RESUME_PERCENT=50
-  RESOURCE_ULIMIT_V_KB=1572864
   PNPM_NETWORK_CONCURRENCY=2
   PNPM_CHILD_CONCURRENCY=1
   NPM_CONFIG_MAXSOCKETS=4
@@ -51,7 +50,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 RESOURCE_TASK_TIMEOUT=1h
-RESOURCE_MEMORY_HIGH=1024M
+RESOURCE_MEMORY_HIGH=1536M
 RESOURCE_MEMORY_MAX=1536M
 RESOURCE_MEMORY_SWAP_MAX=0
 RESOURCE_OOM_SCORE_ADJUST=500
@@ -60,7 +59,6 @@ RESOURCE_TASKS_MAX=256
 RESOURCE_NICE=10
 RESOURCE_LOAD_MAX_PERCENT=80
 RESOURCE_LOAD_RESUME_PERCENT=50
-RESOURCE_ULIMIT_V_KB=1572864
 LOAD_GUARD_LOG_PREFIX=node-guard
 PNPM_NETWORK_CONCURRENCY=2
 PNPM_CHILD_CONCURRENCY=1
@@ -73,6 +71,11 @@ export BASEADMIN_ALLOW_NODE_TASK=1
 
 if ! command -v timeout >/dev/null 2>&1; then
   echo "timeout command not found" >&2
+  exit 1
+fi
+
+if ! command -v systemd-run >/dev/null 2>&1 || ! command -v systemctl >/dev/null 2>&1 || [ ! -d /run/systemd/system ] || [ "$(id -u)" -ne 0 ]; then
+  echo "systemd cgroup is required for Node tasks; refusing to run without MemoryMax=${RESOURCE_MEMORY_MAX}" >&2
   exit 1
 fi
 
@@ -100,4 +103,4 @@ exec "$SCRIPT_DIR/run-task-with-load-guard.sh" \
   --env "NODE_OPTIONS=--max-old-space-size=${FRONTEND_NODE_MAX_OLD_SPACE_SIZE}" \
   --env "FRONTEND_NODE_MAX_OLD_SPACE_SIZE=${FRONTEND_NODE_MAX_OLD_SPACE_SIZE}" \
   --env "BASEADMIN_ALLOW_NODE_TASK=1" \
-  -- bash -c 'ulimit -v "$1" 2>/dev/null || true; shift; exec timeout -k 30s 1h "$@"' bash "$RESOURCE_ULIMIT_V_KB" "$@"
+  -- timeout -k 30s "$RESOURCE_TASK_TIMEOUT" "$@"

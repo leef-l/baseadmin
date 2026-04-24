@@ -10,6 +10,8 @@ import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { batchDeleteFile, deleteFile, getFileList } from '#/api/upload/file';
 import type { FileItem } from '#/api/upload/file/types';
 import { getGridSelectedIds } from '#/utils/grid-selection';
+import CreateFileModal from './modules/create-file.vue';
+import CreateImageModal from './modules/create-image.vue';
 import FormModal from './modules/form.vue';
 
 /** 标签颜色池 */
@@ -58,6 +60,14 @@ function getIsImageColor(val: number): string {
 /** 表单弹窗 */
 const [FormModalComp, formModalApi] = useVbenModal({
   connectedComponent: FormModal,
+  destroyOnClose: true,
+});
+const [CreateFileModalComp, createFileModalApi] = useVbenModal({
+  connectedComponent: CreateFileModal,
+  destroyOnClose: true,
+});
+const [CreateImageModalComp, createImageModalApi] = useVbenModal({
+  connectedComponent: CreateImageModal,
   destroyOnClose: true,
 });
 const { hasAccessByCodes } = useAccess();
@@ -151,6 +161,14 @@ function handleCreate() {
   formModalApi.setData(null).open();
 }
 
+function handleCreateFile() {
+  createFileModalApi.setData(null).open();
+}
+
+function handleCreateImage() {
+  createImageModalApi.setData(null).open();
+}
+
 /** 编辑 */
 function handleEdit(row: FileItem) {
   formModalApi.setData({ id: row.id }).open();
@@ -196,9 +214,13 @@ function handleBatchDelete() {
 <template>
   <Page auto-content-height>
     <FormModalComp @success="() => gridApi.reload()" />
+    <CreateFileModalComp @success="() => gridApi.reload()" />
+    <CreateImageModalComp @success="() => gridApi.reload()" />
     <Grid>
       <template #toolbar-actions>
-        <Button v-access:code="'upload:file:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'upload:file:create'" type="primary" @click="handleCreateFile">新建文件</Button>
+        <Button v-access:code="'upload:file:create'" @click="handleCreateImage">新建图片</Button>
+        <Button v-access:code="'upload:file:create'" @click="handleCreate">新建记录</Button>
         <Button v-access:code="'upload:file:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #storage_cell="{ row }">

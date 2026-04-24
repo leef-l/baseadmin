@@ -83,7 +83,7 @@ describe('transformMenus', () => {
           icon: '',
           sort: 10,
           isShow: 1,
-          isCache: 0,
+          isCache: 1,
           linkUrl: 'https://example.com',
           status: 1,
           children: [
@@ -152,7 +152,7 @@ describe('transformMenus', () => {
           icon: '',
           sort: 20,
           isShow: 1,
-          isCache: 0,
+          isCache: 1,
           linkURL: 'https://example.com/embed',
           status: 1,
         },
@@ -171,6 +171,74 @@ describe('transformMenus', () => {
           authority: undefined,
           iframeSrc: 'https://example.com/embed',
         },
+      },
+    ]);
+  });
+
+  it('only keeps cache for real page menus', () => {
+    expect(
+      transformMenus([
+        {
+          id: '40',
+          parentId: '0',
+          title: 'System',
+          type: 1,
+          path: '/system',
+          component: '',
+          permission: '',
+          icon: '',
+          sort: 1,
+          isShow: 1,
+          isCache: 1,
+          linkUrl: '',
+          status: 1,
+          children: [
+            {
+              id: '41',
+              parentId: '40',
+              title: 'Users',
+              type: 2,
+              path: '/system/users',
+              component: '/system/users/index',
+              permission: '',
+              icon: '',
+              sort: 1,
+              isShow: 1,
+              isCache: 1,
+              linkUrl: '',
+              status: 1,
+            },
+          ],
+        },
+      ]),
+    ).toEqual([
+      {
+        name: 'system',
+        path: '/system',
+        component: '',
+        meta: {
+          title: 'System',
+          icon: undefined,
+          order: 1,
+          hideInMenu: false,
+          keepAlive: false,
+          authority: undefined,
+        },
+        children: [
+          {
+            name: 'system-users',
+            path: '/system/users',
+            component: '/system/users/index',
+            meta: {
+              title: 'Users',
+              icon: undefined,
+              order: 1,
+              hideInMenu: false,
+              keepAlive: true,
+              authority: undefined,
+            },
+          },
+        ],
       },
     ]);
   });

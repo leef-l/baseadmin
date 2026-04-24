@@ -10,7 +10,6 @@ import (
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model"
-	"gbaseadmin/app/upload/internal/model/do"
 	"gbaseadmin/app/upload/internal/service"
 	"gbaseadmin/utility/batchutil"
 	"gbaseadmin/utility/fieldvalid"
@@ -30,13 +29,32 @@ func New() *sDir {
 
 type sDir struct{}
 
+type uploadDirSaveData struct {
+	ParentId snowflake.JsonInt64 `orm:"parent_id"`
+	Name     string              `orm:"name"`
+	Path     string              `orm:"path"`
+	KeepName int                 `orm:"keep_name"`
+	Sort     int                 `orm:"sort"`
+	Status   int                 `orm:"status"`
+}
+
+type uploadDirCreateData struct {
+	Id       snowflake.JsonInt64 `orm:"id"`
+	ParentId snowflake.JsonInt64 `orm:"parent_id"`
+	Name     string              `orm:"name"`
+	Path     string              `orm:"path"`
+	KeepName int                 `orm:"keep_name"`
+	Sort     int                 `orm:"sort"`
+	Status   int                 `orm:"status"`
+}
+
 // Create 创建文件目录
 func (s *sDir) Create(ctx context.Context, in *model.DirCreateInput) error {
 	if err := inpututil.Require(in); err != nil {
 		return err
 	}
 	normalizeDirCreateInput(in)
-	if err := validateDirFields(in.Name, in.Path, in.Sort, in.Status); err != nil {
+	if err := validateDirFields(in.Name, in.Path, in.KeepName, in.Sort, in.Status); err != nil {
 		return err
 	}
 	if err := s.ensureDirPathUnique(ctx, 0, in.Path); err != nil {
@@ -46,11 +64,12 @@ func (s *sDir) Create(ctx context.Context, in *model.DirCreateInput) error {
 		return err
 	}
 	id := snowflake.Generate()
-	_, err := dao.UploadDir.Ctx(ctx).Data(do.UploadDir{
+	_, err := dao.UploadDir.Ctx(ctx).Data(uploadDirCreateData{
 		Id:       id,
 		ParentId: in.ParentID,
 		Name:     in.Name,
 		Path:     in.Path,
+		KeepName: in.KeepName,
 		Sort:     in.Sort,
 		Status:   in.Status,
 	}).Insert()
@@ -63,7 +82,7 @@ func (s *sDir) Update(ctx context.Context, in *model.DirUpdateInput) error {
 		return err
 	}
 	normalizeDirUpdateInput(in)
-	if err := validateDirFields(in.Name, in.Path, in.Sort, in.Status); err != nil {
+	if err := validateDirFields(in.Name, in.Path, in.KeepName, in.Sort, in.Status); err != nil {
 		return err
 	}
 	if err := s.ensureDirExists(ctx, in.ID); err != nil {
@@ -75,10 +94,11 @@ func (s *sDir) Update(ctx context.Context, in *model.DirUpdateInput) error {
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
 		return err
 	}
-	data := do.UploadDir{
+	data := uploadDirSaveData{
 		ParentId: in.ParentID,
 		Name:     in.Name,
 		Path:     in.Path,
+		KeepName: in.KeepName,
 		Sort:     in.Sort,
 		Status:   in.Status,
 	}
@@ -244,7 +264,7 @@ func normalizeDirUpdateInput(in *model.DirUpdateInput) {
 	in.Path = strings.TrimSpace(in.Path)
 }
 
-func validateDirFields(name, path string, sort, status int) error {
+func validateDirFields(name, path string, keepName, sort, status int) error {
 	if name == "" {
 		return gerror.New("目录名称不能为空")
 	}
@@ -255,6 +275,9 @@ func validateDirFields(name, path string, sort, status int) error {
 		return err
 	}
 	if err := fieldvalid.Binary("状态", status); err != nil {
+		return err
+	}
+	if err := fieldvalid.Binary("保留原文件名", keepName); err != nil {
 		return err
 	}
 	return nil
