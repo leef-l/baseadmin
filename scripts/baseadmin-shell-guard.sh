@@ -17,7 +17,7 @@ baseadmin_guard_message() {
       printf '%s\n' \
         "Blocked by baseadmin shell guard: local ${command_name} is forbidden unless it is wrapped." \
         "Use: ./scripts/run-node-task-with-limits.sh ${command_name} ..." \
-        "Default wrapper limits: timeout 1h, MemoryMax 1536M, CPU guard 80%/50%." >&2
+        "Hard wrapper limits: timeout 1h, MemoryMax 1536M, CPU guard 80%/50%." >&2
       ;;
   esac
 }
