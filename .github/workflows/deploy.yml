@@ -9,6 +9,8 @@ on:
       - 'contracts/**'
       - 'scripts/**'
       - 'vue-vben-admin/**'
+      - '!**/*.md'
+      - '!**/*.MD'
   workflow_dispatch:
     inputs:
       target:

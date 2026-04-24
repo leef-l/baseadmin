@@ -9,6 +9,8 @@ on:
       - 'scripts/**'
       - 'vue-vben-admin/**'
       - 'lefthook.yml'
+      - '!**/*.md'
+      - '!**/*.MD'
   pull_request:
     paths:
       - '.github/workflows/**'
@@ -17,6 +19,8 @@ on:
       - 'scripts/**'
       - 'vue-vben-admin/**'
       - 'lefthook.yml'
+      - '!**/*.md'
+      - '!**/*.MD'
   workflow_dispatch:
 
 permissions:
