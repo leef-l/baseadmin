@@ -60,4 +60,4 @@
 说明：
 
 - 日常交付不再要求本地手工跑完整校验；默认路径就是 `commit + push`
-- 如需本地排查，仍可手工执行 `scripts/verify-baseadmin-scope.sh`、`scripts/verify-vben-pages.sh`、`go test ./...`、`pnpm -F @vben/web-antd typecheck` 等命令
+- 如需本地排查，仍可手工执行 `scripts/verify-baseadmin-scope.sh`、`scripts/verify-vben-pages.sh` 等轻量脚本；后端测试必须走 `scripts/run-go-task-with-limits.sh go test ./...`，前端校验必须走 `scripts/run-node-task-with-limits.sh pnpm -C vue-vben-admin -F @vben/web-antd typecheck`

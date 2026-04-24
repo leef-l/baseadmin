@@ -86,12 +86,12 @@ admin-go/app/*/internal/model/entity/
 
 ### D. 资源保护
 
-8. **负载守卫 + 批量限流**。执行任何命令前先检查服务器负载；**只要 CPU 使用率超过 `80%` 必须立即停止，等待回落到 `50%` 以下才允许继续**。任何批量、循环、构建、迁移、脚本回填、代码生成、压测或高频重复执行任务，**一律分批推进并持续监控负载**，即便只是 `500` 次级别的执行也不得一次性打满服务器。Go / Node 重任务统一走 `scripts/run-go-task-with-limits.sh` 或 `scripts/run-node-task-with-limits.sh`。
+8. **负载守卫 + 批量限流**。执行任何命令前先检查服务器负载；**只要 CPU 使用率超过 `80%` 必须立即停止，等待回落到 `50%` 以下才允许继续**。任何批量、循环、构建、迁移、脚本回填、代码生成、压测或高频重复执行任务，**一律分批推进并持续监控负载**，即便只是 `500` 次级别的执行也不得一次性打满服务器。Go / Node 重任务统一走 `scripts/run-go-task-with-limits.sh` 或 `scripts/run-node-task-with-limits.sh`。Node 限流入口默认强制 `1h` 超时、`MemoryMax=1536M`、`CPUQuota=60%`，裸 `npm` / `pnpm` / `npx` / `pnpx` / `yarn` / `corepack` 必须被 `scripts/baseadmin-shell-guard.sh` 阻断。
 
 ### E. 通用约定
 
 9. **文档与路径**。文档统一放 `docs/`，根目录只保留简短说明；长跑巡检的滚动日志放 `docs/流程日志/`。所有引用尽量用 Markdown 相对链接，保证可以直接点击打开。
-10. **变更边界**。菜单三联动：后端接口、前端入口、`system_menu` 必须一起看。本机执行边界：允许 `gf`、`go` 和数据库访问；**禁止在本机执行 `npm`、`pnpm` 或 Docker**，所有文档和流程设计必须遵守这条约束。
+10. **变更边界**。菜单三联动：后端接口、前端入口、`system_menu` 必须一起看。本机执行边界：允许 `gf`、`go` 和数据库访问；**禁止在本机裸执行 `npm`、`pnpm` 或 Docker**，所有文档和流程设计必须遵守这条约束。确需执行前端排查时，只能使用 `scripts/run-node-task-with-limits.sh <command> [args...]`，且不得覆盖 `1h` / `1536M` 默认上限；Docker 在本机仍禁止执行。
 
 ## 常用命令
 

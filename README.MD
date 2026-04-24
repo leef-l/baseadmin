@@ -73,7 +73,8 @@ env 同步、国内镜像、profile、代理、初始化迁移等完整细节见
 - `CI GBaseAdmin` 会把后端/前端测试结果写进 Actions Summary，并上传 JUnit、JSON、文本日志 artifact
 - `Deploy GBaseAdmin` 会使用 GitHub Secrets 里的专用 smoke 账号做真实登录、目录规则、上传、公网 URL 冒烟，不再依赖管理员账号
 - 根目录 `lefthook.yml` 只保留提醒，不再在本地 `pre-commit` / `pre-push` 执行 `go test`、`typecheck`、页面规则校验
-- `scripts/run-go-task-with-limits.sh` 和 `scripts/run-node-task-with-limits.sh` 仍保留为手工排查入口；默认高于 `80%` 时等待，降到 `50%` 后继续，可通过 `RESOURCE_LOAD_MAX_PERCENT` / `RESOURCE_LOAD_RESUME_PERCENT` 调整
+- `scripts/run-go-task-with-limits.sh` 和 `scripts/run-node-task-with-limits.sh` 仍保留为手工排查入口；默认高于 `80%` 时等待，降到 `50%` 后继续，可通过 `RESOURCE_LOAD_MAX_PERCENT` / `RESOURCE_LOAD_RESUME_PERCENT` 调整；Node 入口默认强制 `1h` 超时和 `1536M` 硬内存上限
+- 当前仓库 shell 启动时会加载 `scripts/baseadmin-shell-guard.sh`；裸 `pnpm` / `npm` / `npx` / Docker 会直接失败，前端排查只能走 `scripts/run-node-task-with-limits.sh`
 
 ## 手工排查命令
 
