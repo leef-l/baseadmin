@@ -35,17 +35,12 @@ function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | 
 
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
+  status: 'status',
   orderNo: 'order_no',
-  quantity: 'quantity',
   amount: 'amount',
-  payStatus: 'pay_status',
-  deliverStatus: 'deliver_status',
-  paidAt: 'paid_at',
-  deliverAt: 'deliver_at',
   receiverPhone: 'receiver_phone',
   address: 'address',
   remark: 'remark',
-  status: 'status',
 };
 
 function resolveSortField(field?: string) {
@@ -296,20 +291,20 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<OrderItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
-  columns: [    { title: '序号', type: 'seq', width: 50 },
-
+  columns: [
+    { title: '序号', type: 'seq', width: 50 },
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
-    { field: 'orderNo', title: '订单号' },
+    { field: 'orderNo', title: '订单号', sortable: true },
     { field: 'customerName', title: '客户' },
     { field: 'productSkuNo', title: '商品' },
     { field: 'quantity', title: '购买数量' },
-    { field: 'amount', title: '订单金额', slots: { header: tooltipHeader('订单金额', '分') }, width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-' },
+    { field: 'amount', title: '订单金额', slots: { header: tooltipHeader('订单金额', '分') }, width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-', sortable: true },
     { field: 'payStatus', title: '支付状态', width: 120, slots: { default: 'payStatus_cell' } },
     { field: 'deliverStatus', title: '发货状态', width: 120, slots: { default: 'deliverStatus_cell' } },
-    { field: 'receiverPhone', title: '收货电话' },
-    { field: 'address', title: '收货地址' },
-    { field: 'remark', title: '备注' },
-    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' } },
+    { field: 'receiverPhone', title: '收货电话', sortable: true },
+    { field: 'address', title: '收货地址', sortable: true },
+    { field: 'remark', title: '备注', sortable: true },
+    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' }, sortable: true },
     ...(isPlatformSuperAdmin.value ? [
     { field: 'tenantName', title: '租户' },
     ] : []),
@@ -623,7 +618,7 @@ function handleBatchUpdateStatus() {
         <Button v-access:code="'demo:order:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
         <Button v-access:code="'demo:order:export'" class="ml-2" @click="handleExport">导出</Button>
         <Button v-access:code="'demo:order:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
-        <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-access:code="'demo:order:import'" class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
         <Button v-access:code="'demo:order:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
       </template>
       <template #payStatus_cell="{ row }">

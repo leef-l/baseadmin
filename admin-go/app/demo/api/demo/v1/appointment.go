@@ -68,7 +68,7 @@ type AppointmentDeleteRes struct {
 // AppointmentBatchDeleteReq 批量删除体验预约请求
 type AppointmentBatchDeleteReq struct {
 	g.Meta `path:"/appointment/batch-delete" method:"delete" tags:"体验预约" summary:"批量删除体验预约"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验预约ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验预约ID列表"`
 }
 
 // AppointmentBatchDeleteRes 批量删除体验预约响应
@@ -79,7 +79,7 @@ type AppointmentBatchDeleteRes struct {
 // AppointmentBatchUpdateReq 批量编辑体验预约请求
 type AppointmentBatchUpdateReq struct {
 	g.Meta `path:"/appointment/batch-update" method:"put" tags:"体验预约" summary:"批量编辑体验预约"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验预约ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验预约ID列表"`
 	Status *int `json:"status" dc:"状态"`
 }
 
@@ -103,10 +103,10 @@ type AppointmentDetailRes struct {
 // AppointmentListReq 获取体验预约列表请求
 type AppointmentListReq struct {
 	g.Meta    `path:"/appointment/list" method:"get" tags:"体验预约" summary:"获取体验预约列表"`
-	PageNum   int    `json:"pageNum" d:"1" dc:"页码"`
-	PageSize  int    `json:"pageSize" d:"10" dc:"每页数量"`
+	PageNum   int    `json:"pageNum" d:"1" v:"min:1" dc:"页码"`
+	PageSize  int    `json:"pageSize" d:"10" v:"between:1,500" dc:"每页数量"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	Keyword string `json:"keyword" dc:"关键词"`
@@ -131,7 +131,7 @@ type AppointmentListRes struct {
 type AppointmentExportReq struct {
 	g.Meta    `path:"/appointment/export" method:"get" tags:"体验预约" summary:"导出体验预约"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	Keyword string `json:"keyword" dc:"关键词"`

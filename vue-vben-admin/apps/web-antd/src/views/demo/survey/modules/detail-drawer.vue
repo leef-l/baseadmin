@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { Descriptions, DescriptionsItem, Tag } from 'ant-design-vue';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getSurveyDetail } from '#/api/demo/survey';
 import type { SurveyItem } from '#/api/demo/survey/types';
 import RichText from '#/components/tinymce/index.vue';
@@ -51,6 +52,7 @@ function getStatusColor(val: EnumValue | null | undefined): string {
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
 
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
 const detail = ref<SurveyItem | null>(null);
 const openToken = ref(0);
 
@@ -98,7 +100,7 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="问卷编号">{{ displayValue(detail.surveyNo) }}</DescriptionsItem>
       <DescriptionsItem label="问卷标题">{{ displayValue(detail.title) }}</DescriptionsItem>
       <DescriptionsItem label="海报">
-        <img v-if="detail.poster" :src="detail.poster" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
+        <img v-if="detail.poster && /^https?:\/\//i.test(detail.poster)" :src="detail.poster" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="问题JSON">
@@ -114,8 +116,8 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="状态">
         <Tag :color="getStatusColor(detail.status)">{{ getEnumLabel(statusMap, detail.status) }}</Tag>
       </DescriptionsItem>
-      <DescriptionsItem label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
-      <DescriptionsItem label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
       <DescriptionsItem label="发布时间">{{ displayValue(detail.publishAt) }}</DescriptionsItem>
       <DescriptionsItem label="过期时间">{{ displayValue(detail.expireAt) }}</DescriptionsItem>
       <DescriptionsItem label="创建时间">{{ displayValue(detail.createdAt) }}</DescriptionsItem>

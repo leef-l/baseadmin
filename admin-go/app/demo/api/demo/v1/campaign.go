@@ -78,7 +78,7 @@ type CampaignDeleteRes struct {
 // CampaignBatchDeleteReq 批量删除体验活动请求
 type CampaignBatchDeleteReq struct {
 	g.Meta `path:"/campaign/batch-delete" method:"delete" tags:"体验活动" summary:"批量删除体验活动"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验活动ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验活动ID列表"`
 }
 
 // CampaignBatchDeleteRes 批量删除体验活动响应
@@ -89,7 +89,7 @@ type CampaignBatchDeleteRes struct {
 // CampaignBatchUpdateReq 批量编辑体验活动请求
 type CampaignBatchUpdateReq struct {
 	g.Meta `path:"/campaign/batch-update" method:"put" tags:"体验活动" summary:"批量编辑体验活动"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验活动ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验活动ID列表"`
 	Type *int `json:"type" dc:"活动类型"`
 	Channel *int `json:"channel" dc:"投放渠道"`
 	IsPublic *int `json:"isPublic" dc:"是否公开"`
@@ -116,10 +116,10 @@ type CampaignDetailRes struct {
 // CampaignListReq 获取体验活动列表请求
 type CampaignListReq struct {
 	g.Meta    `path:"/campaign/list" method:"get" tags:"体验活动" summary:"获取体验活动列表"`
-	PageNum   int    `json:"pageNum" d:"1" dc:"页码"`
-	PageSize  int    `json:"pageSize" d:"10" dc:"每页数量"`
+	PageNum   int    `json:"pageNum" d:"1" v:"min:1" dc:"页码"`
+	PageSize  int    `json:"pageSize" d:"10" v:"between:1,500" dc:"每页数量"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	CampaignNo string `json:"campaignNo" dc:"活动编号"`
@@ -146,7 +146,7 @@ type CampaignListRes struct {
 type CampaignExportReq struct {
 	g.Meta    `path:"/campaign/export" method:"get" tags:"体验活动" summary:"导出体验活动"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	CampaignNo string `json:"campaignNo" dc:"活动编号"`

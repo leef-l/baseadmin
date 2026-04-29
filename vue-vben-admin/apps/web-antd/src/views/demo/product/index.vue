@@ -34,21 +34,11 @@ function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | 
 
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
+  sort: 'sort',
+  status: 'status',
   skuNo: 'sku_no',
   name: 'name',
-  cover: 'cover',
-  manualFile: 'manual_file',
-  detailContent: 'detail_content',
-  specJSON: 'spec_json',
-  websiteURL: 'website_url',
-  type: 'type',
-  isRecommend: 'is_recommend',
   salePrice: 'sale_price',
-  stockNum: 'stock_num',
-  weightNum: 'weight_num',
-  sort: 'sort',
-  icon: 'icon',
-  status: 'status',
 };
 
 function resolveSortField(field?: string) {
@@ -262,23 +252,23 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<ProductItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
-  columns: [    { title: '序号', type: 'seq', width: 50 },
-
+  columns: [
+    { title: '序号', type: 'seq', width: 50 },
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { field: 'categoryName', title: '商品分类' },
-    { field: 'skuNo', title: 'SKU编号' },
-    { field: 'name', title: '商品名称' },
+    { field: 'skuNo', title: 'SKU编号', sortable: true },
+    { field: 'name', title: '商品名称', sortable: true },
     { field: 'cover', title: '封面', width: 100, slots: { default: 'cover_cell' } },
     { field: 'manualFile', title: '说明书文件', slots: { default: 'manualFile_cell' } },
     { field: 'websiteURL', title: '官网URL', slots: { default: 'websiteURL_cell' } },
     { field: 'type', title: '类型', width: 120, slots: { default: 'type_cell' } },
     { field: 'isRecommend', title: '是否推荐', width: 120, slots: { default: 'isRecommend_cell' } },
-    { field: 'salePrice', title: '销售价', slots: { header: tooltipHeader('销售价', '分') }, width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-' },
+    { field: 'salePrice', title: '销售价', slots: { header: tooltipHeader('销售价', '分') }, width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-', sortable: true },
     { field: 'stockNum', title: '库存数量' },
     { field: 'weightNum', title: '重量', slots: { header: tooltipHeader('重量', '克') } },
-    { field: 'sort', title: '排序', slots: { header: tooltipHeader('排序', '升序') } },
+    { field: 'sort', title: '排序', slots: { header: tooltipHeader('排序', '升序') }, sortable: true },
     { field: 'icon', title: '图标' },
-    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' } },
+    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' }, sortable: true },
     ...(isPlatformSuperAdmin.value ? [
     { field: 'tenantName', title: '租户' },
     ] : []),
@@ -549,19 +539,21 @@ function handleBatchUpdateStatus() {
         <Button v-access:code="'demo:product:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
         <Button v-access:code="'demo:product:export'" class="ml-2" @click="handleExport">导出</Button>
         <Button v-access:code="'demo:product:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
-        <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-access:code="'demo:product:import'" class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
         <Button v-access:code="'demo:product:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
       </template>
       <template #cover_cell="{ row }">
-        <img v-if="row.cover" :src="row.cover" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
+        <img v-if="row.cover && /^https?:\/\//i.test(row.cover)" :src="row.cover" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
         <span v-else>-</span>
       </template>
       <template #manualFile_cell="{ row }">
-        <a v-if="row.manualFile" :href="row.manualFile" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">下载</a>
+        <a v-if="row.manualFile && /^https?:\/\//i.test(row.manualFile)" :href="row.manualFile" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">下载</a>
+        <span v-else-if="row.manualFile">{{ row.manualFile }}</span>
         <span v-else>-</span>
       </template>
       <template #websiteURL_cell="{ row }">
-        <a v-if="row.websiteURL" :href="row.websiteURL" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">{{ row.websiteURL }}</a>
+        <a v-if="row.websiteURL && /^https?:\/\//i.test(row.websiteURL)" :href="row.websiteURL" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">{{ row.websiteURL }}</a>
+        <span v-else-if="row.websiteURL">{{ row.websiteURL }}</span>
         <span v-else>-</span>
       </template>
       <template #type_cell="{ row }">

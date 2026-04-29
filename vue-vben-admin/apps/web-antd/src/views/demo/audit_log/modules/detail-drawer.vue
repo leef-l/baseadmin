@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { Descriptions, DescriptionsItem, Tag } from 'ant-design-vue';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getAuditLogDetail } from '#/api/demo/audit_log';
 import type { AuditLogItem } from '#/api/demo/audit_log/types';
 
@@ -70,6 +71,7 @@ function getResultColor(val: EnumValue | null | undefined): string {
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
 
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
 const detail = ref<AuditLogItem | null>(null);
 const openToken = ref(0);
 
@@ -131,8 +133,8 @@ const [Modal, modalApi] = useVbenModal({
       </DescriptionsItem>
       <DescriptionsItem label="客户端IP">{{ displayValue(detail.clientIP) }}</DescriptionsItem>
       <DescriptionsItem label="备注">{{ displayValue(detail.remark) }}</DescriptionsItem>
-      <DescriptionsItem label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
-      <DescriptionsItem label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
       <DescriptionsItem label="发生时间">{{ displayValue(detail.occurredAt) }}</DescriptionsItem>
       <DescriptionsItem label="创建时间">{{ displayValue(detail.createdAt) }}</DescriptionsItem>
       <DescriptionsItem label="更新时间">{{ displayValue(detail.updatedAt) }}</DescriptionsItem>

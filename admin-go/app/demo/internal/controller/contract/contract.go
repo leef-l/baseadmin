@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 
@@ -11,6 +12,16 @@ import (
 	"gbaseadmin/app/demo/internal/model"
 	"gbaseadmin/app/demo/internal/service"
 )
+
+func csvSafeContract(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	if s[0] == 0 || strings.ContainsAny(s[:1], "=+-@\t\r") {
+		return "'" + s
+	}
+	return s
+}
 
 var Contract = cContract{}
 
@@ -137,23 +148,19 @@ func (c *cContract) Export(ctx context.Context, req *v1.ContractExportReq) (res 
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="contract.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	// 表头
-	_ = w.Write([]string{"合同编号", "客户", "订单", "合同标题", "合同文件", "签章图片", "合同金额", "签署时间", "到期时间", "状态", "租户", "商户", "创建时间"})
+	// 表头（与导入模板列对齐，末尾追加只读列）
+	_ = w.Write([]string{"合同编号", "客户", "订单", "合同标题", "合同文件", "签章图片", "合同金额", "状态", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
-			item.ContractNo,
-			item.CustomerName,
-			item.OrderOrderNo,
-			item.Title,
-			item.ContractFile,
-			item.SignImage,
-			fmt.Sprintf("%v", item.ContractAmount),
-			func() string { if item.SignedAt != nil { return item.SignedAt.String() }; return "" }(),
-			func() string { if item.ExpiresAt != nil { return item.ExpiresAt.String() }; return "" }(),
+			csvSafeContract(item.ContractNo),
+			csvSafeContract(item.CustomerName),
+			csvSafeContract(item.OrderOrderNo),
+			csvSafeContract(item.Title),
+			csvSafeContract(item.ContractFile),
+			csvSafeContract(item.SignImage),
+			fmt.Sprintf("%.2f", float64(item.ContractAmount)/100),
 			fmt.Sprintf("%v", item.Status),
-			item.TenantName,
-			item.MerchantName,
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}
@@ -183,7 +190,7 @@ func (c *cContract) ImportTemplate(ctx context.Context, req *v1.ContractImportTe
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="contract_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{"合同编号", "客户", "订单", "合同标题", "合同文件", "签章图片", "合同金额", "状态", "租户", "商户"})
+	_ = w.Write([]string{"合同编号", "客户", "订单", "合同标题", "合同文件", "签章图片", "合同金额", "状态"})
 	w.Flush()
 	return
 }

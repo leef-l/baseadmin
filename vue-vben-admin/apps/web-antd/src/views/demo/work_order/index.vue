@@ -35,14 +35,10 @@ function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | 
 
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
+  status: 'status',
   ticketNo: 'ticket_no',
   title: 'title',
-  priority: 'priority',
-  sourceType: 'source_type',
   description: 'description',
-  attachmentFile: 'attachment_file',
-  dueAt: 'due_at',
-  status: 'status',
 };
 
 function resolveSortField(field?: string) {
@@ -290,19 +286,19 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<WorkOrderItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
-  columns: [    { title: '序号', type: 'seq', width: 50 },
-
+  columns: [
+    { title: '序号', type: 'seq', width: 50 },
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
-    { field: 'ticketNo', title: '工单号' },
+    { field: 'ticketNo', title: '工单号', sortable: true },
     { field: 'customerName', title: '客户' },
     { field: 'productSkuNo', title: '商品' },
     { field: 'orderOrderNo', title: '订单' },
-    { field: 'title', title: '工单标题' },
+    { field: 'title', title: '工单标题', sortable: true },
     { field: 'priority', title: '优先级', width: 120, slots: { default: 'priority_cell' } },
     { field: 'sourceType', title: '来源', width: 120, slots: { default: 'sourceType_cell' } },
-    { field: 'description', title: '问题描述' },
+    { field: 'description', title: '问题描述', sortable: true },
     { field: 'attachmentFile', title: '附件', slots: { default: 'attachmentFile_cell' } },
-    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' } },
+    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' }, sortable: true },
     ...(isPlatformSuperAdmin.value ? [
     { field: 'tenantName', title: '租户' },
     ] : []),
@@ -621,7 +617,7 @@ function handleBatchUpdateStatus() {
         <Button v-access:code="'demo:work_order:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
         <Button v-access:code="'demo:work_order:export'" class="ml-2" @click="handleExport">导出</Button>
         <Button v-access:code="'demo:work_order:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
-        <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-access:code="'demo:work_order:import'" class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
         <Button v-access:code="'demo:work_order:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
       </template>
       <template #priority_cell="{ row }">
@@ -635,7 +631,8 @@ function handleBatchUpdateStatus() {
         </Tag>
       </template>
       <template #attachmentFile_cell="{ row }">
-        <a v-if="row.attachmentFile" :href="row.attachmentFile" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">下载</a>
+        <a v-if="row.attachmentFile && /^https?:\/\//i.test(row.attachmentFile)" :href="row.attachmentFile" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">下载</a>
+        <span v-else-if="row.attachmentFile">{{ row.attachmentFile }}</span>
         <span v-else>-</span>
       </template>
       <template #status_cell="{ row }">

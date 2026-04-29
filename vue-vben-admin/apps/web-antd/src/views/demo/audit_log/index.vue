@@ -34,13 +34,6 @@ function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | 
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
   logNo: 'log_no',
-  action: 'action',
-  targetType: 'target_type',
-  targetCode: 'target_code',
-  requestJSON: 'request_json',
-  result: 'result',
-  clientIP: 'client_ip',
-  occurredAt: 'occurred_at',
   remark: 'remark',
 };
 
@@ -271,17 +264,17 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<AuditLogItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
-  columns: [    { title: '序号', type: 'seq', width: 50 },
-
+  columns: [
+    { title: '序号', type: 'seq', width: 50 },
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
-    { field: 'logNo', title: '日志编号' },
+    { field: 'logNo', title: '日志编号', sortable: true },
     { field: 'usersUsername', title: '操作人' },
     { field: 'action', title: '动作', width: 120, slots: { default: 'action_cell' } },
     { field: 'targetType', title: '对象类型', width: 120, slots: { default: 'targetType_cell' } },
     { field: 'targetCode', title: '对象编号' },
     { field: 'result', title: '结果', width: 120, slots: { default: 'result_cell' } },
     { field: 'clientIP', title: '客户端IP' },
-    { field: 'remark', title: '备注' },
+    { field: 'remark', title: '备注', sortable: true },
     ...(isPlatformSuperAdmin.value ? [
     { field: 'tenantName', title: '租户' },
     ] : []),
@@ -548,7 +541,7 @@ async function handleDownloadTemplate() {
         <Button v-access:code="'demo:audit_log:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
         <Button v-access:code="'demo:audit_log:export'" class="ml-2" @click="handleExport">导出</Button>
         <Button v-access:code="'demo:audit_log:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
-        <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-access:code="'demo:audit_log:import'" class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
       </template>
       <template #action_cell="{ row }">
         <Tag :color="getActionColor(row.action)">

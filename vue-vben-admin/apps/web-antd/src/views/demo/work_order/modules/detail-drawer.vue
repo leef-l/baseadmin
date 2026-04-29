@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { Descriptions, DescriptionsItem, Tag } from 'ant-design-vue';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getWorkOrderDetail } from '#/api/demo/work_order';
 import type { WorkOrderItem } from '#/api/demo/work_order/types';
 
@@ -71,6 +72,7 @@ function getStatusColor(val: EnumValue | null | undefined): string {
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
 
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
 const detail = ref<WorkOrderItem | null>(null);
 const openToken = ref(0);
 
@@ -128,14 +130,15 @@ const [Modal, modalApi] = useVbenModal({
       </DescriptionsItem>
       <DescriptionsItem label="问题描述">{{ displayValue(detail.description) }}</DescriptionsItem>
       <DescriptionsItem label="附件">
-        <a v-if="detail.attachmentFile" :href="detail.attachmentFile" target="_blank" rel="noreferrer noopener">查看文件</a>
+        <a v-if="detail.attachmentFile && /^https?:\/\//i.test(detail.attachmentFile)" :href="detail.attachmentFile" target="_blank" rel="noreferrer noopener">查看文件</a>
+        <span v-else-if="detail.attachmentFile">{{ detail.attachmentFile }}</span>
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="状态">
         <Tag :color="getStatusColor(detail.status)">{{ getEnumLabel(statusMap, detail.status) }}</Tag>
       </DescriptionsItem>
-      <DescriptionsItem label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
-      <DescriptionsItem label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
       <DescriptionsItem label="截止时间">{{ displayValue(detail.dueAt) }}</DescriptionsItem>
       <DescriptionsItem label="创建时间">{{ displayValue(detail.createdAt) }}</DescriptionsItem>
       <DescriptionsItem label="更新时间">{{ displayValue(detail.updatedAt) }}</DescriptionsItem>

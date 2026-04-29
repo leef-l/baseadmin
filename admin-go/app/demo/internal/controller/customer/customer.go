@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 
@@ -11,6 +12,16 @@ import (
 	"gbaseadmin/app/demo/internal/model"
 	"gbaseadmin/app/demo/internal/service"
 )
+
+func csvSafeCustomer(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	if s[0] == 0 || strings.ContainsAny(s[:1], "=+-@\t\r") {
+		return "'" + s
+	}
+	return s
+}
 
 var Customer = cCustomer{}
 
@@ -149,25 +160,22 @@ func (c *cCustomer) Export(ctx context.Context, req *v1.CustomerExportReq) (res 
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="customer.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	// 表头
-	_ = w.Write([]string{"头像", "客户名称", "客户编号", "联系电话", "邮箱", "性别", "等级", "来源", "是否VIP", "注册时间", "备注", "状态", "租户", "商户", "创建时间"})
+	// 表头（与导入模板列对齐，末尾追加只读列）
+	_ = w.Write([]string{"头像", "客户名称", "客户编号", "联系电话", "邮箱", "性别", "等级", "来源", "是否VIP", "备注", "状态", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
-			item.Avatar,
-			item.Name,
-			item.CustomerNo,
-			item.Phone,
-			item.Email,
+			csvSafeCustomer(item.Avatar),
+			csvSafeCustomer(item.Name),
+			csvSafeCustomer(item.CustomerNo),
+			csvSafeCustomer(item.Phone),
+			csvSafeCustomer(item.Email),
 			fmt.Sprintf("%v", item.Gender),
 			fmt.Sprintf("%v", item.Level),
 			fmt.Sprintf("%v", item.SourceType),
 			fmt.Sprintf("%v", item.IsVip),
-			func() string { if item.RegisteredAt != nil { return item.RegisteredAt.String() }; return "" }(),
-			item.Remark,
+			csvSafeCustomer(item.Remark),
 			fmt.Sprintf("%v", item.Status),
-			item.TenantName,
-			item.MerchantName,
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}
@@ -197,7 +205,7 @@ func (c *cCustomer) ImportTemplate(ctx context.Context, req *v1.CustomerImportTe
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="customer_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{"头像", "客户名称", "客户编号", "联系电话", "邮箱", "性别", "等级", "来源", "是否VIP", "备注", "状态", "租户", "商户"})
+	_ = w.Write([]string{"头像", "客户名称", "客户编号", "联系电话", "邮箱", "性别", "等级", "来源", "是否VIP", "备注", "状态"})
 	w.Flush()
 	return
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 
@@ -11,6 +12,16 @@ import (
 	"gbaseadmin/app/demo/internal/model"
 	"gbaseadmin/app/demo/internal/service"
 )
+
+func csvSafeProduct(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	if s[0] == 0 || strings.ContainsAny(s[:1], "=+-@\t\r") {
+		return "'" + s
+	}
+	return s
+}
 
 var Product = cProduct{}
 
@@ -143,29 +154,27 @@ func (c *cProduct) Export(ctx context.Context, req *v1.ProductExportReq) (res *v
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="product.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	// 表头
-	_ = w.Write([]string{"商品分类", "SKU编号", "商品名称", "封面", "说明书文件", "详情内容", "规格JSON", "官网URL", "类型", "是否推荐", "销售价", "库存数量", "重量", "排序", "图标", "状态", "租户", "商户", "创建时间"})
+	// 表头（与导入模板列对齐，末尾追加只读列）
+	_ = w.Write([]string{"商品分类", "SKU编号", "商品名称", "封面", "说明书文件", "详情内容", "规格JSON", "官网URL", "类型", "是否推荐", "销售价", "库存数量", "重量", "排序", "图标", "状态", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
-			item.CategoryName,
-			item.SkuNo,
-			item.Name,
-			item.Cover,
-			item.ManualFile,
-			item.DetailContent,
-			item.SpecJSON,
-			item.WebsiteURL,
+			csvSafeProduct(item.CategoryName),
+			csvSafeProduct(item.SkuNo),
+			csvSafeProduct(item.Name),
+			csvSafeProduct(item.Cover),
+			csvSafeProduct(item.ManualFile),
+			csvSafeProduct(item.DetailContent),
+			csvSafeProduct(item.SpecJSON),
+			csvSafeProduct(item.WebsiteURL),
 			fmt.Sprintf("%v", item.Type),
 			fmt.Sprintf("%v", item.IsRecommend),
-			fmt.Sprintf("%v", item.SalePrice),
+			fmt.Sprintf("%.2f", float64(item.SalePrice)/100),
 			fmt.Sprintf("%v", item.StockNum),
 			fmt.Sprintf("%v", item.WeightNum),
 			fmt.Sprintf("%v", item.Sort),
-			item.Icon,
+			csvSafeProduct(item.Icon),
 			fmt.Sprintf("%v", item.Status),
-			item.TenantName,
-			item.MerchantName,
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}
@@ -195,7 +204,7 @@ func (c *cProduct) ImportTemplate(ctx context.Context, req *v1.ProductImportTemp
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="product_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{"商品分类", "SKU编号", "商品名称", "封面", "说明书文件", "详情内容", "规格JSON", "官网URL", "类型", "是否推荐", "销售价", "库存数量", "重量", "排序", "图标", "状态", "租户", "商户"})
+	_ = w.Write([]string{"商品分类", "SKU编号", "商品名称", "封面", "说明书文件", "详情内容", "规格JSON", "官网URL", "类型", "是否推荐", "销售价", "库存数量", "重量", "排序", "图标", "状态"})
 	w.Flush()
 	return
 }

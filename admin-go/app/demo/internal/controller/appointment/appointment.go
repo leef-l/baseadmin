@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 
@@ -11,6 +12,16 @@ import (
 	"gbaseadmin/app/demo/internal/model"
 	"gbaseadmin/app/demo/internal/service"
 )
+
+func csvSafeAppointment(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	if s[0] == 0 || strings.ContainsAny(s[:1], "=+-@\t\r") {
+		return "'" + s
+	}
+	return s
+}
 
 var Appointment = cAppointment{}
 
@@ -129,21 +140,18 @@ func (c *cAppointment) Export(ctx context.Context, req *v1.AppointmentExportReq)
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="appointment.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	// 表头
-	_ = w.Write([]string{"预约编号", "客户", "预约主题", "预约时间", "联系电话", "预约地址", "备注", "状态", "租户", "商户", "创建时间"})
+	// 表头（与导入模板列对齐，末尾追加只读列）
+	_ = w.Write([]string{"预约编号", "客户", "预约主题", "联系电话", "预约地址", "备注", "状态", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
-			item.AppointmentNo,
-			item.CustomerName,
-			item.Subject,
-			func() string { if item.AppointmentAt != nil { return item.AppointmentAt.String() }; return "" }(),
-			item.ContactPhone,
-			item.Address,
-			item.Remark,
+			csvSafeAppointment(item.AppointmentNo),
+			csvSafeAppointment(item.CustomerName),
+			csvSafeAppointment(item.Subject),
+			csvSafeAppointment(item.ContactPhone),
+			csvSafeAppointment(item.Address),
+			csvSafeAppointment(item.Remark),
 			fmt.Sprintf("%v", item.Status),
-			item.TenantName,
-			item.MerchantName,
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}
@@ -173,7 +181,7 @@ func (c *cAppointment) ImportTemplate(ctx context.Context, req *v1.AppointmentIm
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="appointment_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{"预约编号", "客户", "预约主题", "联系电话", "预约地址", "备注", "状态", "租户", "商户"})
+	_ = w.Write([]string{"预约编号", "客户", "预约主题", "联系电话", "预约地址", "备注", "状态"})
 	w.Flush()
 	return
 }

@@ -2,18 +2,18 @@ package consts
 
 // WorkOrderPriority 优先级
 const (
-	WorkOrderPriorityV1 = 1 // 低
+	WorkOrderPriorityLow = 1 // 低
 	WorkOrderPriorityRegular = 2 // 普通
-	WorkOrderPriorityV3 = 3 // 高
-	WorkOrderPriorityV4 = 4 // 紧急
+	WorkOrderPriorityHigh = 3 // 高
+	WorkOrderPriorityUrgent = 4 // 紧急
 )
 
 // WorkOrderSourceType 来源
 const (
-	WorkOrderSourceTypeV1 = 1 // 官网
-	WorkOrderSourceTypeV2 = 2 // 电话
-	WorkOrderSourceTypeV3 = 3 // 微信
-	WorkOrderSourceTypeV4 = 4 // 后台
+	WorkOrderSourceTypeOfficial = 1 // 官网
+	WorkOrderSourceTypePhone = 2 // 电话
+	WorkOrderSourceTypeWechat = 3 // 微信
+	WorkOrderSourceTypeBackend = 4 // 后台
 )
 
 // WorkOrderStatus 状态

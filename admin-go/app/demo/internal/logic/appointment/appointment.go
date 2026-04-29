@@ -5,9 +5,12 @@ import (
 	"context"
 	"encoding/csv"
 	"io"
+	"strconv"
+	"strings"
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 
@@ -45,6 +48,9 @@ func normalizeAppointmentIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 		}
 		seen[value] = struct{}{}
 		normalized = append(normalized, id)
+		if len(normalized) >= 500 {
+			break
+		}
 	}
 	if len(normalized) == 0 {
 		return nil
@@ -83,9 +89,6 @@ func (s *sAppointment) Update(ctx context.Context, in *model.AppointmentUpdateIn
 	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
-	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoAppointment.Ctx(ctx), in.ID, dao.DemoAppointment.Columns().Id, dao.DemoAppointment.Columns().TenantId, dao.DemoAppointment.Columns().MerchantId, "体验预约"); err != nil {
-		return err
-	}
 	data := do.DemoAppointment{
 		AppointmentNo: in.AppointmentNo,
 		CustomerId: in.CustomerID,
@@ -95,16 +98,23 @@ func (s *sAppointment) Update(ctx context.Context, in *model.AppointmentUpdateIn
 		Address: in.Address,
 		Remark: in.Remark,
 		Status: in.Status,
-		TenantId: in.TenantID,
-		MerchantId: in.MerchantID,
 	}
-	_, err := dao.DemoAppointment.Ctx(ctx).Where(dao.DemoAppointment.Columns().Id, in.ID).Data(data).Update()
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoAppointment.Ctx(ctx), in.ID, dao.DemoAppointment.Columns().Id, dao.DemoAppointment.Columns().TenantId, dao.DemoAppointment.Columns().MerchantId, "体验预约"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoAppointment.Ctx(ctx), in.ID, dao.DemoAppointment.Columns().Id, dao.DemoAppointment.Columns().CreatedBy, dao.DemoAppointment.Columns().DeptId); err != nil {
+		return err
+	}
+	_, err := dao.DemoAppointment.Ctx(ctx).Where(dao.DemoAppointment.Columns().Id, in.ID).Where(dao.DemoAppointment.Columns().DeletedAt, nil).Data(data).Update()
 	return err
 }
 
 // Delete 软删除体验预约
 func (s *sAppointment) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoAppointment.Ctx(ctx), id, dao.DemoAppointment.Columns().Id, dao.DemoAppointment.Columns().TenantId, dao.DemoAppointment.Columns().MerchantId, "体验预约"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoAppointment.Ctx(ctx), id, dao.DemoAppointment.Columns().Id, dao.DemoAppointment.Columns().CreatedBy, dao.DemoAppointment.Columns().DeptId); err != nil {
 		return err
 	}
 	_, err := dao.DemoAppointment.Ctx(ctx).Where(dao.DemoAppointment.Columns().Id, id).Delete()
@@ -120,6 +130,9 @@ func (s *sAppointment) BatchDelete(ctx context.Context, ids []snowflake.JsonInt6
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoAppointment.Ctx(ctx), normalizedIDs, dao.DemoAppointment.Columns().Id, dao.DemoAppointment.Columns().TenantId, dao.DemoAppointment.Columns().MerchantId, "体验预约"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoAppointment.Ctx(ctx), normalizedIDs, dao.DemoAppointment.Columns().Id, dao.DemoAppointment.Columns().CreatedBy, dao.DemoAppointment.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoAppointment.Ctx(ctx).WhereIn(dao.DemoAppointment.Columns().Id, normalizedIDs).Delete()
 	return err
 }
@@ -129,18 +142,22 @@ func (s *sAppointment) Detail(ctx context.Context, id snowflake.JsonInt64) (out 
 	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoAppointment.Ctx(ctx), id, dao.DemoAppointment.Columns().Id, dao.DemoAppointment.Columns().TenantId, dao.DemoAppointment.Columns().MerchantId, "体验预约"); err != nil {
 		return nil, err
 	}
+	if err = middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoAppointment.Ctx(ctx), id, dao.DemoAppointment.Columns().Id, dao.DemoAppointment.Columns().CreatedBy, dao.DemoAppointment.Columns().DeptId); err != nil {
+		return nil, err
+	}
 	out = &model.AppointmentDetailOutput{}
 	err = dao.DemoAppointment.Ctx(ctx).Where(dao.DemoAppointment.Columns().Id, id).Where(dao.DemoAppointment.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
 		return nil, err
 	}
-	if out.ID == 0 {
-		return nil, nil
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("体验预约不存在或已删除")
 	}
 	// 查询客户关联显示
 	if out.CustomerID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("demo_customer").Where("id", out.CustomerID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.CustomerName = val.String()
@@ -150,6 +167,7 @@ func (s *sAppointment) Detail(ctx context.Context, id snowflake.JsonInt64) (out 
 	if out.TenantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_tenant").Where("id", out.TenantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.TenantName = val.String()
@@ -159,6 +177,7 @@ func (s *sAppointment) Detail(ctx context.Context, id snowflake.JsonInt64) (out 
 	if out.MerchantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_merchant").Where("id", out.MerchantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.MerchantName = val.String()
@@ -234,6 +253,7 @@ func (s *sAppointment) fillRefFields(ctx context.Context, list []*model.Appointm
 			refQuery := g.DB().Ctx(ctx).Model("demo_customer").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -263,6 +283,7 @@ func (s *sAppointment) fillRefFields(ctx context.Context, list []*model.Appointm
 			refQuery := g.DB().Ctx(ctx).Model("system_tenant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -292,6 +313,7 @@ func (s *sAppointment) fillRefFields(ctx context.Context, list []*model.Appointm
 			refQuery := g.DB().Ctx(ctx).Model("system_merchant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -378,8 +400,13 @@ func (s *sAppointment) Export(ctx context.Context, in *model.AppointmentListInpu
 // BatchUpdate 批量编辑体验预约
 func (s *sAppointment) BatchUpdate(ctx context.Context, in *model.AppointmentBatchUpdateInput) error {
 	data := do.DemoAppointment{}
+	hasChange := false
 	if in.Status != nil {
 		data.Status = *in.Status
+		hasChange = true
+	}
+	if !hasChange {
+		return nil
 	}
 	normalizedIDs := normalizeAppointmentIDs(in.IDs)
 	if len(normalizedIDs) == 0 {
@@ -388,12 +415,20 @@ func (s *sAppointment) BatchUpdate(ctx context.Context, in *model.AppointmentBat
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoAppointment.Ctx(ctx), normalizedIDs, dao.DemoAppointment.Columns().Id, dao.DemoAppointment.Columns().TenantId, dao.DemoAppointment.Columns().MerchantId, "体验预约"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoAppointment.Ctx(ctx), normalizedIDs, dao.DemoAppointment.Columns().Id, dao.DemoAppointment.Columns().CreatedBy, dao.DemoAppointment.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoAppointment.Ctx(ctx).WhereIn(dao.DemoAppointment.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }
 
 // Import 导入体验预约
 func (s *sAppointment) Import(ctx context.Context, file *ghttp.UploadFile) (success int, fail int, err error) {
+	const maxImportFileSize = 10 << 20 // 10MB
+	const maxImportRows = 5000
+	if file.Size > maxImportFileSize {
+		return 0, 0, fmt.Errorf("文件大小超过限制（最大10MB）")
+	}
 	f, err := file.Open()
 	if err != nil {
 		return 0, 0, err
@@ -401,11 +436,13 @@ func (s *sAppointment) Import(ctx context.Context, file *ghttp.UploadFile) (succ
 	defer f.Close()
 
 	reader := csv.NewReader(f)
+	reader.FieldsPerRecord = -1
 	// 跳过表头
 	if _, err = reader.Read(); err != nil {
 		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)
 	}
 
+	rowCount := 0
 	for {
 		record, readErr := reader.Read()
 		if readErr != nil {
@@ -417,6 +454,10 @@ func (s *sAppointment) Import(ctx context.Context, file *ghttp.UploadFile) (succ
 		if len(record) == 0 {
 			continue
 		}
+		rowCount++
+		if rowCount > maxImportRows {
+			return success, fail, fmt.Errorf("导入数据超过 %d 行上限，已处理 %d 条成功、%d 条失败", maxImportRows, success, fail)
+		}
 		// 逐行插入
 		id := snowflake.Generate()
 		data := do.DemoAppointment{
@@ -426,31 +467,35 @@ func (s *sAppointment) Import(ctx context.Context, file *ghttp.UploadFile) (succ
 		}
 		idx := 0
 		if idx < len(record) {
-			data.AppointmentNo = record[idx]
+			data.AppointmentNo = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.CustomerId = record[idx]
+			if v, parseErr := strconv.ParseInt(strings.TrimSpace(record[idx]), 10, 64); parseErr == nil {
+				data.CustomerId = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Subject = record[idx]
+			data.Subject = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.ContactPhone = record[idx]
+			data.ContactPhone = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Address = record[idx]
+			data.Address = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Remark = record[idx]
+			data.Remark = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Status = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Status = v
+			}
 		}
 		idx++
 		tenantID := snowflake.JsonInt64(0)
@@ -462,6 +507,15 @@ func (s *sAppointment) Import(ctx context.Context, file *ghttp.UploadFile) (succ
 		}
 		data.TenantId = tenantID
 		data.MerchantId = merchantID
+		if fkVal, ok := data.CustomerId.(int64); ok && fkVal > 0 {
+			refQuery := g.DB().Ctx(ctx).Model("demo_customer").Where("id", fkVal)
+			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
+			if cnt, cntErr := refQuery.Count(); cntErr != nil || cnt == 0 {
+				fail++
+				continue
+			}
+		}
 		if _, insertErr := dao.DemoAppointment.Ctx(ctx).Data(data).Insert(); insertErr != nil {
 			fail++
 		} else {

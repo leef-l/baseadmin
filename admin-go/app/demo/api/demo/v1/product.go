@@ -84,7 +84,7 @@ type ProductDeleteRes struct {
 // ProductBatchDeleteReq 批量删除体验商品请求
 type ProductBatchDeleteReq struct {
 	g.Meta `path:"/product/batch-delete" method:"delete" tags:"体验商品" summary:"批量删除体验商品"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验商品ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验商品ID列表"`
 }
 
 // ProductBatchDeleteRes 批量删除体验商品响应
@@ -95,7 +95,7 @@ type ProductBatchDeleteRes struct {
 // ProductBatchUpdateReq 批量编辑体验商品请求
 type ProductBatchUpdateReq struct {
 	g.Meta `path:"/product/batch-update" method:"put" tags:"体验商品" summary:"批量编辑体验商品"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验商品ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验商品ID列表"`
 	Type *int `json:"type" dc:"类型"`
 	IsRecommend *int `json:"isRecommend" dc:"是否推荐"`
 	Status *int `json:"status" dc:"状态"`
@@ -121,10 +121,10 @@ type ProductDetailRes struct {
 // ProductListReq 获取体验商品列表请求
 type ProductListReq struct {
 	g.Meta    `path:"/product/list" method:"get" tags:"体验商品" summary:"获取体验商品列表"`
-	PageNum   int    `json:"pageNum" d:"1" dc:"页码"`
-	PageSize  int    `json:"pageSize" d:"10" dc:"每页数量"`
+	PageNum   int    `json:"pageNum" d:"1" v:"min:1" dc:"页码"`
+	PageSize  int    `json:"pageSize" d:"10" v:"between:1,500" dc:"每页数量"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	SkuNo string `json:"skuNo" dc:"SKU编号"`
@@ -147,7 +147,7 @@ type ProductListRes struct {
 type ProductExportReq struct {
 	g.Meta    `path:"/product/export" method:"get" tags:"体验商品" summary:"导出体验商品"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	SkuNo string `json:"skuNo" dc:"SKU编号"`

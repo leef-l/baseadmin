@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { Descriptions, DescriptionsItem, Tag } from 'ant-design-vue';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getContractDetail } from '#/api/demo/contract';
 import type { ContractItem } from '#/api/demo/contract/types';
 
@@ -35,6 +36,7 @@ function getStatusColor(val: EnumValue | null | undefined): string {
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
 
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
 const detail = ref<ContractItem | null>(null);
 const openToken = ref(0);
 
@@ -84,19 +86,20 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="订单">{{ detail.orderOrderNo || '-' }}</DescriptionsItem>
       <DescriptionsItem label="合同标题">{{ displayValue(detail.title) }}</DescriptionsItem>
       <DescriptionsItem label="合同文件">
-        <a v-if="detail.contractFile" :href="detail.contractFile" target="_blank" rel="noreferrer noopener">查看文件</a>
+        <a v-if="detail.contractFile && /^https?:\/\//i.test(detail.contractFile)" :href="detail.contractFile" target="_blank" rel="noreferrer noopener">查看文件</a>
+        <span v-else-if="detail.contractFile">{{ detail.contractFile }}</span>
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="签章图片">
-        <img v-if="detail.signImage" :src="detail.signImage" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
+        <img v-if="detail.signImage && /^https?:\/\//i.test(detail.signImage)" :src="detail.signImage" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="合同金额">{{ detail.contractAmount != null ? (detail.contractAmount / 100).toFixed(2) : '-' }}</DescriptionsItem>
       <DescriptionsItem label="状态">
         <Tag :color="getStatusColor(detail.status)">{{ getEnumLabel(statusMap, detail.status) }}</Tag>
       </DescriptionsItem>
-      <DescriptionsItem label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
-      <DescriptionsItem label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
       <DescriptionsItem label="签署时间">{{ displayValue(detail.signedAt) }}</DescriptionsItem>
       <DescriptionsItem label="到期时间">{{ displayValue(detail.expiresAt) }}</DescriptionsItem>
       <DescriptionsItem label="创建时间">{{ displayValue(detail.createdAt) }}</DescriptionsItem>

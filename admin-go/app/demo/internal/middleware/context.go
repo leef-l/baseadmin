@@ -171,7 +171,7 @@ func EnsureTenantScopedRowsAccessible(ctx context.Context, m *gdb.Model, ids []s
 		fields = append(fields, merchantIDColumn+" AS merchantId")
 	}
 	var rows []TenantScopedRow
-	if err := m.Fields(fields...).WhereIn(idColumn, ids).Scan(&rows); err != nil {
+	if err := m.Fields(fields...).WhereIn(idColumn, ids).Where("deleted_at", nil).Scan(&rows); err != nil {
 		return err
 	}
 	if len(rows) != len(ids) {
@@ -551,4 +551,123 @@ func compactScopeIDs(values []int64) []int64 {
 		return nil
 	}
 	return ids
+}
+
+func containsInt64(values []int64, target int64) bool {
+	if target <= 0 {
+		return false
+	}
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func countDistinctIDs(ids interface{}) int {
+	switch v := ids.(type) {
+	case []snowflake.JsonInt64:
+		seen := make(map[int64]struct{}, len(v))
+		for _, id := range v {
+			seen[int64(id)] = struct{}{}
+		}
+		return len(seen)
+	case []int64:
+		seen := make(map[int64]struct{}, len(v))
+		for _, id := range v {
+			seen[id] = struct{}{}
+		}
+		return len(seen)
+	default:
+		return 0
+	}
+}
+
+// EnsureDataScopedRowAccessible 检查单行数据权限
+func EnsureDataScopedRowAccessible(ctx context.Context, m *gdb.Model, id interface{}, idColumn, createdByColumn, deptIDColumn string) error {
+	scope, err := resolveDataScope(ctx)
+	if err != nil {
+		return err
+	}
+	if scope.All {
+		return nil
+	}
+	q := m.Where(idColumn, id).Where("deleted_at", nil)
+	var fields []interface{}
+	if createdByColumn != "" {
+		fields = append(fields, createdByColumn)
+	}
+	if deptIDColumn != "" {
+		fields = append(fields, deptIDColumn)
+	}
+	if len(fields) == 0 {
+		return nil
+	}
+	row, err := q.Fields(fields...).One()
+	if err != nil {
+		return err
+	}
+	if row.IsEmpty() {
+		return gerror.New("数据不存在")
+	}
+	if createdByColumn != "" && scope.IncludeSelf && scope.UserID > 0 {
+		if row[createdByColumn].Int64() == scope.UserID {
+			return nil
+		}
+	}
+	if deptIDColumn != "" && len(scope.DeptIDs) > 0 {
+		if containsInt64(scope.DeptIDs, row[deptIDColumn].Int64()) {
+			return nil
+		}
+	}
+	return gerror.New("无权访问该数据")
+}
+
+// EnsureDataScopedRowsAccessible 检查多行数据权限
+func EnsureDataScopedRowsAccessible(ctx context.Context, m *gdb.Model, ids interface{}, idColumn, createdByColumn, deptIDColumn string) error {
+	scope, err := resolveDataScope(ctx)
+	if err != nil {
+		return err
+	}
+	if scope.All {
+		return nil
+	}
+	q := m.WhereIn(idColumn, ids).Where("deleted_at", nil)
+	var fields []interface{}
+	fields = append(fields, idColumn)
+	if createdByColumn != "" {
+		fields = append(fields, createdByColumn)
+	}
+	if deptIDColumn != "" {
+		fields = append(fields, deptIDColumn)
+	}
+	rows, err := q.Fields(fields...).All()
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return gerror.New("数据不存在")
+	}
+	expectedCount := countDistinctIDs(ids)
+	if expectedCount > 0 && len(rows) != expectedCount {
+		return gerror.New("部分数据不存在或已删除")
+	}
+	for _, row := range rows {
+		accessible := false
+		if createdByColumn != "" && scope.IncludeSelf && scope.UserID > 0 {
+			if row[createdByColumn].Int64() == scope.UserID {
+				accessible = true
+			}
+		}
+		if !accessible && deptIDColumn != "" && len(scope.DeptIDs) > 0 {
+			if containsInt64(scope.DeptIDs, row[deptIDColumn].Int64()) {
+				accessible = true
+			}
+		}
+		if !accessible {
+			return gerror.New("无权访问该数据")
+		}
+	}
+	return nil
 }

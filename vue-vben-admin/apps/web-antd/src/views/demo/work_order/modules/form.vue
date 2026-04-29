@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { useVbenModal } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { message } from 'ant-design-vue';
 import {
   getWorkOrderDetail,
@@ -128,16 +128,16 @@ const [Form, formApi] = useVbenForm({
     },
     {
       component: 'Select',
-      ifShow: () => isPlatformSuperAdmin.value,
       fieldName: 'tenantID',
       label: '租户',
+      ifShow: () => isPlatformSuperAdmin.value,
       componentProps: { options: [], placeholder: '请选择租户', allowClear: true, class: 'w-full' },
     },
     {
       component: 'Select',
-      ifShow: () => isPlatformSuperAdmin.value,
       fieldName: 'merchantID',
       label: '商户',
+      ifShow: () => isPlatformSuperAdmin.value,
       componentProps: { options: [], placeholder: '请选择商户', allowClear: true, class: 'w-full' },
     },
   ],
@@ -235,6 +235,7 @@ const [Modal, modalApi] = useVbenModal({
     } catch {
       // ignore
     }
+    if (isPlatformSuperAdmin.value) {
     // 加载租户选项
     try {
       const tenantRes = await getTenantList({ pageNum: 1, pageSize: 1000 });
@@ -254,6 +255,8 @@ const [Modal, modalApi] = useVbenModal({
     } catch {
       // ignore
     }
+    }
+    if (isPlatformSuperAdmin.value) {
     // 加载商户选项
     try {
       const merchantRes = await getMerchantList({ pageNum: 1, pageSize: 1000 });
@@ -272,6 +275,7 @@ const [Modal, modalApi] = useVbenModal({
       ]);
     } catch {
       // ignore
+    }
     }
     if (currentOpenToken !== openToken.value) {
       return;

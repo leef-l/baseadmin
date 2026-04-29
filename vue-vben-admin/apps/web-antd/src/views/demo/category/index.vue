@@ -33,10 +33,9 @@ function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | 
 
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
-  name: 'name',
-  icon: 'icon',
   sort: 'sort',
   status: 'status',
+  name: 'name',
 };
 
 function resolveSortField(field?: string) {
@@ -172,8 +171,8 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<CategoryItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
-  columns: [    { title: '序号', type: 'seq', width: 50 },
-
+  columns: [
+    { title: '序号', type: 'seq', width: 50 },
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { field: 'name', title: '分类名称', treeNode: true },
     { field: 'icon', title: '图标' },
@@ -185,7 +184,7 @@ const gridOptions: VxeGridProps<CategoryItem> = {
     ...(isPlatformSuperAdmin.value ? [
     { field: 'merchantName', title: '商户' },
     ] : []),
-    { field: 'createdAt', title: '创建时间', width: 180, formatter: 'formatDateTime', sortable: true },
+    { field: 'createdAt', title: '创建时间', width: 180, formatter: 'formatDateTime' },
     { title: '操作', width: 240, fixed: 'right', slots: { default: 'action' } },
   ],
   height: 'auto',
@@ -210,11 +209,6 @@ const gridOptions: VxeGridProps<CategoryItem> = {
         return await getCategoryTree(params as any) ?? [];
       },
     },
-  },
-  sortConfig: {
-    remote: true,
-    trigger: 'cell',
-    defaultSort: { field: 'sort', order: 'asc' },
   },
   toolbarConfig: {
     custom: true,
@@ -339,7 +333,6 @@ async function handleExport() {
   try {
     const formValues = await gridApi.formApi.getValues();
     const params: Record<string, any> = { ...formValues };
-    const sorts = gridApi.grid?.getSortColumns?.() ?? [];
     if (params.timeRange && params.timeRange.length === 2) {
       params.startTime = params.timeRange[0];
       params.endTime = params.timeRange[1];
@@ -348,13 +341,6 @@ async function handleExport() {
     if (!isPlatformSuperAdmin.value) {
       delete params.tenantID;
       delete params.merchantID;
-    }
-    if (sorts.length > 0) {
-      const sort = sorts[0];
-      if (sort?.field && sort?.order) {
-        params.orderBy = resolveSortField(String(sort.field));
-        params.orderDir = sort.order;
-      }
     }
     const blob = await exportCategory(params);
     downloadFileFromBlob({ fileName: '体验分类.csv', source: blob as Blob });

@@ -3,17 +3,17 @@ package consts
 // CampaignType 活动类型
 const (
 	CampaignTypeFree = 1 // 免费
-	CampaignTypePaid = 2 // 付费
+	CampaignTypeCharged = 2 // 付费
 	CampaignTypePublic = 3 // 公开
 	CampaignTypePrivate = 4 // 私密
 )
 
 // CampaignChannel 投放渠道
 const (
-	CampaignChannelV1 = 1 // 官网
-	CampaignChannelV2 = 2 // 小程序
-	CampaignChannelV3 = 3 // 短信
-	CampaignChannelV4 = 4 // 线下
+	CampaignChannelOfficial = 1 // 官网
+	CampaignChannelMiniApp = 2 // 小程序
+	CampaignChannelSMS = 3 // 短信
+	CampaignChannelOffline = 4 // 线下
 )
 
 // CampaignIsPublic 是否公开

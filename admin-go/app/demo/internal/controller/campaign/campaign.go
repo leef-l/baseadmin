@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 
@@ -11,6 +12,16 @@ import (
 	"gbaseadmin/app/demo/internal/model"
 	"gbaseadmin/app/demo/internal/service"
 )
+
+func csvSafeCampaign(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	if s[0] == 0 || strings.ContainsAny(s[:1], "=+-@\t\r") {
+		return "'" + s
+	}
+	return s
+}
 
 var Campaign = cCampaign{}
 
@@ -146,26 +157,22 @@ func (c *cCampaign) Export(ctx context.Context, req *v1.CampaignExportReq) (res 
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="campaign.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	// 表头
-	_ = w.Write([]string{"活动编号", "活动标题", "横幅图", "活动类型", "投放渠道", "预算金额", "落地页URL", "规则JSON", "活动介绍", "开始时间", "结束时间", "是否公开", "状态", "租户", "商户", "创建时间"})
+	// 表头（与导入模板列对齐，末尾追加只读列）
+	_ = w.Write([]string{"活动编号", "活动标题", "横幅图", "活动类型", "投放渠道", "预算金额", "落地页URL", "规则JSON", "活动介绍", "是否公开", "状态", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
-			item.CampaignNo,
-			item.Title,
-			item.Banner,
+			csvSafeCampaign(item.CampaignNo),
+			csvSafeCampaign(item.Title),
+			csvSafeCampaign(item.Banner),
 			fmt.Sprintf("%v", item.Type),
 			fmt.Sprintf("%v", item.Channel),
-			fmt.Sprintf("%v", item.BudgetAmount),
-			item.LandingURL,
-			item.RuleJSON,
-			item.IntroContent,
-			func() string { if item.StartAt != nil { return item.StartAt.String() }; return "" }(),
-			func() string { if item.EndAt != nil { return item.EndAt.String() }; return "" }(),
+			fmt.Sprintf("%.2f", float64(item.BudgetAmount)/100),
+			csvSafeCampaign(item.LandingURL),
+			csvSafeCampaign(item.RuleJSON),
+			csvSafeCampaign(item.IntroContent),
 			fmt.Sprintf("%v", item.IsPublic),
 			fmt.Sprintf("%v", item.Status),
-			item.TenantName,
-			item.MerchantName,
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}
@@ -195,7 +202,7 @@ func (c *cCampaign) ImportTemplate(ctx context.Context, req *v1.CampaignImportTe
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="campaign_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{"活动编号", "活动标题", "横幅图", "活动类型", "投放渠道", "预算金额", "落地页URL", "规则JSON", "活动介绍", "是否公开", "状态", "租户", "商户"})
+	_ = w.Write([]string{"活动编号", "活动标题", "横幅图", "活动类型", "投放渠道", "预算金额", "落地页URL", "规则JSON", "活动介绍", "是否公开", "状态"})
 	w.Flush()
 	return
 }

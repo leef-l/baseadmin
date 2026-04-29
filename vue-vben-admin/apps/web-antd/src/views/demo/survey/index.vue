@@ -32,15 +32,9 @@ function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | 
 
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
+  status: 'status',
   surveyNo: 'survey_no',
   title: 'title',
-  poster: 'poster',
-  questionJSON: 'question_json',
-  introContent: 'intro_content',
-  publishAt: 'publish_at',
-  expireAt: 'expire_at',
-  isAnonymous: 'is_anonymous',
-  status: 'status',
 };
 
 function resolveSortField(field?: string) {
@@ -217,14 +211,14 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<SurveyItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
-  columns: [    { title: '序号', type: 'seq', width: 50 },
-
+  columns: [
+    { title: '序号', type: 'seq', width: 50 },
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
-    { field: 'surveyNo', title: '问卷编号' },
-    { field: 'title', title: '问卷标题' },
+    { field: 'surveyNo', title: '问卷编号', sortable: true },
+    { field: 'title', title: '问卷标题', sortable: true },
     { field: 'poster', title: '海报', width: 100, slots: { default: 'poster_cell' } },
     { field: 'isAnonymous', title: '是否匿名', width: 120, slots: { default: 'isAnonymous_cell' } },
-    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' } },
+    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' }, sortable: true },
     ...(isPlatformSuperAdmin.value ? [
     { field: 'tenantName', title: '租户' },
     ] : []),
@@ -506,11 +500,11 @@ function handleBatchUpdateStatus() {
         <Button v-access:code="'demo:survey:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
         <Button v-access:code="'demo:survey:export'" class="ml-2" @click="handleExport">导出</Button>
         <Button v-access:code="'demo:survey:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
-        <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-access:code="'demo:survey:import'" class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
         <Button v-access:code="'demo:survey:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
       </template>
       <template #poster_cell="{ row }">
-        <img v-if="row.poster" :src="row.poster" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
+        <img v-if="row.poster && /^https?:\/\//i.test(row.poster)" :src="row.poster" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
         <span v-else>-</span>
       </template>
       <template #isAnonymous_cell="{ row }">

@@ -5,9 +5,12 @@ import (
 	"context"
 	"encoding/csv"
 	"io"
+	"strconv"
+	"strings"
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 
@@ -45,6 +48,9 @@ func normalizeWorkOrderIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 		}
 		seen[value] = struct{}{}
 		normalized = append(normalized, id)
+		if len(normalized) >= 500 {
+			break
+		}
 	}
 	if len(normalized) == 0 {
 		return nil
@@ -86,9 +92,6 @@ func (s *sWorkOrder) Update(ctx context.Context, in *model.WorkOrderUpdateInput)
 	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
-	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoWorkOrder.Ctx(ctx), in.ID, dao.DemoWorkOrder.Columns().Id, dao.DemoWorkOrder.Columns().TenantId, dao.DemoWorkOrder.Columns().MerchantId, "体验工单"); err != nil {
-		return err
-	}
 	data := do.DemoWorkOrder{
 		TicketNo: in.TicketNo,
 		CustomerId: in.CustomerID,
@@ -101,16 +104,23 @@ func (s *sWorkOrder) Update(ctx context.Context, in *model.WorkOrderUpdateInput)
 		AttachmentFile: in.AttachmentFile,
 		DueAt: in.DueAt,
 		Status: in.Status,
-		TenantId: in.TenantID,
-		MerchantId: in.MerchantID,
 	}
-	_, err := dao.DemoWorkOrder.Ctx(ctx).Where(dao.DemoWorkOrder.Columns().Id, in.ID).Data(data).Update()
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoWorkOrder.Ctx(ctx), in.ID, dao.DemoWorkOrder.Columns().Id, dao.DemoWorkOrder.Columns().TenantId, dao.DemoWorkOrder.Columns().MerchantId, "体验工单"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoWorkOrder.Ctx(ctx), in.ID, dao.DemoWorkOrder.Columns().Id, dao.DemoWorkOrder.Columns().CreatedBy, dao.DemoWorkOrder.Columns().DeptId); err != nil {
+		return err
+	}
+	_, err := dao.DemoWorkOrder.Ctx(ctx).Where(dao.DemoWorkOrder.Columns().Id, in.ID).Where(dao.DemoWorkOrder.Columns().DeletedAt, nil).Data(data).Update()
 	return err
 }
 
 // Delete 软删除体验工单
 func (s *sWorkOrder) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoWorkOrder.Ctx(ctx), id, dao.DemoWorkOrder.Columns().Id, dao.DemoWorkOrder.Columns().TenantId, dao.DemoWorkOrder.Columns().MerchantId, "体验工单"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoWorkOrder.Ctx(ctx), id, dao.DemoWorkOrder.Columns().Id, dao.DemoWorkOrder.Columns().CreatedBy, dao.DemoWorkOrder.Columns().DeptId); err != nil {
 		return err
 	}
 	_, err := dao.DemoWorkOrder.Ctx(ctx).Where(dao.DemoWorkOrder.Columns().Id, id).Delete()
@@ -126,6 +136,9 @@ func (s *sWorkOrder) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64)
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoWorkOrder.Ctx(ctx), normalizedIDs, dao.DemoWorkOrder.Columns().Id, dao.DemoWorkOrder.Columns().TenantId, dao.DemoWorkOrder.Columns().MerchantId, "体验工单"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoWorkOrder.Ctx(ctx), normalizedIDs, dao.DemoWorkOrder.Columns().Id, dao.DemoWorkOrder.Columns().CreatedBy, dao.DemoWorkOrder.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoWorkOrder.Ctx(ctx).WhereIn(dao.DemoWorkOrder.Columns().Id, normalizedIDs).Delete()
 	return err
 }
@@ -135,18 +148,22 @@ func (s *sWorkOrder) Detail(ctx context.Context, id snowflake.JsonInt64) (out *m
 	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoWorkOrder.Ctx(ctx), id, dao.DemoWorkOrder.Columns().Id, dao.DemoWorkOrder.Columns().TenantId, dao.DemoWorkOrder.Columns().MerchantId, "体验工单"); err != nil {
 		return nil, err
 	}
+	if err = middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoWorkOrder.Ctx(ctx), id, dao.DemoWorkOrder.Columns().Id, dao.DemoWorkOrder.Columns().CreatedBy, dao.DemoWorkOrder.Columns().DeptId); err != nil {
+		return nil, err
+	}
 	out = &model.WorkOrderDetailOutput{}
 	err = dao.DemoWorkOrder.Ctx(ctx).Where(dao.DemoWorkOrder.Columns().Id, id).Where(dao.DemoWorkOrder.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
 		return nil, err
 	}
-	if out.ID == 0 {
-		return nil, nil
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("体验工单不存在或已删除")
 	}
 	// 查询客户关联显示
 	if out.CustomerID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("demo_customer").Where("id", out.CustomerID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.CustomerName = val.String()
@@ -156,6 +173,7 @@ func (s *sWorkOrder) Detail(ctx context.Context, id snowflake.JsonInt64) (out *m
 	if out.ProductID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("demo_product").Where("id", out.ProductID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("sku_no")
 		if err == nil {
 			out.ProductSkuNo = val.String()
@@ -165,6 +183,7 @@ func (s *sWorkOrder) Detail(ctx context.Context, id snowflake.JsonInt64) (out *m
 	if out.OrderID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("demo_order").Where("id", out.OrderID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("order_no")
 		if err == nil {
 			out.OrderOrderNo = val.String()
@@ -174,6 +193,7 @@ func (s *sWorkOrder) Detail(ctx context.Context, id snowflake.JsonInt64) (out *m
 	if out.TenantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_tenant").Where("id", out.TenantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.TenantName = val.String()
@@ -183,6 +203,7 @@ func (s *sWorkOrder) Detail(ctx context.Context, id snowflake.JsonInt64) (out *m
 	if out.MerchantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_merchant").Where("id", out.MerchantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.MerchantName = val.String()
@@ -265,6 +286,7 @@ func (s *sWorkOrder) fillRefFields(ctx context.Context, list []*model.WorkOrderL
 			refQuery := g.DB().Ctx(ctx).Model("demo_customer").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -294,6 +316,7 @@ func (s *sWorkOrder) fillRefFields(ctx context.Context, list []*model.WorkOrderL
 			refQuery := g.DB().Ctx(ctx).Model("demo_product").
 				Fields("id", "sku_no")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -323,6 +346,7 @@ func (s *sWorkOrder) fillRefFields(ctx context.Context, list []*model.WorkOrderL
 			refQuery := g.DB().Ctx(ctx).Model("demo_order").
 				Fields("id", "order_no")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -352,6 +376,7 @@ func (s *sWorkOrder) fillRefFields(ctx context.Context, list []*model.WorkOrderL
 			refQuery := g.DB().Ctx(ctx).Model("system_tenant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -381,6 +406,7 @@ func (s *sWorkOrder) fillRefFields(ctx context.Context, list []*model.WorkOrderL
 			refQuery := g.DB().Ctx(ctx).Model("system_merchant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -466,14 +492,21 @@ func (s *sWorkOrder) Export(ctx context.Context, in *model.WorkOrderListInput) (
 // BatchUpdate 批量编辑体验工单
 func (s *sWorkOrder) BatchUpdate(ctx context.Context, in *model.WorkOrderBatchUpdateInput) error {
 	data := do.DemoWorkOrder{}
+	hasChange := false
 	if in.Priority != nil {
 		data.Priority = *in.Priority
+		hasChange = true
 	}
 	if in.SourceType != nil {
 		data.SourceType = *in.SourceType
+		hasChange = true
 	}
 	if in.Status != nil {
 		data.Status = *in.Status
+		hasChange = true
+	}
+	if !hasChange {
+		return nil
 	}
 	normalizedIDs := normalizeWorkOrderIDs(in.IDs)
 	if len(normalizedIDs) == 0 {
@@ -482,12 +515,20 @@ func (s *sWorkOrder) BatchUpdate(ctx context.Context, in *model.WorkOrderBatchUp
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoWorkOrder.Ctx(ctx), normalizedIDs, dao.DemoWorkOrder.Columns().Id, dao.DemoWorkOrder.Columns().TenantId, dao.DemoWorkOrder.Columns().MerchantId, "体验工单"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoWorkOrder.Ctx(ctx), normalizedIDs, dao.DemoWorkOrder.Columns().Id, dao.DemoWorkOrder.Columns().CreatedBy, dao.DemoWorkOrder.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoWorkOrder.Ctx(ctx).WhereIn(dao.DemoWorkOrder.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }
 
 // Import 导入体验工单
 func (s *sWorkOrder) Import(ctx context.Context, file *ghttp.UploadFile) (success int, fail int, err error) {
+	const maxImportFileSize = 10 << 20 // 10MB
+	const maxImportRows = 5000
+	if file.Size > maxImportFileSize {
+		return 0, 0, fmt.Errorf("文件大小超过限制（最大10MB）")
+	}
 	f, err := file.Open()
 	if err != nil {
 		return 0, 0, err
@@ -495,11 +536,13 @@ func (s *sWorkOrder) Import(ctx context.Context, file *ghttp.UploadFile) (succes
 	defer f.Close()
 
 	reader := csv.NewReader(f)
+	reader.FieldsPerRecord = -1
 	// 跳过表头
 	if _, err = reader.Read(); err != nil {
 		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)
 	}
 
+	rowCount := 0
 	for {
 		record, readErr := reader.Read()
 		if readErr != nil {
@@ -511,6 +554,10 @@ func (s *sWorkOrder) Import(ctx context.Context, file *ghttp.UploadFile) (succes
 		if len(record) == 0 {
 			continue
 		}
+		rowCount++
+		if rowCount > maxImportRows {
+			return success, fail, fmt.Errorf("导入数据超过 %d 行上限，已处理 %d 条成功、%d 条失败", maxImportRows, success, fail)
+		}
 		// 逐行插入
 		id := snowflake.Generate()
 		data := do.DemoWorkOrder{
@@ -520,43 +567,55 @@ func (s *sWorkOrder) Import(ctx context.Context, file *ghttp.UploadFile) (succes
 		}
 		idx := 0
 		if idx < len(record) {
-			data.TicketNo = record[idx]
+			data.TicketNo = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.CustomerId = record[idx]
+			if v, parseErr := strconv.ParseInt(strings.TrimSpace(record[idx]), 10, 64); parseErr == nil {
+				data.CustomerId = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.ProductId = record[idx]
+			if v, parseErr := strconv.ParseInt(strings.TrimSpace(record[idx]), 10, 64); parseErr == nil {
+				data.ProductId = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.OrderId = record[idx]
+			if v, parseErr := strconv.ParseInt(strings.TrimSpace(record[idx]), 10, 64); parseErr == nil {
+				data.OrderId = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Title = record[idx]
+			data.Title = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Priority = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Priority = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.SourceType = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.SourceType = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Description = record[idx]
+			data.Description = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.AttachmentFile = record[idx]
+			data.AttachmentFile = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Status = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Status = v
+			}
 		}
 		idx++
 		tenantID := snowflake.JsonInt64(0)
@@ -568,6 +627,33 @@ func (s *sWorkOrder) Import(ctx context.Context, file *ghttp.UploadFile) (succes
 		}
 		data.TenantId = tenantID
 		data.MerchantId = merchantID
+		if fkVal, ok := data.CustomerId.(int64); ok && fkVal > 0 {
+			refQuery := g.DB().Ctx(ctx).Model("demo_customer").Where("id", fkVal)
+			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
+			if cnt, cntErr := refQuery.Count(); cntErr != nil || cnt == 0 {
+				fail++
+				continue
+			}
+		}
+		if fkVal, ok := data.ProductId.(int64); ok && fkVal > 0 {
+			refQuery := g.DB().Ctx(ctx).Model("demo_product").Where("id", fkVal)
+			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
+			if cnt, cntErr := refQuery.Count(); cntErr != nil || cnt == 0 {
+				fail++
+				continue
+			}
+		}
+		if fkVal, ok := data.OrderId.(int64); ok && fkVal > 0 {
+			refQuery := g.DB().Ctx(ctx).Model("demo_order").Where("id", fkVal)
+			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
+			if cnt, cntErr := refQuery.Count(); cntErr != nil || cnt == 0 {
+				fail++
+				continue
+			}
+		}
 		if _, insertErr := dao.DemoWorkOrder.Ctx(ctx).Data(data).Insert(); insertErr != nil {
 			fail++
 		} else {

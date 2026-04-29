@@ -32,18 +32,12 @@ function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | 
 
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
-  avatar: 'avatar',
+  status: 'status',
   name: 'name',
   customerNo: 'customer_no',
   phone: 'phone',
   email: 'email',
-  gender: 'gender',
-  level: 'level',
-  sourceType: 'source_type',
-  isVip: 'is_vip',
-  registeredAt: 'registered_at',
   remark: 'remark',
-  status: 'status',
 };
 
 function resolveSortField(field?: string) {
@@ -334,20 +328,20 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<CustomerItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
-  columns: [    { title: '序号', type: 'seq', width: 50 },
-
+  columns: [
+    { title: '序号', type: 'seq', width: 50 },
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { field: 'avatar', title: '头像', width: 100, slots: { default: 'avatar_cell' } },
-    { field: 'name', title: '客户名称' },
-    { field: 'customerNo', title: '客户编号' },
-    { field: 'phone', title: '联系电话' },
-    { field: 'email', title: '邮箱' },
+    { field: 'name', title: '客户名称', sortable: true },
+    { field: 'customerNo', title: '客户编号', sortable: true },
+    { field: 'phone', title: '联系电话', sortable: true },
+    { field: 'email', title: '邮箱', sortable: true },
     { field: 'gender', title: '性别', width: 120, slots: { default: 'gender_cell' } },
     { field: 'level', title: '等级', width: 120, slots: { default: 'level_cell' } },
     { field: 'sourceType', title: '来源', width: 120, slots: { default: 'sourceType_cell' } },
     { field: 'isVip', title: '是否VIP', width: 120, slots: { default: 'isVip_cell' } },
-    { field: 'remark', title: '备注' },
-    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' } },
+    { field: 'remark', title: '备注', sortable: true },
+    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' }, sortable: true },
     ...(isPlatformSuperAdmin.value ? [
     { field: 'tenantName', title: '租户' },
     ] : []),
@@ -618,11 +612,11 @@ function handleBatchUpdateStatus() {
         <Button v-access:code="'demo:customer:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
         <Button v-access:code="'demo:customer:export'" class="ml-2" @click="handleExport">导出</Button>
         <Button v-access:code="'demo:customer:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
-        <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-access:code="'demo:customer:import'" class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
         <Button v-access:code="'demo:customer:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
       </template>
       <template #avatar_cell="{ row }">
-        <img v-if="row.avatar" :src="row.avatar" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
+        <img v-if="row.avatar && /^https?:\/\//i.test(row.avatar)" :src="row.avatar" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
         <span v-else>-</span>
       </template>
       <template #gender_cell="{ row }">

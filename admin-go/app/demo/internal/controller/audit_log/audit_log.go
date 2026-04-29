@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 
@@ -11,6 +12,16 @@ import (
 	"gbaseadmin/app/demo/internal/model"
 	"gbaseadmin/app/demo/internal/service"
 )
+
+func csvSafeAuditLog(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	if s[0] == 0 || strings.ContainsAny(s[:1], "=+-@\t\r") {
+		return "'" + s
+	}
+	return s
+}
 
 var AuditLog = cAuditLog{}
 
@@ -128,23 +139,20 @@ func (c *cAuditLog) Export(ctx context.Context, req *v1.AuditLogExportReq) (res 
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="audit_log.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	// 表头
-	_ = w.Write([]string{"日志编号", "操作人", "动作", "对象类型", "对象编号", "请求JSON", "结果", "客户端IP", "发生时间", "备注", "租户", "商户", "创建时间"})
+	// 表头（与导入模板列对齐，末尾追加只读列）
+	_ = w.Write([]string{"日志编号", "操作人", "动作", "对象类型", "对象编号", "请求JSON", "结果", "客户端IP", "备注", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
-			item.LogNo,
-			item.UsersUsername,
+			csvSafeAuditLog(item.LogNo),
+			csvSafeAuditLog(item.UsersUsername),
 			fmt.Sprintf("%v", item.Action),
 			fmt.Sprintf("%v", item.TargetType),
-			item.TargetCode,
-			item.RequestJSON,
+			csvSafeAuditLog(item.TargetCode),
+			csvSafeAuditLog(item.RequestJSON),
 			fmt.Sprintf("%v", item.Result),
-			item.ClientIP,
-			func() string { if item.OccurredAt != nil { return item.OccurredAt.String() }; return "" }(),
-			item.Remark,
-			item.TenantName,
-			item.MerchantName,
+			csvSafeAuditLog(item.ClientIP),
+			csvSafeAuditLog(item.Remark),
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}
@@ -174,7 +182,7 @@ func (c *cAuditLog) ImportTemplate(ctx context.Context, req *v1.AuditLogImportTe
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="audit_log_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{"日志编号", "操作人", "动作", "对象类型", "对象编号", "请求JSON", "结果", "客户端IP", "备注", "租户", "商户"})
+	_ = w.Write([]string{"日志编号", "操作人", "动作", "对象类型", "对象编号", "请求JSON", "结果", "客户端IP", "备注"})
 	w.Flush()
 	return
 }

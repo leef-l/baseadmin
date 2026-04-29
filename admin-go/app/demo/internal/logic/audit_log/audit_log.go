@@ -5,9 +5,12 @@ import (
 	"context"
 	"encoding/csv"
 	"io"
+	"strconv"
+	"strings"
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 
@@ -45,6 +48,9 @@ func normalizeAuditLogIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 		}
 		seen[value] = struct{}{}
 		normalized = append(normalized, id)
+		if len(normalized) >= 500 {
+			break
+		}
 	}
 	if len(normalized) == 0 {
 		return nil
@@ -85,9 +91,6 @@ func (s *sAuditLog) Update(ctx context.Context, in *model.AuditLogUpdateInput) e
 	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
-	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoAuditLog.Ctx(ctx), in.ID, dao.DemoAuditLog.Columns().Id, dao.DemoAuditLog.Columns().TenantId, dao.DemoAuditLog.Columns().MerchantId, "体验审计日志"); err != nil {
-		return err
-	}
 	data := do.DemoAuditLog{
 		LogNo: in.LogNo,
 		OperatorId: in.OperatorID,
@@ -99,16 +102,23 @@ func (s *sAuditLog) Update(ctx context.Context, in *model.AuditLogUpdateInput) e
 		ClientIp: in.ClientIP,
 		OccurredAt: in.OccurredAt,
 		Remark: in.Remark,
-		TenantId: in.TenantID,
-		MerchantId: in.MerchantID,
 	}
-	_, err := dao.DemoAuditLog.Ctx(ctx).Where(dao.DemoAuditLog.Columns().Id, in.ID).Data(data).Update()
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoAuditLog.Ctx(ctx), in.ID, dao.DemoAuditLog.Columns().Id, dao.DemoAuditLog.Columns().TenantId, dao.DemoAuditLog.Columns().MerchantId, "体验审计日志"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoAuditLog.Ctx(ctx), in.ID, dao.DemoAuditLog.Columns().Id, dao.DemoAuditLog.Columns().CreatedBy, dao.DemoAuditLog.Columns().DeptId); err != nil {
+		return err
+	}
+	_, err := dao.DemoAuditLog.Ctx(ctx).Where(dao.DemoAuditLog.Columns().Id, in.ID).Where(dao.DemoAuditLog.Columns().DeletedAt, nil).Data(data).Update()
 	return err
 }
 
 // Delete 软删除体验审计日志
 func (s *sAuditLog) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoAuditLog.Ctx(ctx), id, dao.DemoAuditLog.Columns().Id, dao.DemoAuditLog.Columns().TenantId, dao.DemoAuditLog.Columns().MerchantId, "体验审计日志"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoAuditLog.Ctx(ctx), id, dao.DemoAuditLog.Columns().Id, dao.DemoAuditLog.Columns().CreatedBy, dao.DemoAuditLog.Columns().DeptId); err != nil {
 		return err
 	}
 	_, err := dao.DemoAuditLog.Ctx(ctx).Where(dao.DemoAuditLog.Columns().Id, id).Delete()
@@ -124,6 +134,9 @@ func (s *sAuditLog) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) 
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoAuditLog.Ctx(ctx), normalizedIDs, dao.DemoAuditLog.Columns().Id, dao.DemoAuditLog.Columns().TenantId, dao.DemoAuditLog.Columns().MerchantId, "体验审计日志"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoAuditLog.Ctx(ctx), normalizedIDs, dao.DemoAuditLog.Columns().Id, dao.DemoAuditLog.Columns().CreatedBy, dao.DemoAuditLog.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoAuditLog.Ctx(ctx).WhereIn(dao.DemoAuditLog.Columns().Id, normalizedIDs).Delete()
 	return err
 }
@@ -133,18 +146,22 @@ func (s *sAuditLog) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mo
 	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoAuditLog.Ctx(ctx), id, dao.DemoAuditLog.Columns().Id, dao.DemoAuditLog.Columns().TenantId, dao.DemoAuditLog.Columns().MerchantId, "体验审计日志"); err != nil {
 		return nil, err
 	}
+	if err = middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoAuditLog.Ctx(ctx), id, dao.DemoAuditLog.Columns().Id, dao.DemoAuditLog.Columns().CreatedBy, dao.DemoAuditLog.Columns().DeptId); err != nil {
+		return nil, err
+	}
 	out = &model.AuditLogDetailOutput{}
 	err = dao.DemoAuditLog.Ctx(ctx).Where(dao.DemoAuditLog.Columns().Id, id).Where(dao.DemoAuditLog.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
 		return nil, err
 	}
-	if out.ID == 0 {
-		return nil, nil
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("体验审计日志不存在或已删除")
 	}
 	// 查询操作人关联显示
 	if out.OperatorID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_users").Where("id", out.OperatorID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("username")
 		if err == nil {
 			out.UsersUsername = val.String()
@@ -154,6 +171,7 @@ func (s *sAuditLog) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mo
 	if out.TenantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_tenant").Where("id", out.TenantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.TenantName = val.String()
@@ -163,6 +181,7 @@ func (s *sAuditLog) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mo
 	if out.MerchantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_merchant").Where("id", out.MerchantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.MerchantName = val.String()
@@ -241,6 +260,7 @@ func (s *sAuditLog) fillRefFields(ctx context.Context, list []*model.AuditLogLis
 			refQuery := g.DB().Ctx(ctx).Model("system_users").
 				Fields("id", "username")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -270,6 +290,7 @@ func (s *sAuditLog) fillRefFields(ctx context.Context, list []*model.AuditLogLis
 			refQuery := g.DB().Ctx(ctx).Model("system_tenant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -299,6 +320,7 @@ func (s *sAuditLog) fillRefFields(ctx context.Context, list []*model.AuditLogLis
 			refQuery := g.DB().Ctx(ctx).Model("system_merchant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -381,6 +403,11 @@ func (s *sAuditLog) Export(ctx context.Context, in *model.AuditLogListInput) (li
 
 // Import 导入体验审计日志
 func (s *sAuditLog) Import(ctx context.Context, file *ghttp.UploadFile) (success int, fail int, err error) {
+	const maxImportFileSize = 10 << 20 // 10MB
+	const maxImportRows = 5000
+	if file.Size > maxImportFileSize {
+		return 0, 0, fmt.Errorf("文件大小超过限制（最大10MB）")
+	}
 	f, err := file.Open()
 	if err != nil {
 		return 0, 0, err
@@ -388,11 +415,13 @@ func (s *sAuditLog) Import(ctx context.Context, file *ghttp.UploadFile) (success
 	defer f.Close()
 
 	reader := csv.NewReader(f)
+	reader.FieldsPerRecord = -1
 	// 跳过表头
 	if _, err = reader.Read(); err != nil {
 		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)
 	}
 
+	rowCount := 0
 	for {
 		record, readErr := reader.Read()
 		if readErr != nil {
@@ -404,6 +433,10 @@ func (s *sAuditLog) Import(ctx context.Context, file *ghttp.UploadFile) (success
 		if len(record) == 0 {
 			continue
 		}
+		rowCount++
+		if rowCount > maxImportRows {
+			return success, fail, fmt.Errorf("导入数据超过 %d 行上限，已处理 %d 条成功、%d 条失败", maxImportRows, success, fail)
+		}
 		// 逐行插入
 		id := snowflake.Generate()
 		data := do.DemoAuditLog{
@@ -413,39 +446,47 @@ func (s *sAuditLog) Import(ctx context.Context, file *ghttp.UploadFile) (success
 		}
 		idx := 0
 		if idx < len(record) {
-			data.LogNo = record[idx]
+			data.LogNo = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.OperatorId = record[idx]
+			if v, parseErr := strconv.ParseInt(strings.TrimSpace(record[idx]), 10, 64); parseErr == nil {
+				data.OperatorId = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Action = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Action = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.TargetType = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.TargetType = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.TargetCode = record[idx]
+			data.TargetCode = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.RequestJson = record[idx]
+			data.RequestJson = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Result = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Result = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.ClientIp = record[idx]
+			data.ClientIp = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Remark = record[idx]
+			data.Remark = strings.TrimSpace(record[idx])
 		}
 		idx++
 		tenantID := snowflake.JsonInt64(0)
@@ -457,6 +498,15 @@ func (s *sAuditLog) Import(ctx context.Context, file *ghttp.UploadFile) (success
 		}
 		data.TenantId = tenantID
 		data.MerchantId = merchantID
+		if fkVal, ok := data.OperatorId.(int64); ok && fkVal > 0 {
+			refQuery := g.DB().Ctx(ctx).Model("system_users").Where("id", fkVal)
+			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
+			if cnt, cntErr := refQuery.Count(); cntErr != nil || cnt == 0 {
+				fail++
+				continue
+			}
+		}
 		if _, insertErr := dao.DemoAuditLog.Ctx(ctx).Data(data).Insert(); insertErr != nil {
 			fail++
 		} else {

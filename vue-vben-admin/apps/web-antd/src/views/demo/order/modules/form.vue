@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { h, ref } from 'vue';
-import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { useVbenModal } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { message, Tooltip } from 'ant-design-vue';
 import { QuestionCircleOutlined } from '@ant-design/icons-vue';
 import {
@@ -122,6 +122,7 @@ const [Form, formApi] = useVbenForm({
       component: 'Input',
       fieldName: 'receiverPhone',
       label: '收货电话',
+      rules: 'phone',
       componentProps: { placeholder: '请输入收货电话', maxlength: 30 },
     },
     {
@@ -144,16 +145,16 @@ const [Form, formApi] = useVbenForm({
     },
     {
       component: 'Select',
-      ifShow: () => isPlatformSuperAdmin.value,
       fieldName: 'tenantID',
       label: '租户',
+      ifShow: () => isPlatformSuperAdmin.value,
       componentProps: { options: [], placeholder: '请选择租户', allowClear: true, class: 'w-full' },
     },
     {
       component: 'Select',
-      ifShow: () => isPlatformSuperAdmin.value,
       fieldName: 'merchantID',
       label: '商户',
+      ifShow: () => isPlatformSuperAdmin.value,
       componentProps: { options: [], placeholder: '请选择商户', allowClear: true, class: 'w-full' },
     },
   ],
@@ -170,6 +171,9 @@ const [Modal, modalApi] = useVbenModal({
       | OrderCreateParams
       | undefined;
     if (!values) return;
+    if (values.amount != null) {
+      (values as any).amount = Math.round(Number(values.amount) * 100);
+    }
     modalApi.lock();
     try {
       if (isEdit.value) {
@@ -232,6 +236,7 @@ const [Modal, modalApi] = useVbenModal({
     } catch {
       // ignore
     }
+    if (isPlatformSuperAdmin.value) {
     // 加载租户选项
     try {
       const tenantRes = await getTenantList({ pageNum: 1, pageSize: 1000 });
@@ -251,6 +256,8 @@ const [Modal, modalApi] = useVbenModal({
     } catch {
       // ignore
     }
+    }
+    if (isPlatformSuperAdmin.value) {
     // 加载商户选项
     try {
       const merchantRes = await getMerchantList({ pageNum: 1, pageSize: 1000 });
@@ -270,6 +277,7 @@ const [Modal, modalApi] = useVbenModal({
     } catch {
       // ignore
     }
+    }
     if (currentOpenToken !== openToken.value) {
       return;
     }
@@ -283,7 +291,11 @@ const [Modal, modalApi] = useVbenModal({
           return;
         }
         if (detail) {
-          formApi.setValues(detail);
+          const formData = { ...detail };
+          if (formData.amount != null) {
+            formData.amount = formData.amount / 100;
+          }
+          formApi.setValues(formData);
         }
       } catch {
         if (currentOpenToken === openToken.value) {

@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 
 	"gbaseadmin/app/demo/internal/dao"
@@ -41,6 +42,9 @@ func normalizeCategoryIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 		}
 		seen[value] = struct{}{}
 		normalized = append(normalized, id)
+		if len(normalized) >= 500 {
+			break
+		}
 	}
 	if len(normalized) == 0 {
 		return nil
@@ -76,8 +80,19 @@ func (s *sCategory) Update(ctx context.Context, in *model.CategoryUpdateInput) e
 	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
-	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), in.ID, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "体验分类"); err != nil {
-		return err
+	if in.ParentID == in.ID {
+		return gerror.New("不能将自身设为父节点")
+	}
+	if int64(in.ParentID) != 0 {
+		childIDs, collectErr := s.collectChildIDs(ctx, in.ID)
+		if collectErr != nil {
+			return collectErr
+		}
+		for _, cid := range childIDs {
+			if cid == in.ParentID {
+				return gerror.New("不能将子节点设为父节点，会形成循环引用")
+			}
+		}
 	}
 	data := do.DemoCategory{
 		ParentId: in.ParentID,
@@ -85,10 +100,14 @@ func (s *sCategory) Update(ctx context.Context, in *model.CategoryUpdateInput) e
 		Icon: in.Icon,
 		Sort: in.Sort,
 		Status: in.Status,
-		TenantId: in.TenantID,
-		MerchantId: in.MerchantID,
 	}
-	_, err := dao.DemoCategory.Ctx(ctx).Where(dao.DemoCategory.Columns().Id, in.ID).Data(data).Update()
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), in.ID, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "体验分类"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), in.ID, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId); err != nil {
+		return err
+	}
+	_, err := dao.DemoCategory.Ctx(ctx).Where(dao.DemoCategory.Columns().Id, in.ID).Where(dao.DemoCategory.Columns().DeletedAt, nil).Data(data).Update()
 	return err
 }
 
@@ -102,6 +121,9 @@ func (s *sCategory) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 		return nil
 	}
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), deleteIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "体验分类"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), deleteIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId); err != nil {
 		return err
 	}
 	_, err = dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, deleteIDs).Delete()
@@ -120,6 +142,9 @@ func (s *sCategory) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) 
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), deleteIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "体验分类"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), deleteIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err = dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, deleteIDs).Delete()
 	return err
 }
@@ -130,6 +155,7 @@ func (s *sCategory) collectDeleteIDs(ctx context.Context, ids []snowflake.JsonIn
 	if len(normalized) == 0 {
 		return nil, nil
 	}
+	const maxCollect = 10000
 	collected := make([]snowflake.JsonInt64, 0, len(normalized))
 	seen := make(map[int64]struct{}, len(normalized))
 	for _, id := range normalized {
@@ -147,6 +173,9 @@ func (s *sCategory) collectDeleteIDs(ctx context.Context, ids []snowflake.JsonIn
 			}
 			seen[int64(childID)] = struct{}{}
 			collected = append(collected, childID)
+			if len(collected) > maxCollect {
+				return nil, gerror.Newf("子树节点过多（超过 %d），请分批删除", maxCollect)
+			}
 		}
 	}
 	return collected, nil
@@ -159,13 +188,14 @@ func (s *sCategory) collectChildIDs(ctx context.Context, parentID snowflake.Json
 
 func (s *sCategory) doCollectChildIDs(ctx context.Context, parentID snowflake.JsonInt64, depth int) ([]snowflake.JsonInt64, error) {
 	if depth > 20 {
-		return nil, nil
+		return nil, gerror.New("子树深度超过 20 层上限，请检查数据完整性")
 	}
 	var childIDs []snowflake.JsonInt64
-	result, err := dao.DemoCategory.Ctx(ctx).
+	m := dao.DemoCategory.Ctx(ctx).
 		Where(dao.DemoCategory.Columns().ParentId, parentID).
-		Where(dao.DemoCategory.Columns().DeletedAt, nil).
-		Fields(dao.DemoCategory.Columns().Id).
+		Where(dao.DemoCategory.Columns().DeletedAt, nil)
+	m = middleware.ApplyTenantScopeToModel(ctx, m, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId)
+	result, err := m.Fields(dao.DemoCategory.Columns().Id).
 		Array()
 	if err != nil || len(result) == 0 {
 		return childIDs, err
@@ -187,18 +217,22 @@ func (s *sCategory) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mo
 	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), id, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "体验分类"); err != nil {
 		return nil, err
 	}
+	if err = middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), id, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId); err != nil {
+		return nil, err
+	}
 	out = &model.CategoryDetailOutput{}
 	err = dao.DemoCategory.Ctx(ctx).Where(dao.DemoCategory.Columns().Id, id).Where(dao.DemoCategory.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
 		return nil, err
 	}
-	if out.ID == 0 {
-		return nil, nil
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("体验分类不存在或已删除")
 	}
 	// 查询父分类关联显示
 	if out.ParentID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("demo_category").Where("id", out.ParentID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.CategoryName = val.String()
@@ -208,6 +242,7 @@ func (s *sCategory) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mo
 	if out.TenantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_tenant").Where("id", out.TenantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.TenantName = val.String()
@@ -217,6 +252,7 @@ func (s *sCategory) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mo
 	if out.MerchantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_merchant").Where("id", out.MerchantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.MerchantName = val.String()
@@ -272,6 +308,7 @@ func (s *sCategory) fillRefFields(ctx context.Context, list []*model.CategoryLis
 			refQuery := g.DB().Ctx(ctx).Model("demo_category").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -301,6 +338,7 @@ func (s *sCategory) fillRefFields(ctx context.Context, list []*model.CategoryLis
 			refQuery := g.DB().Ctx(ctx).Model("system_tenant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -330,6 +368,7 @@ func (s *sCategory) fillRefFields(ctx context.Context, list []*model.CategoryLis
 			refQuery := g.DB().Ctx(ctx).Model("system_merchant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -442,7 +481,7 @@ func (s *sCategory) Tree(ctx context.Context, in *model.CategoryTreeInput) (tree
 	}
 	// 数据权限过滤
 	m = middleware.ApplyDataScope(ctx, m, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId)
-	err = m.OrderAsc(dao.DemoCategory.Columns().Sort).Scan(&list)
+	err = m.OrderAsc(dao.DemoCategory.Columns().Sort).Limit(5000).Scan(&list)
 	if err != nil {
 		return
 	}
@@ -460,6 +499,8 @@ func (s *sCategory) Tree(ctx context.Context, in *model.CategoryTreeInput) (tree
 			tree = append(tree, item)
 		} else if parent, ok := nodeMap[int64(item.ParentID)]; ok {
 			parent.Children = append(parent.Children, item)
+		} else {
+			tree = append(tree, item)
 		}
 	}
 	// 批量填充租户关联显示
@@ -485,6 +526,7 @@ func (s *sCategory) Tree(ctx context.Context, in *model.CategoryTreeInput) (tree
 			refQuery := g.DB().Ctx(ctx).Model("system_tenant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, queryErr := refQuery.WhereIn("id", ids).All()
 			if queryErr == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -529,6 +571,7 @@ func (s *sCategory) Tree(ctx context.Context, in *model.CategoryTreeInput) (tree
 			refQuery := g.DB().Ctx(ctx).Model("system_merchant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, queryErr := refQuery.WhereIn("id", ids).All()
 			if queryErr == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -556,14 +599,22 @@ func (s *sCategory) Tree(ctx context.Context, in *model.CategoryTreeInput) (tree
 // BatchUpdate 批量编辑体验分类
 func (s *sCategory) BatchUpdate(ctx context.Context, in *model.CategoryBatchUpdateInput) error {
 	data := do.DemoCategory{}
+	hasChange := false
 	if in.Status != nil {
 		data.Status = *in.Status
+		hasChange = true
+	}
+	if !hasChange {
+		return nil
 	}
 	normalizedIDs := normalizeCategoryIDs(in.IDs)
 	if len(normalizedIDs) == 0 {
 		return nil
 	}
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), normalizedIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "体验分类"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), normalizedIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId); err != nil {
 		return err
 	}
 	_, err := dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, normalizedIDs).Data(data).Update()

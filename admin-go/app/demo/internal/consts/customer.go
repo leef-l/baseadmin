@@ -2,7 +2,7 @@ package consts
 
 // CustomerGender 性别
 const (
-	CustomerGenderV0 = 0 // 未知
+	CustomerGenderUnknown = 0 // 未知
 	CustomerGenderMale = 1 // 男
 	CustomerGenderFemale = 2 // 女
 )
@@ -11,16 +11,16 @@ const (
 const (
 	CustomerLevelRegular = 1 // 普通
 	CustomerLevelVIP = 2 // VIP
-	CustomerLevelPaid = 3 // 付费
+	CustomerLevelCharged = 3 // 付费
 	CustomerLevelFrozen = 4 // 冻结
 )
 
 // CustomerSourceType 来源
 const (
-	CustomerSourceTypeV1 = 1 // 官网
-	CustomerSourceTypeV2 = 2 // 小程序
-	CustomerSourceTypeV3 = 3 // 线下
-	CustomerSourceTypeV4 = 4 // 导入
+	CustomerSourceTypeOfficial = 1 // 官网
+	CustomerSourceTypeMiniApp = 2 // 小程序
+	CustomerSourceTypeOffline = 3 // 线下
+	CustomerSourceTypeImport = 4 // 导入
 )
 
 // CustomerIsVip 是否VIP

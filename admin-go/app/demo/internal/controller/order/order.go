@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 
@@ -11,6 +12,16 @@ import (
 	"gbaseadmin/app/demo/internal/model"
 	"gbaseadmin/app/demo/internal/service"
 )
+
+func csvSafeOrder(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	if s[0] == 0 || strings.ContainsAny(s[:1], "=+-@\t\r") {
+		return "'" + s
+	}
+	return s
+}
 
 var Order = cOrder{}
 
@@ -149,26 +160,22 @@ func (c *cOrder) Export(ctx context.Context, req *v1.OrderExportReq) (res *v1.Or
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="order.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	// 表头
-	_ = w.Write([]string{"订单号", "客户", "商品", "购买数量", "订单金额", "支付状态", "发货状态", "支付时间", "发货时间", "收货电话", "收货地址", "备注", "状态", "租户", "商户", "创建时间"})
+	// 表头（与导入模板列对齐，末尾追加只读列）
+	_ = w.Write([]string{"订单号", "客户", "商品", "购买数量", "订单金额", "支付状态", "发货状态", "收货电话", "收货地址", "备注", "状态", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
-			item.OrderNo,
-			item.CustomerName,
-			item.ProductSkuNo,
+			csvSafeOrder(item.OrderNo),
+			csvSafeOrder(item.CustomerName),
+			csvSafeOrder(item.ProductSkuNo),
 			fmt.Sprintf("%v", item.Quantity),
-			fmt.Sprintf("%v", item.Amount),
+			fmt.Sprintf("%.2f", float64(item.Amount)/100),
 			fmt.Sprintf("%v", item.PayStatus),
 			fmt.Sprintf("%v", item.DeliverStatus),
-			func() string { if item.PaidAt != nil { return item.PaidAt.String() }; return "" }(),
-			func() string { if item.DeliverAt != nil { return item.DeliverAt.String() }; return "" }(),
-			item.ReceiverPhone,
-			item.Address,
-			item.Remark,
+			csvSafeOrder(item.ReceiverPhone),
+			csvSafeOrder(item.Address),
+			csvSafeOrder(item.Remark),
 			fmt.Sprintf("%v", item.Status),
-			item.TenantName,
-			item.MerchantName,
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}
@@ -198,7 +205,7 @@ func (c *cOrder) ImportTemplate(ctx context.Context, req *v1.OrderImportTemplate
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="order_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{"订单号", "客户", "商品", "购买数量", "订单金额", "支付状态", "发货状态", "收货电话", "收货地址", "备注", "状态", "租户", "商户"})
+	_ = w.Write([]string{"订单号", "客户", "商品", "购买数量", "订单金额", "支付状态", "发货状态", "收货电话", "收货地址", "备注", "状态"})
 	w.Flush()
 	return
 }

@@ -33,19 +33,10 @@ function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | 
 
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
+  status: 'status',
   campaignNo: 'campaign_no',
   title: 'title',
-  banner: 'banner',
-  type: 'type',
-  channel: 'channel',
   budgetAmount: 'budget_amount',
-  landingURL: 'landing_url',
-  ruleJSON: 'rule_json',
-  introContent: 'intro_content',
-  startAt: 'start_at',
-  endAt: 'end_at',
-  isPublic: 'is_public',
-  status: 'status',
 };
 
 function resolveSortField(field?: string) {
@@ -305,18 +296,18 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<CampaignItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
-  columns: [    { title: '序号', type: 'seq', width: 50 },
-
+  columns: [
+    { title: '序号', type: 'seq', width: 50 },
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
-    { field: 'campaignNo', title: '活动编号' },
-    { field: 'title', title: '活动标题' },
+    { field: 'campaignNo', title: '活动编号', sortable: true },
+    { field: 'title', title: '活动标题', sortable: true },
     { field: 'banner', title: '横幅图', width: 100, slots: { default: 'banner_cell' } },
     { field: 'type', title: '活动类型', width: 120, slots: { default: 'type_cell' } },
     { field: 'channel', title: '投放渠道', width: 120, slots: { default: 'channel_cell' } },
-    { field: 'budgetAmount', title: '预算金额', slots: { header: tooltipHeader('预算金额', '分') }, width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-' },
+    { field: 'budgetAmount', title: '预算金额', slots: { header: tooltipHeader('预算金额', '分') }, width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-', sortable: true },
     { field: 'landingURL', title: '落地页URL', slots: { default: 'landingURL_cell' } },
     { field: 'isPublic', title: '是否公开', width: 120, slots: { default: 'isPublic_cell' } },
-    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' } },
+    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' }, sortable: true },
     ...(isPlatformSuperAdmin.value ? [
     { field: 'tenantName', title: '租户' },
     ] : []),
@@ -598,11 +589,11 @@ function handleBatchUpdateStatus() {
         <Button v-access:code="'demo:campaign:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
         <Button v-access:code="'demo:campaign:export'" class="ml-2" @click="handleExport">导出</Button>
         <Button v-access:code="'demo:campaign:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
-        <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-access:code="'demo:campaign:import'" class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
         <Button v-access:code="'demo:campaign:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
       </template>
       <template #banner_cell="{ row }">
-        <img v-if="row.banner" :src="row.banner" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
+        <img v-if="row.banner && /^https?:\/\//i.test(row.banner)" :src="row.banner" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
         <span v-else>-</span>
       </template>
       <template #type_cell="{ row }">
@@ -616,7 +607,8 @@ function handleBatchUpdateStatus() {
         </Tag>
       </template>
       <template #landingURL_cell="{ row }">
-        <a v-if="row.landingURL" :href="row.landingURL" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">{{ row.landingURL }}</a>
+        <a v-if="row.landingURL && /^https?:\/\//i.test(row.landingURL)" :href="row.landingURL" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">{{ row.landingURL }}</a>
+        <span v-else-if="row.landingURL">{{ row.landingURL }}</span>
         <span v-else>-</span>
       </template>
       <template #isPublic_cell="{ row }">

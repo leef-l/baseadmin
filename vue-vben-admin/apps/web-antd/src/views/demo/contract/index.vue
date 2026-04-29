@@ -35,15 +35,10 @@ function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | 
 
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
+  status: 'status',
   contractNo: 'contract_no',
   title: 'title',
-  contractFile: 'contract_file',
-  signImage: 'sign_image',
   contractAmount: 'contract_amount',
-  signPassword: 'sign_password',
-  signedAt: 'signed_at',
-  expiresAt: 'expires_at',
-  status: 'status',
 };
 
 function resolveSortField(field?: string) {
@@ -220,17 +215,17 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<ContractItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
-  columns: [    { title: '序号', type: 'seq', width: 50 },
-
+  columns: [
+    { title: '序号', type: 'seq', width: 50 },
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
-    { field: 'contractNo', title: '合同编号' },
+    { field: 'contractNo', title: '合同编号', sortable: true },
     { field: 'customerName', title: '客户' },
     { field: 'orderOrderNo', title: '订单' },
-    { field: 'title', title: '合同标题' },
+    { field: 'title', title: '合同标题', sortable: true },
     { field: 'contractFile', title: '合同文件', slots: { default: 'contractFile_cell' } },
     { field: 'signImage', title: '签章图片', width: 100, slots: { default: 'signImage_cell' } },
-    { field: 'contractAmount', title: '合同金额', slots: { header: tooltipHeader('合同金额', '分') }, width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-' },
-    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' } },
+    { field: 'contractAmount', title: '合同金额', slots: { header: tooltipHeader('合同金额', '分') }, width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-', sortable: true },
+    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' }, sortable: true },
     ...(isPlatformSuperAdmin.value ? [
     { field: 'tenantName', title: '租户' },
     ] : []),
@@ -544,15 +539,16 @@ function handleBatchUpdateStatus() {
         <Button v-access:code="'demo:contract:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
         <Button v-access:code="'demo:contract:export'" class="ml-2" @click="handleExport">导出</Button>
         <Button v-access:code="'demo:contract:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
-        <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-access:code="'demo:contract:import'" class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
         <Button v-access:code="'demo:contract:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
       </template>
       <template #contractFile_cell="{ row }">
-        <a v-if="row.contractFile" :href="row.contractFile" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">下载</a>
+        <a v-if="row.contractFile && /^https?:\/\//i.test(row.contractFile)" :href="row.contractFile" target="_blank" rel="noreferrer noopener" style="color: #1890ff;">下载</a>
+        <span v-else-if="row.contractFile">{{ row.contractFile }}</span>
         <span v-else>-</span>
       </template>
       <template #signImage_cell="{ row }">
-        <img v-if="row.signImage" :src="row.signImage" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
+        <img v-if="row.signImage && /^https?:\/\//i.test(row.signImage)" :src="row.signImage" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
         <span v-else>-</span>
       </template>
       <template #status_cell="{ row }">

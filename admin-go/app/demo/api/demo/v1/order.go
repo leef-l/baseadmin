@@ -78,7 +78,7 @@ type OrderDeleteRes struct {
 // OrderBatchDeleteReq 批量删除体验订单请求
 type OrderBatchDeleteReq struct {
 	g.Meta `path:"/order/batch-delete" method:"delete" tags:"体验订单" summary:"批量删除体验订单"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验订单ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验订单ID列表"`
 }
 
 // OrderBatchDeleteRes 批量删除体验订单响应
@@ -89,7 +89,7 @@ type OrderBatchDeleteRes struct {
 // OrderBatchUpdateReq 批量编辑体验订单请求
 type OrderBatchUpdateReq struct {
 	g.Meta `path:"/order/batch-update" method:"put" tags:"体验订单" summary:"批量编辑体验订单"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验订单ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验订单ID列表"`
 	PayStatus *int `json:"payStatus" dc:"支付状态"`
 	DeliverStatus *int `json:"deliverStatus" dc:"发货状态"`
 	Status *int `json:"status" dc:"状态"`
@@ -115,10 +115,10 @@ type OrderDetailRes struct {
 // OrderListReq 获取体验订单列表请求
 type OrderListReq struct {
 	g.Meta    `path:"/order/list" method:"get" tags:"体验订单" summary:"获取体验订单列表"`
-	PageNum   int    `json:"pageNum" d:"1" dc:"页码"`
-	PageSize  int    `json:"pageSize" d:"10" dc:"每页数量"`
+	PageNum   int    `json:"pageNum" d:"1" v:"min:1" dc:"页码"`
+	PageSize  int    `json:"pageSize" d:"10" v:"between:1,500" dc:"每页数量"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	Keyword string `json:"keyword" dc:"关键词"`
@@ -147,7 +147,7 @@ type OrderListRes struct {
 type OrderExportReq struct {
 	g.Meta    `path:"/order/export" method:"get" tags:"体验订单" summary:"导出体验订单"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	Keyword string `json:"keyword" dc:"关键词"`

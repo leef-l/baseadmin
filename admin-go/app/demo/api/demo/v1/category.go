@@ -62,7 +62,7 @@ type CategoryDeleteRes struct {
 // CategoryBatchDeleteReq 批量删除体验分类请求
 type CategoryBatchDeleteReq struct {
 	g.Meta `path:"/category/batch-delete" method:"delete" tags:"体验分类" summary:"批量删除体验分类"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验分类ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验分类ID列表"`
 }
 
 // CategoryBatchDeleteRes 批量删除体验分类响应
@@ -73,7 +73,7 @@ type CategoryBatchDeleteRes struct {
 // CategoryBatchUpdateReq 批量编辑体验分类请求
 type CategoryBatchUpdateReq struct {
 	g.Meta `path:"/category/batch-update" method:"put" tags:"体验分类" summary:"批量编辑体验分类"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验分类ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验分类ID列表"`
 	Status *int `json:"status" dc:"状态"`
 }
 
@@ -97,10 +97,10 @@ type CategoryDetailRes struct {
 // CategoryListReq 获取体验分类列表请求
 type CategoryListReq struct {
 	g.Meta    `path:"/category/list" method:"get" tags:"体验分类" summary:"获取体验分类列表"`
-	PageNum   int    `json:"pageNum" d:"1" dc:"页码"`
-	PageSize  int    `json:"pageSize" d:"10" dc:"每页数量"`
+	PageNum   int    `json:"pageNum" d:"1" v:"min:1" dc:"页码"`
+	PageSize  int    `json:"pageSize" d:"10" v:"between:1,500" dc:"每页数量"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	Name string `json:"name" dc:"分类名称"`
@@ -120,7 +120,7 @@ type CategoryListRes struct {
 type CategoryExportReq struct {
 	g.Meta    `path:"/category/export" method:"get" tags:"体验分类" summary:"导出体验分类"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	Name string `json:"name" dc:"分类名称"`

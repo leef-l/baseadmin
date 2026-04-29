@@ -5,9 +5,12 @@ import (
 	"context"
 	"encoding/csv"
 	"io"
+	"strconv"
+	"strings"
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 
@@ -45,6 +48,9 @@ func normalizeSurveyIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 		}
 		seen[value] = struct{}{}
 		normalized = append(normalized, id)
+		if len(normalized) >= 500 {
+			break
+		}
 	}
 	if len(normalized) == 0 {
 		return nil
@@ -84,9 +90,6 @@ func (s *sSurvey) Update(ctx context.Context, in *model.SurveyUpdateInput) error
 	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
-	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoSurvey.Ctx(ctx), in.ID, dao.DemoSurvey.Columns().Id, dao.DemoSurvey.Columns().TenantId, dao.DemoSurvey.Columns().MerchantId, "体验问卷"); err != nil {
-		return err
-	}
 	data := do.DemoSurvey{
 		SurveyNo: in.SurveyNo,
 		Title: in.Title,
@@ -97,16 +100,23 @@ func (s *sSurvey) Update(ctx context.Context, in *model.SurveyUpdateInput) error
 		ExpireAt: in.ExpireAt,
 		IsAnonymous: in.IsAnonymous,
 		Status: in.Status,
-		TenantId: in.TenantID,
-		MerchantId: in.MerchantID,
 	}
-	_, err := dao.DemoSurvey.Ctx(ctx).Where(dao.DemoSurvey.Columns().Id, in.ID).Data(data).Update()
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoSurvey.Ctx(ctx), in.ID, dao.DemoSurvey.Columns().Id, dao.DemoSurvey.Columns().TenantId, dao.DemoSurvey.Columns().MerchantId, "体验问卷"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoSurvey.Ctx(ctx), in.ID, dao.DemoSurvey.Columns().Id, dao.DemoSurvey.Columns().CreatedBy, dao.DemoSurvey.Columns().DeptId); err != nil {
+		return err
+	}
+	_, err := dao.DemoSurvey.Ctx(ctx).Where(dao.DemoSurvey.Columns().Id, in.ID).Where(dao.DemoSurvey.Columns().DeletedAt, nil).Data(data).Update()
 	return err
 }
 
 // Delete 软删除体验问卷
 func (s *sSurvey) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoSurvey.Ctx(ctx), id, dao.DemoSurvey.Columns().Id, dao.DemoSurvey.Columns().TenantId, dao.DemoSurvey.Columns().MerchantId, "体验问卷"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoSurvey.Ctx(ctx), id, dao.DemoSurvey.Columns().Id, dao.DemoSurvey.Columns().CreatedBy, dao.DemoSurvey.Columns().DeptId); err != nil {
 		return err
 	}
 	_, err := dao.DemoSurvey.Ctx(ctx).Where(dao.DemoSurvey.Columns().Id, id).Delete()
@@ -122,6 +132,9 @@ func (s *sSurvey) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) er
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoSurvey.Ctx(ctx), normalizedIDs, dao.DemoSurvey.Columns().Id, dao.DemoSurvey.Columns().TenantId, dao.DemoSurvey.Columns().MerchantId, "体验问卷"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoSurvey.Ctx(ctx), normalizedIDs, dao.DemoSurvey.Columns().Id, dao.DemoSurvey.Columns().CreatedBy, dao.DemoSurvey.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoSurvey.Ctx(ctx).WhereIn(dao.DemoSurvey.Columns().Id, normalizedIDs).Delete()
 	return err
 }
@@ -131,18 +144,22 @@ func (s *sSurvey) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mode
 	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoSurvey.Ctx(ctx), id, dao.DemoSurvey.Columns().Id, dao.DemoSurvey.Columns().TenantId, dao.DemoSurvey.Columns().MerchantId, "体验问卷"); err != nil {
 		return nil, err
 	}
+	if err = middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoSurvey.Ctx(ctx), id, dao.DemoSurvey.Columns().Id, dao.DemoSurvey.Columns().CreatedBy, dao.DemoSurvey.Columns().DeptId); err != nil {
+		return nil, err
+	}
 	out = &model.SurveyDetailOutput{}
 	err = dao.DemoSurvey.Ctx(ctx).Where(dao.DemoSurvey.Columns().Id, id).Where(dao.DemoSurvey.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
 		return nil, err
 	}
-	if out.ID == 0 {
-		return nil, nil
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("体验问卷不存在或已删除")
 	}
 	// 查询租户关联显示
 	if out.TenantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_tenant").Where("id", out.TenantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.TenantName = val.String()
@@ -152,6 +169,7 @@ func (s *sSurvey) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mode
 	if out.MerchantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_merchant").Where("id", out.MerchantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.MerchantName = val.String()
@@ -222,6 +240,7 @@ func (s *sSurvey) fillRefFields(ctx context.Context, list []*model.SurveyListOut
 			refQuery := g.DB().Ctx(ctx).Model("system_tenant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -251,6 +270,7 @@ func (s *sSurvey) fillRefFields(ctx context.Context, list []*model.SurveyListOut
 			refQuery := g.DB().Ctx(ctx).Model("system_merchant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -335,11 +355,17 @@ func (s *sSurvey) Export(ctx context.Context, in *model.SurveyListInput) (list [
 // BatchUpdate 批量编辑体验问卷
 func (s *sSurvey) BatchUpdate(ctx context.Context, in *model.SurveyBatchUpdateInput) error {
 	data := do.DemoSurvey{}
+	hasChange := false
 	if in.IsAnonymous != nil {
 		data.IsAnonymous = *in.IsAnonymous
+		hasChange = true
 	}
 	if in.Status != nil {
 		data.Status = *in.Status
+		hasChange = true
+	}
+	if !hasChange {
+		return nil
 	}
 	normalizedIDs := normalizeSurveyIDs(in.IDs)
 	if len(normalizedIDs) == 0 {
@@ -348,12 +374,20 @@ func (s *sSurvey) BatchUpdate(ctx context.Context, in *model.SurveyBatchUpdateIn
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoSurvey.Ctx(ctx), normalizedIDs, dao.DemoSurvey.Columns().Id, dao.DemoSurvey.Columns().TenantId, dao.DemoSurvey.Columns().MerchantId, "体验问卷"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoSurvey.Ctx(ctx), normalizedIDs, dao.DemoSurvey.Columns().Id, dao.DemoSurvey.Columns().CreatedBy, dao.DemoSurvey.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoSurvey.Ctx(ctx).WhereIn(dao.DemoSurvey.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }
 
 // Import 导入体验问卷
 func (s *sSurvey) Import(ctx context.Context, file *ghttp.UploadFile) (success int, fail int, err error) {
+	const maxImportFileSize = 10 << 20 // 10MB
+	const maxImportRows = 5000
+	if file.Size > maxImportFileSize {
+		return 0, 0, fmt.Errorf("文件大小超过限制（最大10MB）")
+	}
 	f, err := file.Open()
 	if err != nil {
 		return 0, 0, err
@@ -361,11 +395,13 @@ func (s *sSurvey) Import(ctx context.Context, file *ghttp.UploadFile) (success i
 	defer f.Close()
 
 	reader := csv.NewReader(f)
+	reader.FieldsPerRecord = -1
 	// 跳过表头
 	if _, err = reader.Read(); err != nil {
 		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)
 	}
 
+	rowCount := 0
 	for {
 		record, readErr := reader.Read()
 		if readErr != nil {
@@ -377,6 +413,10 @@ func (s *sSurvey) Import(ctx context.Context, file *ghttp.UploadFile) (success i
 		if len(record) == 0 {
 			continue
 		}
+		rowCount++
+		if rowCount > maxImportRows {
+			return success, fail, fmt.Errorf("导入数据超过 %d 行上限，已处理 %d 条成功、%d 条失败", maxImportRows, success, fail)
+		}
 		// 逐行插入
 		id := snowflake.Generate()
 		data := do.DemoSurvey{
@@ -386,31 +426,35 @@ func (s *sSurvey) Import(ctx context.Context, file *ghttp.UploadFile) (success i
 		}
 		idx := 0
 		if idx < len(record) {
-			data.SurveyNo = record[idx]
+			data.SurveyNo = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Title = record[idx]
+			data.Title = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Poster = record[idx]
+			data.Poster = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.QuestionJson = record[idx]
+			data.QuestionJson = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.IntroContent = record[idx]
+			data.IntroContent = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.IsAnonymous = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.IsAnonymous = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Status = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Status = v
+			}
 		}
 		idx++
 		tenantID := snowflake.JsonInt64(0)

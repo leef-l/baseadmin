@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { h, ref } from 'vue';
-import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { useVbenModal } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { message, Tooltip } from 'ant-design-vue';
 import { QuestionCircleOutlined } from '@ant-design/icons-vue';
 import {
@@ -100,10 +100,10 @@ const [Form, formApi] = useVbenForm({
       componentProps: { placeholder: '请输入预算金额（分）', class: 'w-full' },
     },
     {
-      component: 'Input',
+      component: 'InputUrl',
       fieldName: 'landingURL',
       label: '落地页URL',
-      componentProps: { placeholder: '请输入URL地址', maxlength: 500, addonBefore: 'https://' },
+      componentProps: { placeholder: '请输入完整URL地址（含 http:// 或 https://）', maxlength: 500 },
     },
     {
       component: 'JsonEditor',
@@ -144,16 +144,16 @@ const [Form, formApi] = useVbenForm({
     },
     {
       component: 'Select',
-      ifShow: () => isPlatformSuperAdmin.value,
       fieldName: 'tenantID',
       label: '租户',
+      ifShow: () => isPlatformSuperAdmin.value,
       componentProps: { options: [], placeholder: '请选择租户', allowClear: true, class: 'w-full' },
     },
     {
       component: 'Select',
-      ifShow: () => isPlatformSuperAdmin.value,
       fieldName: 'merchantID',
       label: '商户',
+      ifShow: () => isPlatformSuperAdmin.value,
       componentProps: { options: [], placeholder: '请选择商户', allowClear: true, class: 'w-full' },
     },
   ],
@@ -170,6 +170,9 @@ const [Modal, modalApi] = useVbenModal({
       | CampaignCreateParams
       | undefined;
     if (!values) return;
+    if (values.budgetAmount != null) {
+      (values as any).budgetAmount = Math.round(Number(values.budgetAmount) * 100);
+    }
     modalApi.lock();
     try {
       if (isEdit.value) {
@@ -194,6 +197,7 @@ const [Modal, modalApi] = useVbenModal({
     const currentOpenToken = ++openToken.value;
     formApi.resetForm();
     const data = modalApi.getData<{ id?: string }>();
+    if (isPlatformSuperAdmin.value) {
     // 加载租户选项
     try {
       const tenantRes = await getTenantList({ pageNum: 1, pageSize: 1000 });
@@ -213,6 +217,8 @@ const [Modal, modalApi] = useVbenModal({
     } catch {
       // ignore
     }
+    }
+    if (isPlatformSuperAdmin.value) {
     // 加载商户选项
     try {
       const merchantRes = await getMerchantList({ pageNum: 1, pageSize: 1000 });
@@ -232,6 +238,7 @@ const [Modal, modalApi] = useVbenModal({
     } catch {
       // ignore
     }
+    }
     if (currentOpenToken !== openToken.value) {
       return;
     }
@@ -245,7 +252,11 @@ const [Modal, modalApi] = useVbenModal({
           return;
         }
         if (detail) {
-          formApi.setValues(detail);
+          const formData = { ...detail };
+          if (formData.budgetAmount != null) {
+            formData.budgetAmount = formData.budgetAmount / 100;
+          }
+          formApi.setValues(formData);
         }
       } catch {
         if (currentOpenToken === openToken.value) {

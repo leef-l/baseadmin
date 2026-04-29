@@ -74,7 +74,7 @@ type ContractDeleteRes struct {
 // ContractBatchDeleteReq 批量删除体验合同请求
 type ContractBatchDeleteReq struct {
 	g.Meta `path:"/contract/batch-delete" method:"delete" tags:"体验合同" summary:"批量删除体验合同"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验合同ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验合同ID列表"`
 }
 
 // ContractBatchDeleteRes 批量删除体验合同响应
@@ -85,7 +85,7 @@ type ContractBatchDeleteRes struct {
 // ContractBatchUpdateReq 批量编辑体验合同请求
 type ContractBatchUpdateReq struct {
 	g.Meta `path:"/contract/batch-update" method:"put" tags:"体验合同" summary:"批量编辑体验合同"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验合同ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验合同ID列表"`
 	Status *int `json:"status" dc:"状态"`
 }
 
@@ -109,10 +109,10 @@ type ContractDetailRes struct {
 // ContractListReq 获取体验合同列表请求
 type ContractListReq struct {
 	g.Meta    `path:"/contract/list" method:"get" tags:"体验合同" summary:"获取体验合同列表"`
-	PageNum   int    `json:"pageNum" d:"1" dc:"页码"`
-	PageSize  int    `json:"pageSize" d:"10" dc:"每页数量"`
+	PageNum   int    `json:"pageNum" d:"1" v:"min:1" dc:"页码"`
+	PageSize  int    `json:"pageSize" d:"10" v:"between:1,500" dc:"每页数量"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	ContractNo string `json:"contractNo" dc:"合同编号"`
@@ -138,7 +138,7 @@ type ContractListRes struct {
 type ContractExportReq struct {
 	g.Meta    `path:"/contract/export" method:"get" tags:"体验合同" summary:"导出体验合同"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	ContractNo string `json:"contractNo" dc:"合同编号"`

@@ -5,9 +5,13 @@ import (
 	"context"
 	"encoding/csv"
 	"io"
+	"math"
+	"strconv"
+	"strings"
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"golang.org/x/crypto/bcrypt"
@@ -46,6 +50,9 @@ func normalizeContractIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 		}
 		seen[value] = struct{}{}
 		normalized = append(normalized, id)
+		if len(normalized) >= 500 {
+			break
+		}
 	}
 	if len(normalized) == 0 {
 		return nil
@@ -91,9 +98,6 @@ func (s *sContract) Update(ctx context.Context, in *model.ContractUpdateInput) e
 	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
-	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoContract.Ctx(ctx), in.ID, dao.DemoContract.Columns().Id, dao.DemoContract.Columns().TenantId, dao.DemoContract.Columns().MerchantId, "体验合同"); err != nil {
-		return err
-	}
 	data := do.DemoContract{
 		ContractNo: in.ContractNo,
 		CustomerId: in.CustomerID,
@@ -105,8 +109,6 @@ func (s *sContract) Update(ctx context.Context, in *model.ContractUpdateInput) e
 		SignedAt: in.SignedAt,
 		ExpiresAt: in.ExpiresAt,
 		Status: in.Status,
-		TenantId: in.TenantID,
-		MerchantId: in.MerchantID,
 	}
 	if in.SignPassword != "" {
 		hashed, err := bcrypt.GenerateFromPassword([]byte(in.SignPassword), bcrypt.DefaultCost)
@@ -115,18 +117,29 @@ func (s *sContract) Update(ctx context.Context, in *model.ContractUpdateInput) e
 		}
 		data.SignPassword = string(hashed)
 	}
-	// 含金额字段，使用事务 + 行锁保证并发安全
+	// 含金额字段，使用事务 + 行锁，权限检查在行锁内防止 TOCTOU
 	err := dao.DemoContract.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		// FOR UPDATE 行锁
-		_, err := tx.Model(dao.DemoContract.Table()).Ctx(ctx).
+		lockedRow, err := tx.Model(dao.DemoContract.Table()).Ctx(ctx).
 			Where(dao.DemoContract.Columns().Id, in.ID).
+			Where(dao.DemoContract.Columns().DeletedAt, nil).
 			LockUpdate().
-			Value(dao.DemoContract.Columns().Id)
+			One()
 		if err != nil {
+			return err
+		}
+		if lockedRow.IsEmpty() {
+			return gerror.New("体验合同不存在或已删除")
+		}
+		if err := middleware.EnsureTenantScopedRowAccessible(ctx, tx.Model(dao.DemoContract.Table()).Ctx(ctx), in.ID, dao.DemoContract.Columns().Id, dao.DemoContract.Columns().TenantId, dao.DemoContract.Columns().MerchantId, "体验合同"); err != nil {
+			return err
+		}
+		if err := middleware.EnsureDataScopedRowAccessible(ctx, tx.Model(dao.DemoContract.Table()).Ctx(ctx), in.ID, dao.DemoContract.Columns().Id, dao.DemoContract.Columns().CreatedBy, dao.DemoContract.Columns().DeptId); err != nil {
 			return err
 		}
 		_, err = tx.Model(dao.DemoContract.Table()).Ctx(ctx).
 			Where(dao.DemoContract.Columns().Id, in.ID).
+			Where(dao.DemoContract.Columns().DeletedAt, nil).
 			Data(data).Update()
 		return err
 	})
@@ -136,6 +149,9 @@ func (s *sContract) Update(ctx context.Context, in *model.ContractUpdateInput) e
 // Delete 软删除体验合同
 func (s *sContract) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoContract.Ctx(ctx), id, dao.DemoContract.Columns().Id, dao.DemoContract.Columns().TenantId, dao.DemoContract.Columns().MerchantId, "体验合同"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoContract.Ctx(ctx), id, dao.DemoContract.Columns().Id, dao.DemoContract.Columns().CreatedBy, dao.DemoContract.Columns().DeptId); err != nil {
 		return err
 	}
 	_, err := dao.DemoContract.Ctx(ctx).Where(dao.DemoContract.Columns().Id, id).Delete()
@@ -151,6 +167,9 @@ func (s *sContract) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) 
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoContract.Ctx(ctx), normalizedIDs, dao.DemoContract.Columns().Id, dao.DemoContract.Columns().TenantId, dao.DemoContract.Columns().MerchantId, "体验合同"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoContract.Ctx(ctx), normalizedIDs, dao.DemoContract.Columns().Id, dao.DemoContract.Columns().CreatedBy, dao.DemoContract.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoContract.Ctx(ctx).WhereIn(dao.DemoContract.Columns().Id, normalizedIDs).Delete()
 	return err
 }
@@ -160,18 +179,22 @@ func (s *sContract) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mo
 	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoContract.Ctx(ctx), id, dao.DemoContract.Columns().Id, dao.DemoContract.Columns().TenantId, dao.DemoContract.Columns().MerchantId, "体验合同"); err != nil {
 		return nil, err
 	}
+	if err = middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoContract.Ctx(ctx), id, dao.DemoContract.Columns().Id, dao.DemoContract.Columns().CreatedBy, dao.DemoContract.Columns().DeptId); err != nil {
+		return nil, err
+	}
 	out = &model.ContractDetailOutput{}
 	err = dao.DemoContract.Ctx(ctx).Where(dao.DemoContract.Columns().Id, id).Where(dao.DemoContract.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
 		return nil, err
 	}
-	if out.ID == 0 {
-		return nil, nil
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("体验合同不存在或已删除")
 	}
 	// 查询客户关联显示
 	if out.CustomerID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("demo_customer").Where("id", out.CustomerID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.CustomerName = val.String()
@@ -181,6 +204,7 @@ func (s *sContract) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mo
 	if out.OrderID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("demo_order").Where("id", out.OrderID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("order_no")
 		if err == nil {
 			out.OrderOrderNo = val.String()
@@ -190,6 +214,7 @@ func (s *sContract) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mo
 	if out.TenantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_tenant").Where("id", out.TenantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.TenantName = val.String()
@@ -199,6 +224,7 @@ func (s *sContract) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mo
 	if out.MerchantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_merchant").Where("id", out.MerchantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.MerchantName = val.String()
@@ -272,6 +298,7 @@ func (s *sContract) fillRefFields(ctx context.Context, list []*model.ContractLis
 			refQuery := g.DB().Ctx(ctx).Model("demo_customer").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -301,6 +328,7 @@ func (s *sContract) fillRefFields(ctx context.Context, list []*model.ContractLis
 			refQuery := g.DB().Ctx(ctx).Model("demo_order").
 				Fields("id", "order_no")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -330,6 +358,7 @@ func (s *sContract) fillRefFields(ctx context.Context, list []*model.ContractLis
 			refQuery := g.DB().Ctx(ctx).Model("system_tenant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -359,6 +388,7 @@ func (s *sContract) fillRefFields(ctx context.Context, list []*model.ContractLis
 			refQuery := g.DB().Ctx(ctx).Model("system_merchant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -444,8 +474,13 @@ func (s *sContract) Export(ctx context.Context, in *model.ContractListInput) (li
 // BatchUpdate 批量编辑体验合同
 func (s *sContract) BatchUpdate(ctx context.Context, in *model.ContractBatchUpdateInput) error {
 	data := do.DemoContract{}
+	hasChange := false
 	if in.Status != nil {
 		data.Status = *in.Status
+		hasChange = true
+	}
+	if !hasChange {
+		return nil
 	}
 	normalizedIDs := normalizeContractIDs(in.IDs)
 	if len(normalizedIDs) == 0 {
@@ -454,12 +489,20 @@ func (s *sContract) BatchUpdate(ctx context.Context, in *model.ContractBatchUpda
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoContract.Ctx(ctx), normalizedIDs, dao.DemoContract.Columns().Id, dao.DemoContract.Columns().TenantId, dao.DemoContract.Columns().MerchantId, "体验合同"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoContract.Ctx(ctx), normalizedIDs, dao.DemoContract.Columns().Id, dao.DemoContract.Columns().CreatedBy, dao.DemoContract.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoContract.Ctx(ctx).WhereIn(dao.DemoContract.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }
 
 // Import 导入体验合同
 func (s *sContract) Import(ctx context.Context, file *ghttp.UploadFile) (success int, fail int, err error) {
+	const maxImportFileSize = 10 << 20 // 10MB
+	const maxImportRows = 5000
+	if file.Size > maxImportFileSize {
+		return 0, 0, fmt.Errorf("文件大小超过限制（最大10MB）")
+	}
 	f, err := file.Open()
 	if err != nil {
 		return 0, 0, err
@@ -467,11 +510,13 @@ func (s *sContract) Import(ctx context.Context, file *ghttp.UploadFile) (success
 	defer f.Close()
 
 	reader := csv.NewReader(f)
+	reader.FieldsPerRecord = -1
 	// 跳过表头
 	if _, err = reader.Read(); err != nil {
 		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)
 	}
 
+	rowCount := 0
 	for {
 		record, readErr := reader.Read()
 		if readErr != nil {
@@ -483,6 +528,10 @@ func (s *sContract) Import(ctx context.Context, file *ghttp.UploadFile) (success
 		if len(record) == 0 {
 			continue
 		}
+		rowCount++
+		if rowCount > maxImportRows {
+			return success, fail, fmt.Errorf("导入数据超过 %d 行上限，已处理 %d 条成功、%d 条失败", maxImportRows, success, fail)
+		}
 		// 逐行插入
 		id := snowflake.Generate()
 		data := do.DemoContract{
@@ -492,35 +541,43 @@ func (s *sContract) Import(ctx context.Context, file *ghttp.UploadFile) (success
 		}
 		idx := 0
 		if idx < len(record) {
-			data.ContractNo = record[idx]
+			data.ContractNo = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.CustomerId = record[idx]
+			if v, parseErr := strconv.ParseInt(strings.TrimSpace(record[idx]), 10, 64); parseErr == nil {
+				data.CustomerId = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.OrderId = record[idx]
+			if v, parseErr := strconv.ParseInt(strings.TrimSpace(record[idx]), 10, 64); parseErr == nil {
+				data.OrderId = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Title = record[idx]
+			data.Title = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.ContractFile = record[idx]
+			data.ContractFile = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.SignImage = record[idx]
+			data.SignImage = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.ContractAmount = record[idx]
+			if v, parseErr := strconv.ParseFloat(strings.TrimSpace(record[idx]), 64); parseErr == nil {
+				data.ContractAmount = int64(math.Round(v * 100))
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Status = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Status = v
+			}
 		}
 		idx++
 		tenantID := snowflake.JsonInt64(0)
@@ -532,6 +589,24 @@ func (s *sContract) Import(ctx context.Context, file *ghttp.UploadFile) (success
 		}
 		data.TenantId = tenantID
 		data.MerchantId = merchantID
+		if fkVal, ok := data.CustomerId.(int64); ok && fkVal > 0 {
+			refQuery := g.DB().Ctx(ctx).Model("demo_customer").Where("id", fkVal)
+			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
+			if cnt, cntErr := refQuery.Count(); cntErr != nil || cnt == 0 {
+				fail++
+				continue
+			}
+		}
+		if fkVal, ok := data.OrderId.(int64); ok && fkVal > 0 {
+			refQuery := g.DB().Ctx(ctx).Model("demo_order").Where("id", fkVal)
+			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
+			if cnt, cntErr := refQuery.Count(); cntErr != nil || cnt == 0 {
+				fail++
+				continue
+			}
+		}
 		if _, insertErr := dao.DemoContract.Ctx(ctx).Data(data).Insert(); insertErr != nil {
 			fail++
 		} else {

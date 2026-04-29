@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { Descriptions, DescriptionsItem, Tag } from 'ant-design-vue';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getOrderDetail } from '#/api/demo/order';
 import type { OrderItem } from '#/api/demo/order/types';
 
@@ -68,6 +69,7 @@ function getStatusColor(val: EnumValue | null | undefined): string {
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
 
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
 const detail = ref<OrderItem | null>(null);
 const openToken = ref(0);
 
@@ -129,8 +131,8 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="状态">
         <Tag :color="getStatusColor(detail.status)">{{ getEnumLabel(statusMap, detail.status) }}</Tag>
       </DescriptionsItem>
-      <DescriptionsItem label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
-      <DescriptionsItem label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
       <DescriptionsItem label="支付时间">{{ displayValue(detail.paidAt) }}</DescriptionsItem>
       <DescriptionsItem label="发货时间">{{ displayValue(detail.deliverAt) }}</DescriptionsItem>
       <DescriptionsItem label="创建时间">{{ displayValue(detail.createdAt) }}</DescriptionsItem>

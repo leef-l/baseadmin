@@ -5,9 +5,13 @@ import (
 	"context"
 	"encoding/csv"
 	"io"
+	"math"
+	"strconv"
+	"strings"
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 
@@ -45,6 +49,9 @@ func normalizeProductIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 		}
 		seen[value] = struct{}{}
 		normalized = append(normalized, id)
+		if len(normalized) >= 500 {
+			break
+		}
 	}
 	if len(normalized) == 0 {
 		return nil
@@ -91,9 +98,6 @@ func (s *sProduct) Update(ctx context.Context, in *model.ProductUpdateInput) err
 	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
-	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoProduct.Ctx(ctx), in.ID, dao.DemoProduct.Columns().Id, dao.DemoProduct.Columns().TenantId, dao.DemoProduct.Columns().MerchantId, "体验商品"); err != nil {
-		return err
-	}
 	data := do.DemoProduct{
 		CategoryId: in.CategoryID,
 		SkuNo: in.SkuNo,
@@ -111,21 +115,30 @@ func (s *sProduct) Update(ctx context.Context, in *model.ProductUpdateInput) err
 		Sort: in.Sort,
 		Icon: in.Icon,
 		Status: in.Status,
-		TenantId: in.TenantID,
-		MerchantId: in.MerchantID,
 	}
-	// 含金额字段，使用事务 + 行锁保证并发安全
+	// 含金额字段，使用事务 + 行锁，权限检查在行锁内防止 TOCTOU
 	err := dao.DemoProduct.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		// FOR UPDATE 行锁
-		_, err := tx.Model(dao.DemoProduct.Table()).Ctx(ctx).
+		lockedRow, err := tx.Model(dao.DemoProduct.Table()).Ctx(ctx).
 			Where(dao.DemoProduct.Columns().Id, in.ID).
+			Where(dao.DemoProduct.Columns().DeletedAt, nil).
 			LockUpdate().
-			Value(dao.DemoProduct.Columns().Id)
+			One()
 		if err != nil {
+			return err
+		}
+		if lockedRow.IsEmpty() {
+			return gerror.New("体验商品不存在或已删除")
+		}
+		if err := middleware.EnsureTenantScopedRowAccessible(ctx, tx.Model(dao.DemoProduct.Table()).Ctx(ctx), in.ID, dao.DemoProduct.Columns().Id, dao.DemoProduct.Columns().TenantId, dao.DemoProduct.Columns().MerchantId, "体验商品"); err != nil {
+			return err
+		}
+		if err := middleware.EnsureDataScopedRowAccessible(ctx, tx.Model(dao.DemoProduct.Table()).Ctx(ctx), in.ID, dao.DemoProduct.Columns().Id, dao.DemoProduct.Columns().CreatedBy, dao.DemoProduct.Columns().DeptId); err != nil {
 			return err
 		}
 		_, err = tx.Model(dao.DemoProduct.Table()).Ctx(ctx).
 			Where(dao.DemoProduct.Columns().Id, in.ID).
+			Where(dao.DemoProduct.Columns().DeletedAt, nil).
 			Data(data).Update()
 		return err
 	})
@@ -135,6 +148,9 @@ func (s *sProduct) Update(ctx context.Context, in *model.ProductUpdateInput) err
 // Delete 软删除体验商品
 func (s *sProduct) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoProduct.Ctx(ctx), id, dao.DemoProduct.Columns().Id, dao.DemoProduct.Columns().TenantId, dao.DemoProduct.Columns().MerchantId, "体验商品"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoProduct.Ctx(ctx), id, dao.DemoProduct.Columns().Id, dao.DemoProduct.Columns().CreatedBy, dao.DemoProduct.Columns().DeptId); err != nil {
 		return err
 	}
 	_, err := dao.DemoProduct.Ctx(ctx).Where(dao.DemoProduct.Columns().Id, id).Delete()
@@ -150,6 +166,9 @@ func (s *sProduct) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) e
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoProduct.Ctx(ctx), normalizedIDs, dao.DemoProduct.Columns().Id, dao.DemoProduct.Columns().TenantId, dao.DemoProduct.Columns().MerchantId, "体验商品"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoProduct.Ctx(ctx), normalizedIDs, dao.DemoProduct.Columns().Id, dao.DemoProduct.Columns().CreatedBy, dao.DemoProduct.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoProduct.Ctx(ctx).WhereIn(dao.DemoProduct.Columns().Id, normalizedIDs).Delete()
 	return err
 }
@@ -159,18 +178,22 @@ func (s *sProduct) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mod
 	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoProduct.Ctx(ctx), id, dao.DemoProduct.Columns().Id, dao.DemoProduct.Columns().TenantId, dao.DemoProduct.Columns().MerchantId, "体验商品"); err != nil {
 		return nil, err
 	}
+	if err = middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoProduct.Ctx(ctx), id, dao.DemoProduct.Columns().Id, dao.DemoProduct.Columns().CreatedBy, dao.DemoProduct.Columns().DeptId); err != nil {
+		return nil, err
+	}
 	out = &model.ProductDetailOutput{}
 	err = dao.DemoProduct.Ctx(ctx).Where(dao.DemoProduct.Columns().Id, id).Where(dao.DemoProduct.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
 		return nil, err
 	}
-	if out.ID == 0 {
-		return nil, nil
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("体验商品不存在或已删除")
 	}
 	// 查询商品分类关联显示
 	if out.CategoryID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("demo_category").Where("id", out.CategoryID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.CategoryName = val.String()
@@ -180,6 +203,7 @@ func (s *sProduct) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mod
 	if out.TenantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_tenant").Where("id", out.TenantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.TenantName = val.String()
@@ -189,6 +213,7 @@ func (s *sProduct) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mod
 	if out.MerchantID != 0 {
 		refQuery := g.DB().Ctx(ctx).Model("system_merchant").Where("id", out.MerchantID)
 		refQuery = refQuery.Where("deleted_at", nil)
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 		val, err := refQuery.Value("name")
 		if err == nil {
 			out.MerchantName = val.String()
@@ -253,6 +278,7 @@ func (s *sProduct) fillRefFields(ctx context.Context, list []*model.ProductListO
 			refQuery := g.DB().Ctx(ctx).Model("demo_category").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -282,6 +308,7 @@ func (s *sProduct) fillRefFields(ctx context.Context, list []*model.ProductListO
 			refQuery := g.DB().Ctx(ctx).Model("system_tenant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -311,6 +338,7 @@ func (s *sProduct) fillRefFields(ctx context.Context, list []*model.ProductListO
 			refQuery := g.DB().Ctx(ctx).Model("system_merchant").
 				Fields("id", "name")
 			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -397,14 +425,21 @@ func (s *sProduct) Export(ctx context.Context, in *model.ProductListInput) (list
 // BatchUpdate 批量编辑体验商品
 func (s *sProduct) BatchUpdate(ctx context.Context, in *model.ProductBatchUpdateInput) error {
 	data := do.DemoProduct{}
+	hasChange := false
 	if in.Type != nil {
 		data.Type = *in.Type
+		hasChange = true
 	}
 	if in.IsRecommend != nil {
 		data.IsRecommend = *in.IsRecommend
+		hasChange = true
 	}
 	if in.Status != nil {
 		data.Status = *in.Status
+		hasChange = true
+	}
+	if !hasChange {
+		return nil
 	}
 	normalizedIDs := normalizeProductIDs(in.IDs)
 	if len(normalizedIDs) == 0 {
@@ -413,12 +448,20 @@ func (s *sProduct) BatchUpdate(ctx context.Context, in *model.ProductBatchUpdate
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoProduct.Ctx(ctx), normalizedIDs, dao.DemoProduct.Columns().Id, dao.DemoProduct.Columns().TenantId, dao.DemoProduct.Columns().MerchantId, "体验商品"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoProduct.Ctx(ctx), normalizedIDs, dao.DemoProduct.Columns().Id, dao.DemoProduct.Columns().CreatedBy, dao.DemoProduct.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoProduct.Ctx(ctx).WhereIn(dao.DemoProduct.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }
 
 // Import 导入体验商品
 func (s *sProduct) Import(ctx context.Context, file *ghttp.UploadFile) (success int, fail int, err error) {
+	const maxImportFileSize = 10 << 20 // 10MB
+	const maxImportRows = 5000
+	if file.Size > maxImportFileSize {
+		return 0, 0, fmt.Errorf("文件大小超过限制（最大10MB）")
+	}
 	f, err := file.Open()
 	if err != nil {
 		return 0, 0, err
@@ -426,11 +469,13 @@ func (s *sProduct) Import(ctx context.Context, file *ghttp.UploadFile) (success 
 	defer f.Close()
 
 	reader := csv.NewReader(f)
+	reader.FieldsPerRecord = -1
 	// 跳过表头
 	if _, err = reader.Read(); err != nil {
 		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)
 	}
 
+	rowCount := 0
 	for {
 		record, readErr := reader.Read()
 		if readErr != nil {
@@ -442,6 +487,10 @@ func (s *sProduct) Import(ctx context.Context, file *ghttp.UploadFile) (success 
 		if len(record) == 0 {
 			continue
 		}
+		rowCount++
+		if rowCount > maxImportRows {
+			return success, fail, fmt.Errorf("导入数据超过 %d 行上限，已处理 %d 条成功、%d 条失败", maxImportRows, success, fail)
+		}
 		// 逐行插入
 		id := snowflake.Generate()
 		data := do.DemoProduct{
@@ -451,67 +500,83 @@ func (s *sProduct) Import(ctx context.Context, file *ghttp.UploadFile) (success 
 		}
 		idx := 0
 		if idx < len(record) {
-			data.CategoryId = record[idx]
+			if v, parseErr := strconv.ParseInt(strings.TrimSpace(record[idx]), 10, 64); parseErr == nil {
+				data.CategoryId = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.SkuNo = record[idx]
+			data.SkuNo = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Name = record[idx]
+			data.Name = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Cover = record[idx]
+			data.Cover = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.ManualFile = record[idx]
+			data.ManualFile = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.DetailContent = record[idx]
+			data.DetailContent = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.SpecJson = record[idx]
+			data.SpecJson = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.WebsiteUrl = record[idx]
+			data.WebsiteUrl = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Type = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Type = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.IsRecommend = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.IsRecommend = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.SalePrice = record[idx]
+			if v, parseErr := strconv.ParseFloat(strings.TrimSpace(record[idx]), 64); parseErr == nil {
+				data.SalePrice = int64(math.Round(v * 100))
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.StockNum = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.StockNum = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.WeightNum = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.WeightNum = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Sort = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Sort = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Icon = record[idx]
+			data.Icon = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Status = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Status = v
+			}
 		}
 		idx++
 		tenantID := snowflake.JsonInt64(0)
@@ -523,6 +588,15 @@ func (s *sProduct) Import(ctx context.Context, file *ghttp.UploadFile) (success 
 		}
 		data.TenantId = tenantID
 		data.MerchantId = merchantID
+		if fkVal, ok := data.CategoryId.(int64); ok && fkVal > 0 {
+			refQuery := g.DB().Ctx(ctx).Model("demo_category").Where("id", fkVal)
+			refQuery = refQuery.Where("deleted_at", nil)
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", "merchant_id")
+			if cnt, cntErr := refQuery.Count(); cntErr != nil || cnt == 0 {
+				fail++
+				continue
+			}
+		}
 		if _, insertErr := dao.DemoProduct.Ctx(ctx).Data(data).Insert(); insertErr != nil {
 			fail++
 		} else {

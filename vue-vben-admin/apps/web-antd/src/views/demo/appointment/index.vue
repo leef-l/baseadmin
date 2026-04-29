@@ -33,13 +33,11 @@ function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | 
 
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
+  status: 'status',
   appointmentNo: 'appointment_no',
-  subject: 'subject',
-  appointmentAt: 'appointment_at',
   contactPhone: 'contact_phone',
   address: 'address',
   remark: 'remark',
-  status: 'status',
 };
 
 function resolveSortField(field?: string) {
@@ -197,16 +195,16 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<AppointmentItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
-  columns: [    { title: '序号', type: 'seq', width: 50 },
-
+  columns: [
+    { title: '序号', type: 'seq', width: 50 },
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
-    { field: 'appointmentNo', title: '预约编号' },
+    { field: 'appointmentNo', title: '预约编号', sortable: true },
     { field: 'customerName', title: '客户' },
     { field: 'subject', title: '预约主题' },
-    { field: 'contactPhone', title: '联系电话' },
-    { field: 'address', title: '预约地址' },
-    { field: 'remark', title: '备注' },
-    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' } },
+    { field: 'contactPhone', title: '联系电话', sortable: true },
+    { field: 'address', title: '预约地址', sortable: true },
+    { field: 'remark', title: '备注', sortable: true },
+    { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' }, sortable: true },
     ...(isPlatformSuperAdmin.value ? [
     { field: 'tenantName', title: '租户' },
     ] : []),
@@ -493,7 +491,7 @@ function handleBatchUpdateStatus() {
         <Button v-access:code="'demo:appointment:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
         <Button v-access:code="'demo:appointment:export'" class="ml-2" @click="handleExport">导出</Button>
         <Button v-access:code="'demo:appointment:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
-        <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-access:code="'demo:appointment:import'" class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
         <Button v-access:code="'demo:appointment:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
       </template>
       <template #status_cell="{ row }">

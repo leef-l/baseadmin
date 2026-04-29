@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { Descriptions, DescriptionsItem, Tag } from 'ant-design-vue';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getCustomerDetail } from '#/api/demo/customer';
 import type { CustomerItem } from '#/api/demo/customer/types';
 
@@ -102,6 +103,7 @@ function getStatusColor(val: EnumValue | null | undefined): string {
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
 
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
 const detail = ref<CustomerItem | null>(null);
 const openToken = ref(0);
 
@@ -147,7 +149,7 @@ const [Modal, modalApi] = useVbenModal({
     <Descriptions v-if="detail" bordered :column="1" size="small">
       <DescriptionsItem label="ID">{{ detail.id }}</DescriptionsItem>
       <DescriptionsItem label="头像">
-        <img v-if="detail.avatar" :src="detail.avatar" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
+        <img v-if="detail.avatar && /^https?:\/\//i.test(detail.avatar)" :src="detail.avatar" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="客户名称">{{ displayValue(detail.name) }}</DescriptionsItem>
@@ -170,8 +172,8 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="状态">
         <Tag :color="getStatusColor(detail.status)">{{ getEnumLabel(statusMap, detail.status) }}</Tag>
       </DescriptionsItem>
-      <DescriptionsItem label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
-      <DescriptionsItem label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
       <DescriptionsItem label="注册时间">{{ displayValue(detail.registeredAt) }}</DescriptionsItem>
       <DescriptionsItem label="创建时间">{{ displayValue(detail.createdAt) }}</DescriptionsItem>
       <DescriptionsItem label="更新时间">{{ displayValue(detail.updatedAt) }}</DescriptionsItem>

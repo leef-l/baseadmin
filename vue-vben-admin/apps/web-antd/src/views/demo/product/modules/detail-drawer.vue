@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { Descriptions, DescriptionsItem, Tag } from 'ant-design-vue';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getProductDetail } from '#/api/demo/product';
 import type { ProductItem } from '#/api/demo/product/types';
 import RichText from '#/components/tinymce/index.vue';
@@ -69,6 +70,7 @@ function getStatusColor(val: EnumValue | null | undefined): string {
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
 
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
 const detail = ref<ProductItem | null>(null);
 const openToken = ref(0);
 
@@ -117,11 +119,12 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="SKU编号">{{ displayValue(detail.skuNo) }}</DescriptionsItem>
       <DescriptionsItem label="商品名称">{{ displayValue(detail.name) }}</DescriptionsItem>
       <DescriptionsItem label="封面">
-        <img v-if="detail.cover" :src="detail.cover" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
+        <img v-if="detail.cover && /^https?:\/\//i.test(detail.cover)" :src="detail.cover" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="说明书文件">
-        <a v-if="detail.manualFile" :href="detail.manualFile" target="_blank" rel="noreferrer noopener">查看文件</a>
+        <a v-if="detail.manualFile && /^https?:\/\//i.test(detail.manualFile)" :href="detail.manualFile" target="_blank" rel="noreferrer noopener">查看文件</a>
+        <span v-else-if="detail.manualFile">{{ detail.manualFile }}</span>
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="详情内容">
@@ -132,7 +135,8 @@ const [Modal, modalApi] = useVbenModal({
         <pre style="max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 12px;">{{ (() => { const value = detail.specJSON; if (!value) return '-'; try { return JSON.stringify(JSON.parse(value), null, 2) } catch { return value } })() }}</pre>
       </DescriptionsItem>
       <DescriptionsItem label="官网URL">
-        <a v-if="detail.websiteURL" :href="detail.websiteURL" target="_blank" rel="noreferrer noopener">{{ detail.websiteURL }}</a>
+        <a v-if="detail.websiteURL && /^https?:\/\//i.test(detail.websiteURL)" :href="detail.websiteURL" target="_blank" rel="noreferrer noopener">{{ detail.websiteURL }}</a>
+        <span v-else-if="detail.websiteURL">{{ detail.websiteURL }}</span>
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="类型">
@@ -149,8 +153,8 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="状态">
         <Tag :color="getStatusColor(detail.status)">{{ getEnumLabel(statusMap, detail.status) }}</Tag>
       </DescriptionsItem>
-      <DescriptionsItem label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
-      <DescriptionsItem label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
       <DescriptionsItem label="创建时间">{{ displayValue(detail.createdAt) }}</DescriptionsItem>
       <DescriptionsItem label="更新时间">{{ displayValue(detail.updatedAt) }}</DescriptionsItem>
     </Descriptions>

@@ -74,7 +74,7 @@ type WorkOrderDeleteRes struct {
 // WorkOrderBatchDeleteReq 批量删除体验工单请求
 type WorkOrderBatchDeleteReq struct {
 	g.Meta `path:"/work_order/batch-delete" method:"delete" tags:"体验工单" summary:"批量删除体验工单"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验工单ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验工单ID列表"`
 }
 
 // WorkOrderBatchDeleteRes 批量删除体验工单响应
@@ -85,7 +85,7 @@ type WorkOrderBatchDeleteRes struct {
 // WorkOrderBatchUpdateReq 批量编辑体验工单请求
 type WorkOrderBatchUpdateReq struct {
 	g.Meta `path:"/work_order/batch-update" method:"put" tags:"体验工单" summary:"批量编辑体验工单"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验工单ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验工单ID列表"`
 	Priority *int `json:"priority" dc:"优先级"`
 	SourceType *int `json:"sourceType" dc:"来源"`
 	Status *int `json:"status" dc:"状态"`
@@ -111,10 +111,10 @@ type WorkOrderDetailRes struct {
 // WorkOrderListReq 获取体验工单列表请求
 type WorkOrderListReq struct {
 	g.Meta    `path:"/work_order/list" method:"get" tags:"体验工单" summary:"获取体验工单列表"`
-	PageNum   int    `json:"pageNum" d:"1" dc:"页码"`
-	PageSize  int    `json:"pageSize" d:"10" dc:"每页数量"`
+	PageNum   int    `json:"pageNum" d:"1" v:"min:1" dc:"页码"`
+	PageSize  int    `json:"pageSize" d:"10" v:"between:1,500" dc:"每页数量"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	Keyword string `json:"keyword" dc:"关键词"`
@@ -142,7 +142,7 @@ type WorkOrderListRes struct {
 type WorkOrderExportReq struct {
 	g.Meta    `path:"/work_order/export" method:"get" tags:"体验工单" summary:"导出体验工单"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	Keyword string `json:"keyword" dc:"关键词"`

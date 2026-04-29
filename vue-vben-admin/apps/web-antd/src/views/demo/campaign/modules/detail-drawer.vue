@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { Descriptions, DescriptionsItem, Tag } from 'ant-design-vue';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getCampaignDetail } from '#/api/demo/campaign';
 import type { CampaignItem } from '#/api/demo/campaign/types';
 import RichText from '#/components/tinymce/index.vue';
@@ -87,6 +88,7 @@ function getStatusColor(val: EnumValue | null | undefined): string {
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
 
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
 const detail = ref<CampaignItem | null>(null);
 const openToken = ref(0);
 
@@ -134,7 +136,7 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="活动编号">{{ displayValue(detail.campaignNo) }}</DescriptionsItem>
       <DescriptionsItem label="活动标题">{{ displayValue(detail.title) }}</DescriptionsItem>
       <DescriptionsItem label="横幅图">
-        <img v-if="detail.banner" :src="detail.banner" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
+        <img v-if="detail.banner && /^https?:\/\//i.test(detail.banner)" :src="detail.banner" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="活动类型">
@@ -145,7 +147,8 @@ const [Modal, modalApi] = useVbenModal({
       </DescriptionsItem>
       <DescriptionsItem label="预算金额">{{ detail.budgetAmount != null ? (detail.budgetAmount / 100).toFixed(2) : '-' }}</DescriptionsItem>
       <DescriptionsItem label="落地页URL">
-        <a v-if="detail.landingURL" :href="detail.landingURL" target="_blank" rel="noreferrer noopener">{{ detail.landingURL }}</a>
+        <a v-if="detail.landingURL && /^https?:\/\//i.test(detail.landingURL)" :href="detail.landingURL" target="_blank" rel="noreferrer noopener">{{ detail.landingURL }}</a>
+        <span v-else-if="detail.landingURL">{{ detail.landingURL }}</span>
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="规则JSON">
@@ -161,8 +164,8 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="状态">
         <Tag :color="getStatusColor(detail.status)">{{ getEnumLabel(statusMap, detail.status) }}</Tag>
       </DescriptionsItem>
-      <DescriptionsItem label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
-      <DescriptionsItem label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem v-if="isPlatformSuperAdmin" label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
       <DescriptionsItem label="开始时间">{{ displayValue(detail.startAt) }}</DescriptionsItem>
       <DescriptionsItem label="结束时间">{{ displayValue(detail.endAt) }}</DescriptionsItem>
       <DescriptionsItem label="创建时间">{{ displayValue(detail.createdAt) }}</DescriptionsItem>

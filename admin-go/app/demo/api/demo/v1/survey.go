@@ -70,7 +70,7 @@ type SurveyDeleteRes struct {
 // SurveyBatchDeleteReq 批量删除体验问卷请求
 type SurveyBatchDeleteReq struct {
 	g.Meta `path:"/survey/batch-delete" method:"delete" tags:"体验问卷" summary:"批量删除体验问卷"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验问卷ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验问卷ID列表"`
 }
 
 // SurveyBatchDeleteRes 批量删除体验问卷响应
@@ -81,7 +81,7 @@ type SurveyBatchDeleteRes struct {
 // SurveyBatchUpdateReq 批量编辑体验问卷请求
 type SurveyBatchUpdateReq struct {
 	g.Meta `path:"/survey/batch-update" method:"put" tags:"体验问卷" summary:"批量编辑体验问卷"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"体验问卷ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"体验问卷ID列表"`
 	IsAnonymous *int `json:"isAnonymous" dc:"是否匿名"`
 	Status *int `json:"status" dc:"状态"`
 }
@@ -106,10 +106,10 @@ type SurveyDetailRes struct {
 // SurveyListReq 获取体验问卷列表请求
 type SurveyListReq struct {
 	g.Meta    `path:"/survey/list" method:"get" tags:"体验问卷" summary:"获取体验问卷列表"`
-	PageNum   int    `json:"pageNum" d:"1" dc:"页码"`
-	PageSize  int    `json:"pageSize" d:"10" dc:"每页数量"`
+	PageNum   int    `json:"pageNum" d:"1" v:"min:1" dc:"页码"`
+	PageSize  int    `json:"pageSize" d:"10" v:"between:1,500" dc:"每页数量"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	SurveyNo string `json:"surveyNo" dc:"问卷编号"`
@@ -134,7 +134,7 @@ type SurveyListRes struct {
 type SurveyExportReq struct {
 	g.Meta    `path:"/survey/export" method:"get" tags:"体验问卷" summary:"导出体验问卷"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	SurveyNo string `json:"surveyNo" dc:"问卷编号"`

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 
@@ -11,6 +12,16 @@ import (
 	"gbaseadmin/app/demo/internal/model"
 	"gbaseadmin/app/demo/internal/service"
 )
+
+func csvSafeCategory(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	if s[0] == 0 || strings.ContainsAny(s[:1], "=+-@\t\r") {
+		return "'" + s
+	}
+	return s
+}
 
 var Category = cCategory{}
 
@@ -113,18 +124,16 @@ func (c *cCategory) Export(ctx context.Context, req *v1.CategoryExportReq) (res 
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="category.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	// 表头
-	_ = w.Write([]string{"父分类", "分类名称", "图标", "排序", "状态", "租户", "商户", "创建时间"})
+	// 表头（与导入模板列对齐，末尾追加只读列）
+	_ = w.Write([]string{"父分类", "分类名称", "图标", "排序", "状态", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
-			item.CategoryName,
-			item.Name,
-			item.Icon,
+			csvSafeCategory(item.CategoryName),
+			csvSafeCategory(item.Name),
+			csvSafeCategory(item.Icon),
 			fmt.Sprintf("%v", item.Sort),
 			fmt.Sprintf("%v", item.Status),
-			item.TenantName,
-			item.MerchantName,
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}
