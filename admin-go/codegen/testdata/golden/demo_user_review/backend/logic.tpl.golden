@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 
@@ -102,7 +103,7 @@ func (s *sUserReview) Update(ctx context.Context, in *model.UserReviewUpdateInpu
 		TenantId: in.TenantID,
 		MerchantId: in.MerchantID,
 	}
-	_, err := dao.DemoUserReview.Ctx(ctx).Where(dao.DemoUserReview.Columns().Id, in.ID).Data(data).Update()
+	_, err := dao.DemoUserReview.Ctx(ctx).Where(dao.DemoUserReview.Columns().Id, in.ID).Where(dao.DemoUserReview.Columns().DeletedAt, nil).Data(data).Update()
 	return err
 }
 
@@ -147,8 +148,8 @@ func (s *sUserReview) Detail(ctx context.Context, id snowflake.JsonInt64) (out *
 	if err != nil {
 		return nil, err
 	}
-	if out.ID == 0 {
-		return nil, nil
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("用户审核不存在或已删除")
 	}
 	// 查询UserID关联显示
 	if out.UserID != 0 {
@@ -371,14 +372,21 @@ func (s *sUserReview) Export(ctx context.Context, in *model.UserReviewListInput)
 // BatchUpdate 批量编辑用户审核
 func (s *sUserReview) BatchUpdate(ctx context.Context, in *model.UserReviewBatchUpdateInput) error {
 	data := do.DemoUserReview{}
+	hasChange := false
 	if in.ReviewType != nil {
 		data.ReviewType = *in.ReviewType
+		hasChange = true
 	}
 	if in.IsPassed != nil {
 		data.IsPassed = *in.IsPassed
+		hasChange = true
 	}
 	if in.Status != nil {
 		data.Status = *in.Status
+		hasChange = true
+	}
+	if !hasChange {
+		return nil
 	}
 	normalizedIDs := normalizeUserReviewIDs(in.IDs)
 	if len(normalizedIDs) == 0 {

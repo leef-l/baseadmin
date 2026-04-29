@@ -22,8 +22,10 @@ type referenceResolution struct {
 	displayLower    string
 	refFieldName    string
 	refFieldJSON    string
-	refIsTree       bool
-	refHasDeletedAt bool
+	refIsTree        bool
+	refHasDeletedAt  bool
+	refHasTenantID   bool
+	refHasMerchantID bool
 	candidateTables string
 }
 
@@ -153,6 +155,8 @@ func (p *Parser) resolveReferenceTarget(field *FieldMeta, identity tableIdentity
 	resolution.refFieldJSON = resolution.refTableLower + resolution.displayCamel
 	resolution.refIsTree = p.tableHasColumn(resolution.refTableDB, "parent_id")
 	resolution.refHasDeletedAt = p.tableHasColumn(resolution.refTableDB, "deleted_at")
+	resolution.refHasTenantID = p.tableHasColumn(resolution.refTableDB, "tenant_id")
+	resolution.refHasMerchantID = p.tableHasColumn(resolution.refTableDB, "merchant_id")
 	return resolution, nil
 }
 
@@ -178,4 +182,6 @@ func applyReferenceResolution(field *FieldMeta, resolution referenceResolution) 
 	field.RefFieldJSON = resolution.refFieldJSON
 	field.RefIsTree = resolution.refIsTree
 	field.RefHasDeletedAt = resolution.refHasDeletedAt
+	field.RefHasTenantID = resolution.refHasTenantID
+	field.RefHasMerchantID = resolution.refHasMerchantID
 }

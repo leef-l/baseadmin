@@ -9,6 +9,7 @@ import { downloadFileFromBlob } from '@vben/utils';
 import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { getGridSelectedIds } from '#/utils/grid-selection';
 import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getAuditLogList, deleteAuditLog, batchDeleteAuditLog, exportAuditLog, importAuditLog, downloadImportTemplateAuditLog } from '#/api/demo/audit_log';
 import { getUsersList } from '#/api/system/users';
@@ -270,9 +271,9 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<AuditLogItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
-  columns: [
+  columns: [    { title: '序号', type: 'seq', width: 50 },
+
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
-    { title: '序号', type: 'seq', width: 50 },
     { field: 'logNo', title: '日志编号' },
     { field: 'usersUsername', title: '操作人' },
     { field: 'action', title: '动作', width: 120, slots: { default: 'action_cell' } },
@@ -436,17 +437,17 @@ function handleDelete(row: AuditLogItem) {
 
 /** 批量删除 */
 function handleBatchDelete() {
-  const rows = gridApi.grid.getCheckboxRecords();
-  if (rows.length === 0) {
+  const ids = getGridSelectedIds<AuditLogItem>(gridApi.grid as any);
+  if (ids.length === 0) {
     message.warning('请先选择要删除的数据');
     return;
   }
   Modal.confirm({
     title: '确认批量删除',
-    content: `确定要删除选中的 ${rows.length} 条体验审计日志吗？`,
+    content: `确定要删除选中的 ${ids.length} 条体验审计日志吗？`,
     okType: 'danger',
     async onOk() {
-      await batchDeleteAuditLog(rows.map((r: AuditLogItem) => r.id));
+      await batchDeleteAuditLog(ids);
       message.success('批量删除成功');
       gridApi.reload();
     },

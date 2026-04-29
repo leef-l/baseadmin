@@ -9,6 +9,7 @@ import { downloadFileFromBlob } from '@vben/utils';
 import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { getGridSelectedIds } from '#/utils/grid-selection';
 import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getAppointmentList, deleteAppointment, batchDeleteAppointment, exportAppointment, importAppointment, downloadImportTemplateAppointment, batchUpdateAppointment } from '#/api/demo/appointment';
 import { getCustomerList } from '#/api/demo/customer';
@@ -196,9 +197,9 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<AppointmentItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
-  columns: [
+  columns: [    { title: '序号', type: 'seq', width: 50 },
+
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
-    { title: '序号', type: 'seq', width: 50 },
     { field: 'appointmentNo', title: '预约编号' },
     { field: 'customerName', title: '客户' },
     { field: 'subject', title: '预约主题' },
@@ -361,17 +362,17 @@ function handleDelete(row: AppointmentItem) {
 
 /** 批量删除 */
 function handleBatchDelete() {
-  const rows = gridApi.grid.getCheckboxRecords();
-  if (rows.length === 0) {
+  const ids = getGridSelectedIds<AppointmentItem>(gridApi.grid as any);
+  if (ids.length === 0) {
     message.warning('请先选择要删除的数据');
     return;
   }
   Modal.confirm({
     title: '确认批量删除',
-    content: `确定要删除选中的 ${rows.length} 条体验预约吗？`,
+    content: `确定要删除选中的 ${ids.length} 条体验预约吗？`,
     okType: 'danger',
     async onOk() {
-      await batchDeleteAppointment(rows.map((r: AppointmentItem) => r.id));
+      await batchDeleteAppointment(ids);
       message.success('批量删除成功');
       gridApi.reload();
     },
@@ -456,17 +457,18 @@ async function handleDownloadTemplate() {
 
 /** 批量修改状态 */
 function handleBatchUpdateStatus() {
-  const rows = gridApi.grid.getCheckboxRecords();
-  if (rows.length === 0) {
+  const ids = getGridSelectedIds<AppointmentItem>(gridApi.grid as any);
+  if (ids.length === 0) {
     message.warning('请先选择要修改的数据');
     return;
   }
+  const rows = gridApi.grid.getCheckboxRecords() as AppointmentItem[];
   Modal.confirm({
     title: '批量修改状态',
-    content: `确定要将选中的 ${rows.length} 条数据的状态切换吗？`,
+    content: `确定要将选中的 ${ids.length} 条数据的状态切换吗？`,
     async onOk() {
       const newStatus = rows[0]?.status === 1 ? 0 : 1;
-      await batchUpdateAppointment({ ids: rows.map((r: AppointmentItem) => r.id), status: newStatus });
+      await batchUpdateAppointment({ ids, status: newStatus });
       message.success('批量修改成功');
       gridApi.reload();
     },

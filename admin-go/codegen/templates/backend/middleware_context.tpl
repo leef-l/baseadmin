@@ -627,6 +627,9 @@ func EnsureDataScopedRowsAccessible(ctx context.Context, m *gdb.Model, ids inter
 	if err != nil {
 		return err
 	}
+	if len(rows) == 0 {
+		return gerror.New("数据不存在")
+	}
 	for _, row := range rows {
 		accessible := false
 		if createdByColumn != "" && scope.IncludeSelf && scope.UserID > 0 {

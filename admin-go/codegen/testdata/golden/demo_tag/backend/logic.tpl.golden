@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 
@@ -96,7 +97,7 @@ func (s *sTag) Update(ctx context.Context, in *model.TagUpdateInput) error {
 		TenantId: in.TenantID,
 		MerchantId: in.MerchantID,
 	}
-	_, err := dao.DemoTag.Ctx(ctx).Where(dao.DemoTag.Columns().Id, in.ID).Data(data).Update()
+	_, err := dao.DemoTag.Ctx(ctx).Where(dao.DemoTag.Columns().Id, in.ID).Where(dao.DemoTag.Columns().DeletedAt, nil).Data(data).Update()
 	return err
 }
 
@@ -141,8 +142,8 @@ func (s *sTag) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.T
 	if err != nil {
 		return nil, err
 	}
-	if out.ID == 0 {
-		return nil, nil
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("标签不存在或已删除")
 	}
 	// 查询租户关联显示
 	if out.TenantID != 0 {
@@ -318,8 +319,13 @@ func (s *sTag) Export(ctx context.Context, in *model.TagListInput) (list []*mode
 // BatchUpdate 批量编辑标签
 func (s *sTag) BatchUpdate(ctx context.Context, in *model.TagBatchUpdateInput) error {
 	data := do.DemoTag{}
+	hasChange := false
 	if in.Status != nil {
 		data.Status = *in.Status
+		hasChange = true
+	}
+	if !hasChange {
+		return nil
 	}
 	normalizedIDs := normalizeTagIDs(in.IDs)
 	if len(normalizedIDs) == 0 {

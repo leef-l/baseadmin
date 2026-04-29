@@ -10,6 +10,7 @@ import { Button, message, Modal, Tag, Tooltip } from 'ant-design-vue';
 import { QuestionCircleOutlined } from '@ant-design/icons-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { getGridSelectedIds } from '#/utils/grid-selection';
 import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getOrderList, deleteOrder, batchDeleteOrder, exportOrder, importOrder, downloadImportTemplateOrder, batchUpdateOrder } from '#/api/demo/order';
 import { getCustomerList } from '#/api/demo/customer';
@@ -295,9 +296,9 @@ const formOptions: VbenFormProps = {
 /** 表格列配置 */
 const gridOptions: VxeGridProps<OrderItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
-  columns: [
+  columns: [    { title: '序号', type: 'seq', width: 50 },
+
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
-    { title: '序号', type: 'seq', width: 50 },
     { field: 'orderNo', title: '订单号' },
     { field: 'customerName', title: '客户' },
     { field: 'productSkuNo', title: '商品' },
@@ -486,17 +487,17 @@ function handleDelete(row: OrderItem) {
 
 /** 批量删除 */
 function handleBatchDelete() {
-  const rows = gridApi.grid.getCheckboxRecords();
-  if (rows.length === 0) {
+  const ids = getGridSelectedIds<OrderItem>(gridApi.grid as any);
+  if (ids.length === 0) {
     message.warning('请先选择要删除的数据');
     return;
   }
   Modal.confirm({
     title: '确认批量删除',
-    content: `确定要删除选中的 ${rows.length} 条体验订单吗？`,
+    content: `确定要删除选中的 ${ids.length} 条体验订单吗？`,
     okType: 'danger',
     async onOk() {
-      await batchDeleteOrder(rows.map((r: OrderItem) => r.id));
+      await batchDeleteOrder(ids);
       message.success('批量删除成功');
       gridApi.reload();
     },
@@ -586,17 +587,18 @@ async function handleDownloadTemplate() {
 
 /** 批量修改状态 */
 function handleBatchUpdateStatus() {
-  const rows = gridApi.grid.getCheckboxRecords();
-  if (rows.length === 0) {
+  const ids = getGridSelectedIds<OrderItem>(gridApi.grid as any);
+  if (ids.length === 0) {
     message.warning('请先选择要修改的数据');
     return;
   }
+  const rows = gridApi.grid.getCheckboxRecords() as OrderItem[];
   Modal.confirm({
     title: '批量修改状态',
-    content: `确定要将选中的 ${rows.length} 条数据的状态切换吗？`,
+    content: `确定要将选中的 ${ids.length} 条数据的状态切换吗？`,
     async onOk() {
       const newStatus = rows[0]?.status === 1 ? 0 : 1;
-      await batchUpdateOrder({ ids: rows.map((r: OrderItem) => r.id), status: newStatus });
+      await batchUpdateOrder({ ids, status: newStatus });
       message.success('批量修改成功');
       gridApi.reload();
     },

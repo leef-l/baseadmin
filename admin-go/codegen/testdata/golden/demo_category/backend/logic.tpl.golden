@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 
 	"gbaseadmin/app/demo/internal/dao"
@@ -94,7 +95,7 @@ func (s *sCategory) Update(ctx context.Context, in *model.CategoryUpdateInput) e
 		TenantId: in.TenantID,
 		MerchantId: in.MerchantID,
 	}
-	_, err := dao.DemoCategory.Ctx(ctx).Where(dao.DemoCategory.Columns().Id, in.ID).Data(data).Update()
+	_, err := dao.DemoCategory.Ctx(ctx).Where(dao.DemoCategory.Columns().Id, in.ID).Where(dao.DemoCategory.Columns().DeletedAt, nil).Data(data).Update()
 	return err
 }
 
@@ -208,8 +209,8 @@ func (s *sCategory) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mo
 	if err != nil {
 		return nil, err
 	}
-	if out.ID == 0 {
-		return nil, nil
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("分类不存在或已删除")
 	}
 	// 查询ParentID关联显示
 	if out.ParentID != 0 {
@@ -566,8 +567,13 @@ func (s *sCategory) Tree(ctx context.Context, in *model.CategoryTreeInput) (tree
 // BatchUpdate 批量编辑分类
 func (s *sCategory) BatchUpdate(ctx context.Context, in *model.CategoryBatchUpdateInput) error {
 	data := do.DemoCategory{}
+	hasChange := false
 	if in.Status != nil {
 		data.Status = *in.Status
+		hasChange = true
+	}
+	if !hasChange {
+		return nil
 	}
 	normalizedIDs := normalizeCategoryIDs(in.IDs)
 	if len(normalizedIDs) == 0 {

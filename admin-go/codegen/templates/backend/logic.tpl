@@ -17,6 +17,7 @@ import (
 {{- end}}
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 {{- if $hasRef}}
 	"github.com/gogf/gf/v2/frame/g"
 {{- end}}
@@ -113,7 +114,7 @@ func (s *s{{.ModelName}}) Create(ctx context.Context, in *model.{{.ModelName}}Cr
 	}).Insert()
 {{- if .EnableOpLog}}
 	if err == nil {
-		go oplog.Record(ctx, "{{.ModuleName}}", "create", fmt.Sprintf("%v", id), "")
+		oplog.Record(ctx, "{{.ModuleName}}", "create", fmt.Sprintf("%v", id), "")
 	}
 {{- end}}
 	return err
@@ -159,6 +160,7 @@ func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}Up
 		// FOR UPDATE 行锁
 		_, err := tx.Model(dao.{{.DaoName}}.Table()).Ctx(ctx).
 			Where(dao.{{.DaoName}}.Columns().Id, in.ID).
+			Where(dao.{{.DaoName}}.Columns().DeletedAt, nil).
 			LockUpdate().
 			Value(dao.{{.DaoName}}.Columns().Id)
 		if err != nil {
@@ -166,15 +168,16 @@ func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}Up
 		}
 		_, err = tx.Model(dao.{{.DaoName}}.Table()).Ctx(ctx).
 			Where(dao.{{.DaoName}}.Columns().Id, in.ID).
+			Where(dao.{{.DaoName}}.Columns().DeletedAt, nil).
 			Data(data).Update()
 		return err
 	})
 {{- else}}
-	_, err := dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().Id, in.ID).Data(data).Update()
+	_, err := dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().Id, in.ID).Where(dao.{{.DaoName}}.Columns().DeletedAt, nil).Data(data).Update()
 {{- end}}
 {{- if .EnableOpLog}}
 	if err == nil {
-		go oplog.Record(ctx, "{{.ModuleName}}", "update", fmt.Sprintf("%v", in.ID), "")
+		oplog.Record(ctx, "{{.ModuleName}}", "update", fmt.Sprintf("%v", in.ID), "")
 	}
 {{- end}}
 	return err
@@ -216,7 +219,7 @@ func (s *s{{.ModelName}}) Delete(ctx context.Context, id snowflake.JsonInt64) er
 {{- end}}
 {{- if .EnableOpLog}}
 	if err == nil {
-		go oplog.Record(ctx, "{{.ModuleName}}", "delete", fmt.Sprintf("%v", id), "")
+		oplog.Record(ctx, "{{.ModuleName}}", "delete", fmt.Sprintf("%v", id), "")
 	}
 {{- end}}
 	return err
@@ -245,7 +248,7 @@ func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonI
 	_, err = dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, deleteIDs).Delete()
 {{- if .EnableOpLog}}
 	if err == nil {
-		go oplog.Record(ctx, "{{.ModuleName}}", "batch-delete", fmt.Sprintf("%v", deleteIDs), "")
+		oplog.Record(ctx, "{{.ModuleName}}", "batch-delete", fmt.Sprintf("%v", deleteIDs), "")
 	}
 {{- end}}
 	return err
@@ -333,7 +336,7 @@ func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonI
 	_, err := dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, normalizedIDs).Delete()
 {{- if .EnableOpLog}}
 	if err == nil {
-		go oplog.Record(ctx, "{{.ModuleName}}", "batch-delete", fmt.Sprintf("%v", normalizedIDs), "")
+		oplog.Record(ctx, "{{.ModuleName}}", "batch-delete", fmt.Sprintf("%v", normalizedIDs), "")
 	}
 {{- end}}
 	return err
@@ -357,8 +360,8 @@ func (s *s{{.ModelName}}) Detail(ctx context.Context, id snowflake.JsonInt64) (o
 	if err != nil {
 		return nil, err
 	}
-	if out.ID == 0 {
-		return nil, nil
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("{{.Comment}}不存在或已删除")
 	}
 {{- range .Fields}}
 {{- if and .RefFieldName (not .IsHidden)}}
@@ -367,6 +370,11 @@ func (s *s{{.ModelName}}) Detail(ctx context.Context, id snowflake.JsonInt64) (o
 		refQuery := g.DB().Ctx(ctx).Model("{{.RefTableDB}}").Where("id", out.{{.NameCamel}})
 {{- if .RefHasDeletedAt}}
 		refQuery = refQuery.Where("deleted_at", nil)
+{{- end}}
+{{- if $.HasTenantScope}}
+{{- if .RefHasTenantID}}
+		refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", {{if .RefHasMerchantID}}"merchant_id"{{else}}""{{end}})
+{{- end}}
 {{- end}}
 		val, err := refQuery.Value("{{.RefDisplayField}}")
 		if err == nil {
@@ -454,6 +462,11 @@ func (s *s{{.ModelName}}) fillRefFields(ctx context.Context, list []*model.{{.Mo
 				Fields("id", "{{.RefDisplayField}}")
 {{- if .RefHasDeletedAt}}
 			refQuery = refQuery.Where("deleted_at", nil)
+{{- end}}
+{{- if $.HasTenantScope}}
+{{- if .RefHasTenantID}}
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", {{if .RefHasMerchantID}}"merchant_id"{{else}}""{{end}})
+{{- end}}
 {{- end}}
 			rows, err := refQuery.WhereIn("id", ids).All()
 			if err == nil {
@@ -659,6 +672,11 @@ func (s *s{{.ModelName}}) Tree(ctx context.Context, in *model.{{.ModelName}}Tree
 {{- if .RefHasDeletedAt}}
 			refQuery = refQuery.Where("deleted_at", nil)
 {{- end}}
+{{- if $.HasTenantScope}}
+{{- if .RefHasTenantID}}
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", {{if .RefHasMerchantID}}"merchant_id"{{else}}""{{end}})
+{{- end}}
+{{- end}}
 			rows, queryErr := refQuery.WhereIn("id", ids).All()
 			if queryErr == nil {
 				refMap := make(map[int64]string, len(rows))
@@ -690,13 +708,18 @@ func (s *s{{.ModelName}}) Tree(ctx context.Context, in *model.{{.ModelName}}Tree
 // BatchUpdate 批量编辑{{.Comment}}
 func (s *s{{.ModelName}}) BatchUpdate(ctx context.Context, in *model.{{.ModelName}}BatchUpdateInput) error {
 	data := do.{{.DaoName}}{}
+	hasChange := false
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
 	if in.{{.NameCamel}} != nil {
 		data.{{.NameDao}} = *in.{{.NameCamel}}
+		hasChange = true
 	}
 {{- end}}
 {{- end}}
+	if !hasChange {
+		return nil
+	}
 	normalizedIDs := normalize{{.ModelName}}IDs(in.IDs)
 	if len(normalizedIDs) == 0 {
 		return nil

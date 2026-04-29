@@ -10,6 +10,7 @@ import { Button, message, Modal, Tag, Tooltip } from 'ant-design-vue';
 import { QuestionCircleOutlined } from '@ant-design/icons-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { getGridSelectedIds } from '#/utils/grid-selection';
 import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getUserReviewList, deleteUserReview, batchDeleteUserReview, exportUserReview, importUserReview, downloadImportTemplateUserReview, batchUpdateUserReview } from '#/api/demo/user_review';
 import { getUsersList } from '#/api/system/users';
@@ -238,8 +239,8 @@ const formOptions: VbenFormProps = {
 const gridOptions: VxeGridProps<UserReviewItem> = {
   checkboxConfig: canBatchDelete ? { highlight: true } : undefined,
   columns: [
-    ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { title: '序号', type: 'seq', width: 50 },
+    ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { field: 'usersUsername', title: 'UserID' },
     { field: 'reviewType', title: 'ReviewType', width: 120, slots: { default: 'reviewType_cell' } },
     { field: 'content', title: 'Content', sortable: true },
@@ -396,17 +397,17 @@ function handleDelete(row: UserReviewItem) {
 
 /** 批量删除 */
 function handleBatchDelete() {
-  const rows = gridApi.grid.getCheckboxRecords();
-  if (rows.length === 0) {
+  const ids = getGridSelectedIds<UserReviewItem>(gridApi.grid as any);
+  if (ids.length === 0) {
     message.warning('请先选择要删除的数据');
     return;
   }
   Modal.confirm({
     title: '确认批量删除',
-    content: `确定要删除选中的 ${rows.length} 条用户审核吗？`,
+    content: `确定要删除选中的 ${ids.length} 条用户审核吗？`,
     okType: 'danger',
     async onOk() {
-      await batchDeleteUserReview(rows.map((r: UserReviewItem) => r.id));
+      await batchDeleteUserReview(ids);
       message.success('批量删除成功');
       gridApi.reload();
     },
@@ -486,17 +487,18 @@ async function handleDownloadTemplate() {
 
 /** 批量修改状态 */
 function handleBatchUpdateStatus() {
-  const rows = gridApi.grid.getCheckboxRecords();
-  if (rows.length === 0) {
+  const ids = getGridSelectedIds<UserReviewItem>(gridApi.grid as any);
+  if (ids.length === 0) {
     message.warning('请先选择要修改的数据');
     return;
   }
+  const rows = gridApi.grid.getCheckboxRecords() as UserReviewItem[];
   Modal.confirm({
     title: '批量修改状态',
-    content: `确定要将选中的 ${rows.length} 条数据的状态切换吗？`,
+    content: `确定要将选中的 ${ids.length} 条数据的状态切换吗？`,
     async onOk() {
       const newStatus = rows[0]?.status === 1 ? 0 : 1;
-      await batchUpdateUserReview({ ids: rows.map((r: UserReviewItem) => r.id), status: newStatus });
+      await batchUpdateUserReview({ ids, status: newStatus });
       message.success('批量修改成功');
       gridApi.reload();
     },

@@ -89,8 +89,10 @@ type FieldMeta struct {
 	RefDisplayLower string // 关联显示字段 camelCase，如 title
 	RefFieldName    string // 结构体字段名 = RefTableCamel + RefDisplayCamel，如 ArticleTitle
 	RefFieldJSON    string // json 名 = RefTableLower + RefDisplayCamel，如 articleTitle
-	RefIsTree       bool   // 关联表是否有 parent_id（树形结构）
-	RefHasDeletedAt bool   // 关联表是否有 deleted_at（用于安全生成软删过滤）
+	RefIsTree        bool   // 关联表是否有 parent_id（树形结构）
+	RefHasDeletedAt  bool   // 关联表是否有 deleted_at（用于安全生成软删过滤）
+	RefHasTenantID   bool   // 关联表是否有 tenant_id（用于租户隔离查询）
+	RefHasMerchantID bool   // 关联表是否有 merchant_id（用于商户隔离查询）
 }
 
 // TableMeta 表元数据

@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"golang.org/x/crypto/bcrypt"
@@ -150,6 +151,7 @@ func (s *sArticle) Update(ctx context.Context, in *model.ArticleUpdateInput) err
 		// FOR UPDATE 行锁
 		_, err := tx.Model(dao.DemoArticle.Table()).Ctx(ctx).
 			Where(dao.DemoArticle.Columns().Id, in.ID).
+			Where(dao.DemoArticle.Columns().DeletedAt, nil).
 			LockUpdate().
 			Value(dao.DemoArticle.Columns().Id)
 		if err != nil {
@@ -157,6 +159,7 @@ func (s *sArticle) Update(ctx context.Context, in *model.ArticleUpdateInput) err
 		}
 		_, err = tx.Model(dao.DemoArticle.Table()).Ctx(ctx).
 			Where(dao.DemoArticle.Columns().Id, in.ID).
+			Where(dao.DemoArticle.Columns().DeletedAt, nil).
 			Data(data).Update()
 		return err
 	})
@@ -204,8 +207,8 @@ func (s *sArticle) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mod
 	if err != nil {
 		return nil, err
 	}
-	if out.ID == 0 {
-		return nil, nil
+	if out == nil || out.ID == 0 {
+		return nil, gerror.New("文章不存在或已删除")
 	}
 	// 查询CategoryID关联显示
 	if out.CategoryID != 0 {
@@ -503,14 +506,21 @@ func (s *sArticle) Export(ctx context.Context, in *model.ArticleListInput) (list
 // BatchUpdate 批量编辑文章
 func (s *sArticle) BatchUpdate(ctx context.Context, in *model.ArticleBatchUpdateInput) error {
 	data := do.DemoArticle{}
+	hasChange := false
 	if in.Status != nil {
 		data.Status = *in.Status
+		hasChange = true
 	}
 	if in.Type != nil {
 		data.Type = *in.Type
+		hasChange = true
 	}
 	if in.IsTop != nil {
 		data.IsTop = *in.IsTop
+		hasChange = true
+	}
+	if !hasChange {
+		return nil
 	}
 	normalizedIDs := normalizeArticleIDs(in.IDs)
 	if len(normalizedIDs) == 0 {
