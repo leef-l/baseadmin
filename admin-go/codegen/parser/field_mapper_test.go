@@ -69,7 +69,7 @@ func TestMapComponentRecognizesCoreComponentTypes(t *testing.T) {
 		{name: "multi ids", field: FieldMeta{Name: "role_ids"}, want: ComponentSelectMulti},
 		{name: "image exact", field: FieldMeta{Name: "cover"}, want: ComponentImageUpload},
 		{name: "image suffix", field: FieldMeta{Name: "product_logo"}, want: ComponentImageUpload},
-		{name: "password", field: FieldMeta{Name: "api_secret_key"}, want: ComponentPassword},
+		{name: "password", field: FieldMeta{Name: "api_secret_key", IsPassword: true}, want: ComponentPassword},
 		{name: "url", field: FieldMeta{Name: "link_url"}, want: ComponentInputUrl},
 	}
 

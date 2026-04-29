@@ -113,7 +113,9 @@ func MapGoType(dbType string, isID bool) string {
 		return "*gtime.Time"
 	case "json":
 		return "string"
-	case "blob", "longblob", "mediumblob":
+	case "bit":
+		return "int"
+	case "blob", "longblob", "mediumblob", "tinyblob", "binary", "varbinary":
 		return "[]byte"
 	case "enum", "set":
 		return "string"
@@ -134,7 +136,7 @@ func MapTSType(dbType string, isID bool) string {
 	switch dbType {
 	case "bigint":
 		return "string" // bigint 前端也用 string
-	case "int", "mediumint", "smallint", "tinyint":
+	case "int", "mediumint", "smallint", "tinyint", "bit":
 		return "number"
 	case "float", "double", "decimal":
 		return "number"
@@ -170,8 +172,8 @@ func MapComponent(field FieldMeta) string {
 		return ComponentSelectMulti
 	}
 
-	// *_id → 单选下拉（排除 id 本身和 dept_id）
-	if strings.HasSuffix(name, "_id") && name != "id" && name != "dept_id" {
+	// *_id → 单选下拉（必须是真正的外键）
+	if field.IsForeignKey {
 		return ComponentSelect
 	}
 
@@ -186,7 +188,8 @@ func MapComponent(field FieldMeta) string {
 	}
 
 	// 富文本
-	if strings.HasSuffix(name, "_content") || strings.HasSuffix(name, "_body") ||
+	if name == "content" || name == "body" ||
+		strings.HasSuffix(name, "_content") || strings.HasSuffix(name, "_body") ||
 		strings.HasSuffix(name, "_html") {
 		return ComponentRichText
 	}
@@ -197,14 +200,8 @@ func MapComponent(field FieldMeta) string {
 		return ComponentJsonEditor
 	}
 
-	// 密码
-	if strings.HasSuffix(name, "_password") || strings.HasSuffix(name, "_pwd") ||
-		name == "password" {
-		return ComponentPassword
-	}
-	if strings.HasSuffix(name, "_secret") || strings.HasSuffix(name, "_secret_key") ||
-		strings.HasSuffix(name, "_secret_id") || strings.HasSuffix(name, "_access_key") ||
-		strings.HasSuffix(name, "_token") {
+	// 密码/敏感字段
+	if field.IsPassword {
 		return ComponentPassword
 	}
 

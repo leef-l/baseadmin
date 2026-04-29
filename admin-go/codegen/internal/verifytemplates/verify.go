@@ -173,6 +173,8 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 				chk(strings.Contains(output, "collectDeleteIDs"), "树形表缺少 collectDeleteIDs")
 				chk(strings.Contains(output, "Tree("), "树形表缺少 Tree 方法")
 				chk(strings.Contains(output, "in = &model."+meta.ModelName+"TreeInput{}"), "树形表 Tree 缺少 nil 入参保护")
+				chk(strings.Contains(output, "不能将自身设为父节点"), "树形表 Update 缺少自引用防护")
+				chk(strings.Contains(output, "会形成循环引用"), "树形表 Update 缺少循环引用防护")
 			}
 			chk(strings.Contains(output, "BatchDelete("), "缺少 BatchDelete 方法")
 			if meta.HasMoney {
@@ -202,6 +204,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			if meta.HasCreatedBy || meta.HasDeptID {
 				chk(strings.Contains(output, "middleware.ApplyDataScope"), "缺少数据权限过滤")
 				chk(strings.Contains(output, `"gbaseadmin/app/`+meta.AppName+`/internal/middleware"`), "缺少 middleware 导入")
+				chk(strings.Contains(output, "EnsureDataScopedRowAccessible"), "行级操作缺少数据权限守卫 EnsureDataScopedRowAccessible")
 			}
 			if meta.HasTenantScope {
 				chk(strings.Contains(output, "ApplyTenantScopeToWrite"), "缺少租户写入守卫 ApplyTenantScopeToWrite")
@@ -362,6 +365,14 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			chk(strings.Contains(output, "checkbox"), "列表应有 checkbox")
 			chk(strings.Contains(output, "handleBatchDelete"), "列表缺少 handleBatchDelete")
 			chk(strings.Contains(output, ":batch-delete"), "列表缺少 batch-delete 权限按钮")
+			chk(strings.Contains(output, meta.AppName+":"+meta.ModuleName+":create"), "列表缺少 create 权限按钮")
+			chk(strings.Contains(output, meta.AppName+":"+meta.ModuleName+":update"), "列表缺少 update 权限按钮")
+			chk(strings.Contains(output, meta.AppName+":"+meta.ModuleName+":delete"), "列表缺少 delete 权限按钮")
+			chk(strings.Contains(output, meta.AppName+":"+meta.ModuleName+":detail"), "列表缺少 detail 权限按钮")
+			chk(strings.Contains(output, meta.AppName+":"+meta.ModuleName+":export"), "列表缺少 export 权限按钮")
+			if meta.HasMoney {
+				chk(strings.Contains(output, "/ 100"), "list 金额列缺少分→元格式化")
+			}
 			if meta.HasImport {
 				chk(strings.Contains(output, "handleImportTrigger"), "缺少 handleImportTrigger")
 				chk(strings.Contains(output, "handleImportChange"), "缺少 handleImportChange")
@@ -432,6 +443,13 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 				chk(strings.Contains(output, "InputPassword"), "密码字段应使用 InputPassword")
 				chk(strings.Contains(output, "不填则不修改"), "密码字段编辑时应提示不填则不修改")
 			}
+			if meta.HasTenantScope {
+				chk(strings.Contains(output, "isPlatformSuperAdmin"), "租户表 form 缺少平台超级管理员条件渲染")
+			}
+			if meta.HasMoney {
+				chk(strings.Contains(output, "* 100"), "form 提交时缺少元→分转换")
+				chk(strings.Contains(output, "/ 100"), "form 编辑回显时缺少分→元转换")
+			}
 		}
 
 		if strings.Contains(tplFile, "detail-drawer") {
@@ -445,6 +463,9 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 				chk(strings.Contains(output, "<img"), "有图片字段但 detail-drawer 缺少 img 标签")
 			}
 			chk(strings.Contains(output, "displayValue("), "detail-drawer 缺少 displayValue 兜底")
+			if meta.HasMoney {
+				chk(strings.Contains(output, "/ 100"), "detail-drawer 金额字段缺少分→元转换")
+			}
 			for _, f := range meta.Fields {
 				if f.Component == "InputUrl" && !f.IsHidden && !f.IsID && !f.IsPassword {
 					chk(strings.Contains(output, ":href=\"detail."+f.NameLower+"\""), f.Name+" 详情应渲染为可点击链接")

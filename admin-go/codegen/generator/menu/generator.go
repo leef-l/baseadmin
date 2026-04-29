@@ -358,8 +358,8 @@ func (g *Generator) ensureMenu(store menuStore, parentID int64, title, path, com
 	if err == nil {
 		if g.config.Force {
 			_, err = store.Exec(
-				`UPDATE system_menu SET title=?, component=?, permission=?, icon=?, sort=?, is_show=?, updated_at=NOW() WHERE id=?`,
-				title, component, permission, icon, sort, isShow, id,
+				`UPDATE system_menu SET parent_id=?, title=?, path=?, component=?, permission=?, icon=?, sort=?, is_show=?, updated_at=NOW() WHERE id=?`,
+				parentID, title, path, component, permission, icon, sort, isShow, id,
 			)
 			if err != nil {
 				return 0, false, fmt.Errorf("更新菜单失败: %w", err)
@@ -403,8 +403,8 @@ func (g *Generator) ensureButton(store menuStore, parentID int64, title, permiss
 	if err == nil {
 		if g.config.Force {
 			_, err = store.Exec(
-				`UPDATE system_menu SET title=?, sort=?, updated_at=NOW() WHERE id=?`,
-				title, sort, id,
+				`UPDATE system_menu SET parent_id=?, title=?, sort=?, updated_at=NOW() WHERE id=?`,
+				parentID, title, sort, id,
 			)
 			if err != nil {
 				return false, fmt.Errorf("更新按钮失败: %w", err)

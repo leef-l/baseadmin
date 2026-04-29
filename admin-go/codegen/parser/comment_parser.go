@@ -163,6 +163,7 @@ func ParseCommentMeta(comment string) CommentMeta {
 		return meta
 	}
 
+	enumPart = strings.ReplaceAll(enumPart, "，", ",")
 	pairs := strings.Split(enumPart, ",")
 	seenValues := make(map[string]struct{})
 	for _, pair := range pairs {

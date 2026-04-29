@@ -92,7 +92,7 @@ const [Modal, modalApi] = useVbenModal({
     <Descriptions v-if="detail" bordered :column="1" size="small">
       <DescriptionsItem label="ID">{{"{{"}} detail.id {{"}}"}}</DescriptionsItem>
 {{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField)}}
+{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField) (not .IsMultiFK)}}
 {{- $isScopeField := and $.HasTenantScope (or (eq .Name "tenant_id") (eq .Name "merchant_id"))}}
 {{- if .RefFieldJSON}}
       <DescriptionsItem {{if $isScopeField}}v-if="isPlatformSuperAdmin" {{end}}label="{{.ShortLabel}}">{{"{{"}} detail.{{.RefFieldJSON}} || '-' {{"}}"}}</DescriptionsItem>
