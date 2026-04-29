@@ -1,7 +1,11 @@
 {{- $hasRef := false}}
+{{- $hasNumericImport := false}}
 {{- range .Fields}}
 {{- if and .RefFieldName (not .IsHidden)}}
 {{- $hasRef = true}}
+{{- end}}
+{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField) (or (eq .GoType "int") (eq .GoType "int64") (eq .GoType "float64") (eq .GoType "JsonInt64") .IsMoney)}}
+{{- $hasNumericImport = true}}
 {{- end}}
 {{- end}}
 package {{.PackageName}}
@@ -13,9 +17,11 @@ import (
 	"io"
 {{- if .HasMoney}}
 	"math"
-	"strconv"
-	"strings"
 {{- end}}
+{{- if $hasNumericImport}}
+	"strconv"
+{{- end}}
+	"strings"
 {{- end}}
 {{- if or .EnableOpLog .HasImport}}
 	"fmt"
@@ -23,7 +29,7 @@ import (
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
-{{- if $hasRef}}
+{{- if or $hasRef (and .HasImport .HasForeignKey)}}
 	"github.com/gogf/gf/v2/frame/g"
 {{- end}}
 {{- if .HasImport}}
@@ -132,14 +138,6 @@ func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}Up
 	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID{{if .HasMerchantID}}, in.MerchantID{{else}}, 0{{end}}); err != nil {
 		return err
 	}
-	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), in.ID, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
-		return err
-	}
-{{- end}}
-{{- if or .HasCreatedBy .HasDeptID}}
-	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), in.ID, dao.{{.DaoName}}.Columns().Id{{if .HasCreatedBy}}, dao.{{.DaoName}}.Columns().CreatedBy{{else}}, ""{{end}}{{if .HasDeptID}}, dao.{{.DaoName}}.Columns().DeptId{{else}}, ""{{end}}); err != nil {
-		return err
-	}
 {{- end}}
 {{- if .HasParentID}}
 	if in.ParentID == in.ID {
@@ -176,17 +174,30 @@ func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}Up
 {{- end}}
 {{- end}}
 {{- if .HasMoney}}
-	// 含金额字段，使用事务 + 行锁保证并发安全
+	// 含金额字段，使用事务 + 行锁，权限检查在行锁内防止 TOCTOU
 	err := dao.{{.DaoName}}.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		// FOR UPDATE 行锁
-		_, err := tx.Model(dao.{{.DaoName}}.Table()).Ctx(ctx).
+		lockedRow, err := tx.Model(dao.{{.DaoName}}.Table()).Ctx(ctx).
 			Where(dao.{{.DaoName}}.Columns().Id, in.ID).
 			Where(dao.{{.DaoName}}.Columns().DeletedAt, nil).
 			LockUpdate().
-			Value(dao.{{.DaoName}}.Columns().Id)
+			One()
 		if err != nil {
 			return err
 		}
+		if lockedRow.IsEmpty() {
+			return gerror.New("{{.Comment}}不存在或已删除")
+		}
+{{- if .HasTenantScope}}
+		if err := middleware.EnsureTenantScopedRowAccessible(ctx, tx.Model(dao.{{.DaoName}}.Table()).Ctx(ctx), in.ID, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
+			return err
+		}
+{{- end}}
+{{- if or .HasCreatedBy .HasDeptID}}
+		if err := middleware.EnsureDataScopedRowAccessible(ctx, tx.Model(dao.{{.DaoName}}.Table()).Ctx(ctx), in.ID, dao.{{.DaoName}}.Columns().Id{{if .HasCreatedBy}}, dao.{{.DaoName}}.Columns().CreatedBy{{else}}, ""{{end}}{{if .HasDeptID}}, dao.{{.DaoName}}.Columns().DeptId{{else}}, ""{{end}}); err != nil {
+			return err
+		}
+{{- end}}
 		_, err = tx.Model(dao.{{.DaoName}}.Table()).Ctx(ctx).
 			Where(dao.{{.DaoName}}.Columns().Id, in.ID).
 			Where(dao.{{.DaoName}}.Columns().DeletedAt, nil).
@@ -194,6 +205,16 @@ func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}Up
 		return err
 	})
 {{- else}}
+{{- if .HasTenantScope}}
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), in.ID, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
+		return err
+	}
+{{- end}}
+{{- if or .HasCreatedBy .HasDeptID}}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), in.ID, dao.{{.DaoName}}.Columns().Id{{if .HasCreatedBy}}, dao.{{.DaoName}}.Columns().CreatedBy{{else}}, ""{{end}}{{if .HasDeptID}}, dao.{{.DaoName}}.Columns().DeptId{{else}}, ""{{end}}); err != nil {
+		return err
+	}
+{{- end}}
 	_, err := dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().Id, in.ID).Where(dao.{{.DaoName}}.Columns().DeletedAt, nil).Data(data).Update()
 {{- end}}
 {{- if .EnableOpLog}}
@@ -820,9 +841,33 @@ func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (s
 				data.{{.NameDao}} = int64(math.Round(v * 100))
 			}
 		}
+{{- else if eq .GoType "int"}}
+		if idx < len(record) {
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.{{.NameDao}} = v
+			}
+		}
+{{- else if eq .GoType "int64"}}
+		if idx < len(record) {
+			if v, parseErr := strconv.ParseInt(strings.TrimSpace(record[idx]), 10, 64); parseErr == nil {
+				data.{{.NameDao}} = v
+			}
+		}
+{{- else if eq .GoType "float64"}}
+		if idx < len(record) {
+			if v, parseErr := strconv.ParseFloat(strings.TrimSpace(record[idx]), 64); parseErr == nil {
+				data.{{.NameDao}} = v
+			}
+		}
+{{- else if eq .GoType "JsonInt64"}}
+		if idx < len(record) {
+			if v, parseErr := strconv.ParseInt(strings.TrimSpace(record[idx]), 10, 64); parseErr == nil {
+				data.{{.NameDao}} = v
+			}
+		}
 {{- else}}
 		if idx < len(record) {
-			data.{{.NameDao}} = record[idx]
+			data.{{.NameDao}} = strings.TrimSpace(record[idx])
 		}
 {{- end}}
 		idx++
@@ -839,6 +884,25 @@ func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (s
 		data.TenantId = tenantID
 {{- if .HasMerchantID}}
 		data.MerchantId = merchantID
+{{- end}}
+{{- end}}
+{{- range .Fields}}
+{{- if and .IsForeignKey (not .IsHidden) (ne .Name "tenant_id") (ne .Name "merchant_id")}}
+		if fkVal, ok := data.{{.NameDao}}.(int64); ok && fkVal > 0 {
+			refQuery := g.DB().Ctx(ctx).Model("{{.RefTableDB}}").Where("id", fkVal)
+{{- if .RefHasDeletedAt}}
+			refQuery = refQuery.Where("deleted_at", nil)
+{{- end}}
+{{- if $.HasTenantScope}}
+{{- if .RefHasTenantID}}
+			refQuery = middleware.ApplyTenantScopeToModel(ctx, refQuery, "tenant_id", {{if .RefHasMerchantID}}"merchant_id"{{else}}""{{end}})
+{{- end}}
+{{- end}}
+			if cnt, cntErr := refQuery.Count(); cntErr != nil || cnt == 0 {
+				fail++
+				continue
+			}
+		}
 {{- end}}
 {{- end}}
 		if _, insertErr := dao.{{.DaoName}}.Ctx(ctx).Data(data).Insert(); insertErr != nil {

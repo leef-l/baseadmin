@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/csv"
 	"io"
+	"strconv"
+	"strings"
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
@@ -86,12 +88,6 @@ func (s *sUserReview) Update(ctx context.Context, in *model.UserReviewUpdateInpu
 	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
-	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoUserReview.Ctx(ctx), in.ID, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().TenantId, dao.DemoUserReview.Columns().MerchantId, "用户审核"); err != nil {
-		return err
-	}
-	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoUserReview.Ctx(ctx), in.ID, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().CreatedBy, dao.DemoUserReview.Columns().DeptId); err != nil {
-		return err
-	}
 	data := do.DemoUserReview{
 		UserId: in.UserID,
 		ReviewType: in.ReviewType,
@@ -100,6 +96,12 @@ func (s *sUserReview) Update(ctx context.Context, in *model.UserReviewUpdateInpu
 		IsPassed: in.IsPassed,
 		Sort: in.Sort,
 		Status: in.Status,
+	}
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoUserReview.Ctx(ctx), in.ID, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().TenantId, dao.DemoUserReview.Columns().MerchantId, "用户审核"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoUserReview.Ctx(ctx), in.ID, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().CreatedBy, dao.DemoUserReview.Columns().DeptId); err != nil {
+		return err
 	}
 	_, err := dao.DemoUserReview.Ctx(ctx).Where(dao.DemoUserReview.Columns().Id, in.ID).Where(dao.DemoUserReview.Columns().DeletedAt, nil).Data(data).Update()
 	return err
@@ -444,31 +446,43 @@ func (s *sUserReview) Import(ctx context.Context, file *ghttp.UploadFile) (succe
 		}
 		idx := 0
 		if idx < len(record) {
-			data.UserId = record[idx]
+			if v, parseErr := strconv.ParseInt(strings.TrimSpace(record[idx]), 10, 64); parseErr == nil {
+				data.UserId = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.ReviewType = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.ReviewType = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Content = record[idx]
+			data.Content = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Score = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Score = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.IsPassed = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.IsPassed = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Sort = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Sort = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Status = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Status = v
+			}
 		}
 		idx++
 		tenantID := snowflake.JsonInt64(0)
@@ -480,6 +494,14 @@ func (s *sUserReview) Import(ctx context.Context, file *ghttp.UploadFile) (succe
 		}
 		data.TenantId = tenantID
 		data.MerchantId = merchantID
+		if fkVal, ok := data.UserId.(int64); ok && fkVal > 0 {
+			refQuery := g.DB().Ctx(ctx).Model("system_users").Where("id", fkVal)
+			refQuery = refQuery.Where("deleted_at", nil)
+			if cnt, cntErr := refQuery.Count(); cntErr != nil || cnt == 0 {
+				fail++
+				continue
+			}
+		}
 		if _, insertErr := dao.DemoUserReview.Ctx(ctx).Data(data).Insert(); insertErr != nil {
 			fail++
 		} else {

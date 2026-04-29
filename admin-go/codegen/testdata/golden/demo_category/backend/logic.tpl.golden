@@ -80,12 +80,6 @@ func (s *sCategory) Update(ctx context.Context, in *model.CategoryUpdateInput) e
 	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
-	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), in.ID, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "分类"); err != nil {
-		return err
-	}
-	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), in.ID, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId); err != nil {
-		return err
-	}
 	if in.ParentID == in.ID {
 		return gerror.New("不能将自身设为父节点")
 	}
@@ -106,6 +100,12 @@ func (s *sCategory) Update(ctx context.Context, in *model.CategoryUpdateInput) e
 		Icon: in.Icon,
 		Sort: in.Sort,
 		Status: in.Status,
+	}
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), in.ID, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "分类"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), in.ID, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId); err != nil {
+		return err
 	}
 	_, err := dao.DemoCategory.Ctx(ctx).Where(dao.DemoCategory.Columns().Id, in.ID).Where(dao.DemoCategory.Columns().DeletedAt, nil).Data(data).Update()
 	return err

@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/csv"
 	"io"
+	"strconv"
+	"strings"
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
@@ -83,17 +85,17 @@ func (s *sTag) Update(ctx context.Context, in *model.TagUpdateInput) error {
 	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
-	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoTag.Ctx(ctx), in.ID, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().TenantId, dao.DemoTag.Columns().MerchantId, "标签"); err != nil {
-		return err
-	}
-	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoTag.Ctx(ctx), in.ID, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().CreatedBy, dao.DemoTag.Columns().DeptId); err != nil {
-		return err
-	}
 	data := do.DemoTag{
 		Name: in.Name,
 		Color: in.Color,
 		Sort: in.Sort,
 		Status: in.Status,
+	}
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoTag.Ctx(ctx), in.ID, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().TenantId, dao.DemoTag.Columns().MerchantId, "标签"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoTag.Ctx(ctx), in.ID, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().CreatedBy, dao.DemoTag.Columns().DeptId); err != nil {
+		return err
 	}
 	_, err := dao.DemoTag.Ctx(ctx).Where(dao.DemoTag.Columns().Id, in.ID).Where(dao.DemoTag.Columns().DeletedAt, nil).Data(data).Update()
 	return err
@@ -383,19 +385,23 @@ func (s *sTag) Import(ctx context.Context, file *ghttp.UploadFile) (success int,
 		}
 		idx := 0
 		if idx < len(record) {
-			data.Name = record[idx]
+			data.Name = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Color = record[idx]
+			data.Color = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Sort = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Sort = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Status = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Status = v
+			}
 		}
 		idx++
 		tenantID := snowflake.JsonInt64(0)

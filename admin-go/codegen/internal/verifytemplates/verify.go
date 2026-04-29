@@ -187,11 +187,29 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			if meta.HasImport {
 				chk(strings.Contains(output, "Import("), "缺少 Import 方法")
 				chk(strings.Contains(output, "io.EOF"), "导入逻辑缺少 io.EOF 结束处理")
+				chk(strings.Contains(output, "strings.TrimSpace"), "导入逻辑缺少 strings.TrimSpace 清洗")
 				if meta.HasCreatedBy {
 					chk(strings.Contains(output, "Columns().CreatedBy"), "导入逻辑缺少 created_by 注入")
 				}
 				if meta.HasDeptID {
 					chk(strings.Contains(output, "Columns().DeptId"), "导入逻辑缺少 dept_id 注入")
+				}
+				hasImportFK := false
+				hasImportInt := false
+				for _, ff := range meta.Fields {
+					if ff.IsForeignKey && !ff.IsHidden && ff.Name != "tenant_id" && ff.Name != "merchant_id" {
+						hasImportFK = true
+					}
+					if !ff.IsHidden && !ff.IsID && !ff.IsPassword && !ff.IsTimeField && !ff.IsMoney && (ff.GoType == "int" || ff.GoType == "int64" || ff.GoType == "float64") {
+						hasImportInt = true
+					}
+				}
+				if hasImportFK {
+					chk(strings.Contains(output, "fkVal"), "导入逻辑含外键字段但缺少 FK 引用存在性验证")
+					chk(strings.Contains(output, "refQuery.Count()") || strings.Contains(output, ".Count()"), "导入逻辑含外键字段但缺少引用 Count 校验")
+				}
+				if hasImportInt {
+					chk(strings.Contains(output, "strconv.Atoi") || strings.Contains(output, "strconv.ParseInt"), "导入逻辑含整数字段但缺少 strconv 类型解析")
 				}
 			} else {
 				chk(!strings.Contains(output, "Import("), "未启用导入时不应生成 Import 方法")

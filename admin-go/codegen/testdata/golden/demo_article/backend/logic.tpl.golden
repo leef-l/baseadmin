@@ -110,12 +110,6 @@ func (s *sArticle) Update(ctx context.Context, in *model.ArticleUpdateInput) err
 	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
-	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoArticle.Ctx(ctx), in.ID, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().TenantId, dao.DemoArticle.Columns().MerchantId, "文章"); err != nil {
-		return err
-	}
-	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoArticle.Ctx(ctx), in.ID, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().CreatedBy, dao.DemoArticle.Columns().DeptId); err != nil {
-		return err
-	}
 	data := do.DemoArticle{
 		CategoryId: in.CategoryID,
 		UserId: in.UserID,
@@ -147,15 +141,24 @@ func (s *sArticle) Update(ctx context.Context, in *model.ArticleUpdateInput) err
 		}
 		data.PayPassword = string(hashed)
 	}
-	// 含金额字段，使用事务 + 行锁保证并发安全
+	// 含金额字段，使用事务 + 行锁，权限检查在行锁内防止 TOCTOU
 	err := dao.DemoArticle.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		// FOR UPDATE 行锁
-		_, err := tx.Model(dao.DemoArticle.Table()).Ctx(ctx).
+		lockedRow, err := tx.Model(dao.DemoArticle.Table()).Ctx(ctx).
 			Where(dao.DemoArticle.Columns().Id, in.ID).
 			Where(dao.DemoArticle.Columns().DeletedAt, nil).
 			LockUpdate().
-			Value(dao.DemoArticle.Columns().Id)
+			One()
 		if err != nil {
+			return err
+		}
+		if lockedRow.IsEmpty() {
+			return gerror.New("文章不存在或已删除")
+		}
+		if err := middleware.EnsureTenantScopedRowAccessible(ctx, tx.Model(dao.DemoArticle.Table()).Ctx(ctx), in.ID, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().TenantId, dao.DemoArticle.Columns().MerchantId, "文章"); err != nil {
+			return err
+		}
+		if err := middleware.EnsureDataScopedRowAccessible(ctx, tx.Model(dao.DemoArticle.Table()).Ctx(ctx), in.ID, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().CreatedBy, dao.DemoArticle.Columns().DeptId); err != nil {
 			return err
 		}
 		_, err = tx.Model(dao.DemoArticle.Table()).Ctx(ctx).
@@ -581,51 +584,61 @@ func (s *sArticle) Import(ctx context.Context, file *ghttp.UploadFile) (success 
 		}
 		idx := 0
 		if idx < len(record) {
-			data.CategoryId = record[idx]
+			if v, parseErr := strconv.ParseInt(strings.TrimSpace(record[idx]), 10, 64); parseErr == nil {
+				data.CategoryId = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.UserId = record[idx]
+			if v, parseErr := strconv.ParseInt(strings.TrimSpace(record[idx]), 10, 64); parseErr == nil {
+				data.UserId = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Title = record[idx]
+			data.Title = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.OrderNo = record[idx]
+			data.OrderNo = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Cover = record[idx]
+			data.Cover = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.AttachmentFile = record[idx]
+			data.AttachmentFile = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.BodyContent = record[idx]
+			data.BodyContent = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.ExtraJson = record[idx]
+			data.ExtraJson = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.LinkUrl = record[idx]
+			data.LinkUrl = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Status = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Status = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Type = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Type = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.IsTop = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.IsTop = v
+			}
 		}
 		idx++
 		if idx < len(record) {
@@ -635,31 +648,33 @@ func (s *sArticle) Import(ctx context.Context, file *ghttp.UploadFile) (success 
 		}
 		idx++
 		if idx < len(record) {
-			data.Sort = record[idx]
+			if v, parseErr := strconv.Atoi(strings.TrimSpace(record[idx])); parseErr == nil {
+				data.Sort = v
+			}
 		}
 		idx++
 		if idx < len(record) {
-			data.Icon = record[idx]
+			data.Icon = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Email = record[idx]
+			data.Email = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Phone = record[idx]
+			data.Phone = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Remark = record[idx]
+			data.Remark = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.Level = record[idx]
+			data.Level = strings.TrimSpace(record[idx])
 		}
 		idx++
 		if idx < len(record) {
-			data.ExtraField = record[idx]
+			data.ExtraField = strings.TrimSpace(record[idx])
 		}
 		idx++
 		tenantID := snowflake.JsonInt64(0)
@@ -671,6 +686,22 @@ func (s *sArticle) Import(ctx context.Context, file *ghttp.UploadFile) (success 
 		}
 		data.TenantId = tenantID
 		data.MerchantId = merchantID
+		if fkVal, ok := data.CategoryId.(int64); ok && fkVal > 0 {
+			refQuery := g.DB().Ctx(ctx).Model("demo_category").Where("id", fkVal)
+			refQuery = refQuery.Where("deleted_at", nil)
+			if cnt, cntErr := refQuery.Count(); cntErr != nil || cnt == 0 {
+				fail++
+				continue
+			}
+		}
+		if fkVal, ok := data.UserId.(int64); ok && fkVal > 0 {
+			refQuery := g.DB().Ctx(ctx).Model("system_users").Where("id", fkVal)
+			refQuery = refQuery.Where("deleted_at", nil)
+			if cnt, cntErr := refQuery.Count(); cntErr != nil || cnt == 0 {
+				fail++
+				continue
+			}
+		}
 		if _, insertErr := dao.DemoArticle.Ctx(ctx).Data(data).Insert(); insertErr != nil {
 			fail++
 		} else {
