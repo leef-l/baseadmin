@@ -86,7 +86,13 @@ func (p *Parser) resolveReferenceFields(meta *TableMeta, identity tableIdentity)
 			return err
 		}
 		if referenceFieldCollides(meta.Fields, resolution.refFieldName) {
-			continue
+			// 用字段名前缀消歧：author_id → AuthorUsername
+			prefix := snakeToCamel(strings.TrimSuffix(field.Name, "_id"))
+			resolution.refFieldName = prefix + resolution.displayCamel
+			resolution.refFieldJSON = snakeToCamelLower(strings.TrimSuffix(field.Name, "_id")) + resolution.displayCamel
+			if referenceFieldCollides(meta.Fields, resolution.refFieldName) {
+				continue
+			}
 		}
 		applyReferenceResolution(field, resolution)
 	}

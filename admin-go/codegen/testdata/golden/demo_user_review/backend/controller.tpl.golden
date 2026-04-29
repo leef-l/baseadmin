@@ -132,8 +132,8 @@ func (c *cUserReview) Export(ctx context.Context, req *v1.UserReviewExportReq) (
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="user_review.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	// 表头
-	_ = w.Write([]string{"UserID", "ReviewType", "Content", "Score", "IsPassed", "Sort", "Status", "租户", "商户", "创建时间"})
+	// 表头（与导入模板列对齐，末尾追加只读列）
+	_ = w.Write([]string{"UserID", "ReviewType", "Content", "Score", "IsPassed", "Sort", "Status", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
@@ -144,8 +144,6 @@ func (c *cUserReview) Export(ctx context.Context, req *v1.UserReviewExportReq) (
 			fmt.Sprintf("%v", item.IsPassed),
 			fmt.Sprintf("%v", item.Sort),
 			fmt.Sprintf("%v", item.Status),
-			csvSafeUserReview(item.TenantName),
-			csvSafeUserReview(item.MerchantName),
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}

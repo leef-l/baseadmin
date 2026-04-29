@@ -238,7 +238,11 @@ func MapComponent(field FieldMeta) string {
 		if len(field.EnumValues) > 0 {
 			return ComponentRadio
 		}
-		return ComponentSwitch
+		// 无枚举值：is_* 默认开关（通常是 0/1），status 回退为 Input 避免无意义 Switch
+		if strings.HasPrefix(name, "is_") {
+			return ComponentSwitch
+		}
+		return ComponentInput
 	}
 
 	// type / level / grade 字段，通常有枚举

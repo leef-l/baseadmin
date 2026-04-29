@@ -489,6 +489,8 @@ func (s *sCategory) Tree(ctx context.Context, in *model.CategoryTreeInput) (tree
 			tree = append(tree, item)
 		} else if parent, ok := nodeMap[int64(item.ParentID)]; ok {
 			parent.Children = append(parent.Children, item)
+		} else {
+			tree = append(tree, item)
 		}
 	}
 	// 批量填充租户关联显示

@@ -124,8 +124,8 @@ func (c *cCategory) Export(ctx context.Context, req *v1.CategoryExportReq) (res 
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="category.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	// 表头
-	_ = w.Write([]string{"ParentID", "Name", "Icon", "Sort", "Status", "租户", "商户", "创建时间"})
+	// 表头（与导入模板列对齐，末尾追加只读列）
+	_ = w.Write([]string{"ParentID", "Name", "Icon", "Sort", "Status", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
@@ -134,8 +134,6 @@ func (c *cCategory) Export(ctx context.Context, req *v1.CategoryExportReq) (res 
 			csvSafeCategory(item.Icon),
 			fmt.Sprintf("%v", item.Sort),
 			fmt.Sprintf("%v", item.Status),
-			csvSafeCategory(item.TenantName),
-			csvSafeCategory(item.MerchantName),
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}

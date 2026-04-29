@@ -138,17 +138,15 @@ func (c *c{{.ModelName}}) Export(ctx context.Context, req *v1.{{.ModelName}}Expo
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="{{.ModuleName}}.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	// 表头
-	_ = w.Write([]string{ {{- $first := true}}{{- range .Fields}}{{- if and (not .IsHidden) (not .IsID) (not .IsPassword)}}{{if not $first}}, {{end}}"{{.ShortLabel}}"{{$first = false}}{{- end}}{{- end}}, "创建时间"})
+	// 表头（与导入模板列对齐，末尾追加只读列）
+	_ = w.Write([]string{ {{- $first := true}}{{- range .Fields}}{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField) (or (not $.HasTenantScope) (and (ne .Name "tenant_id") (ne .Name "merchant_id")))}}{{if not $first}}, {{end}}"{{.ShortLabel}}"{{$first = false}}{{- end}}{{- end}}, "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
 {{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (not .IsPassword)}}
+{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField) (or (not $.HasTenantScope) (and (ne .Name "tenant_id") (ne .Name "merchant_id")))}}
 {{- if .RefFieldJSON}}
 			csvSafe{{$.ModelName}}(item.{{.RefFieldName}}),
-{{- else if eq .GoType "*gtime.Time"}}
-			func() string { if item.{{.NameCamel}} != nil { return item.{{.NameCamel}}.String() }; return "" }(),
 {{- else if .IsMoney}}
 			fmt.Sprintf("%.2f", float64(item.{{.NameCamel}})/100),
 {{- else if eq .GoType "string"}}

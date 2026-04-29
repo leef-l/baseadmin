@@ -131,6 +131,53 @@ func TestResolveReferenceFieldsUsesHints(t *testing.T) {
 	}
 }
 
+func TestResolveReferenceFieldsDisambiguatesMultiFK(t *testing.T) {
+	p := &Parser{
+		tableColumnsCache: map[string]map[string]struct{}{
+			"system_users": {
+				"id":       {},
+				"username": {},
+			},
+		},
+	}
+
+	identity := splitTableIdentity("order_review")
+	meta := buildTableMetaSkeleton(identity, "订单审核表")
+	appendColumnFields(meta, []columnInfo{
+		{
+			ColumnName:    "author_id",
+			DataType:      "bigint",
+			ColumnType:    "bigint(20)",
+			IsNullable:    "NO",
+			ColumnComment: "作者|ref:system_users.username",
+		},
+		{
+			ColumnName:    "reviewer_id",
+			DataType:      "bigint",
+			ColumnType:    "bigint(20)",
+			IsNullable:    "NO",
+			ColumnComment: "审核人|ref:system_users.username",
+		},
+	}, nil)
+
+	if err := p.resolveReferenceFields(meta, identity); err != nil {
+		t.Fatalf("resolveReferenceFields failed: %v", err)
+	}
+
+	author := meta.Fields[0]
+	reviewer := meta.Fields[1]
+
+	if author.RefFieldName != "UsersUsername" || author.RefFieldJSON != "usersUsername" {
+		t.Fatalf("first FK should keep original name: got RefFieldName=%s RefFieldJSON=%s", author.RefFieldName, author.RefFieldJSON)
+	}
+	if reviewer.RefFieldName != "ReviewerUsername" || reviewer.RefFieldJSON != "reviewerUsername" {
+		t.Fatalf("second FK should be disambiguated: got RefFieldName=%s RefFieldJSON=%s", reviewer.RefFieldName, reviewer.RefFieldJSON)
+	}
+	if reviewer.RefTable != "users" || reviewer.RefTableDB != "system_users" {
+		t.Fatalf("second FK ref target mismatch: %+v", reviewer)
+	}
+}
+
 func TestResolveReferenceFieldsRejectsMissingDisplayField(t *testing.T) {
 	p := &Parser{
 		tableColumnsCache: map[string]map[string]struct{}{

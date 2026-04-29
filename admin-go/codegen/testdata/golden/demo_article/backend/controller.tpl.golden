@@ -184,8 +184,8 @@ func (c *cArticle) Export(ctx context.Context, req *v1.ArticleExportReq) (res *v
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="article.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	// 表头
-	_ = w.Write([]string{"CategoryID", "UserID", "Title", "OrderNo", "Cover", "AttachmentFile", "BodyContent", "ExtraJSON", "LinkURL", "Status", "Type", "IsTop", "Price", "Sort", "Icon", "Email", "Phone", "Remark", "Level", "ExtraField", "PublishAt", "ExpireAt", "租户", "商户", "创建时间"})
+	// 表头（与导入模板列对齐，末尾追加只读列）
+	_ = w.Write([]string{"CategoryID", "UserID", "Title", "OrderNo", "Cover", "AttachmentFile", "BodyContent", "ExtraJSON", "LinkURL", "Status", "Type", "IsTop", "Price", "Sort", "Icon", "Email", "Phone", "Remark", "Level", "ExtraField", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
@@ -209,10 +209,6 @@ func (c *cArticle) Export(ctx context.Context, req *v1.ArticleExportReq) (res *v
 			csvSafeArticle(item.Remark),
 			csvSafeArticle(item.Level),
 			csvSafeArticle(item.ExtraField),
-			func() string { if item.PublishAt != nil { return item.PublishAt.String() }; return "" }(),
-			func() string { if item.ExpireAt != nil { return item.ExpireAt.String() }; return "" }(),
-			csvSafeArticle(item.TenantName),
-			csvSafeArticle(item.MerchantName),
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}

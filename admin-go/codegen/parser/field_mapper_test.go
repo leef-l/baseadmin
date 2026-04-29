@@ -131,6 +131,30 @@ func TestBuildFieldMetaAddsSystemScopeRefHints(t *testing.T) {
 	}
 }
 
+func TestBuildFieldMetaStatusWithoutEnumFallsBackToInput(t *testing.T) {
+	status := buildFieldMeta(columnInfo{
+		ColumnName:    "status",
+		DataType:      "tinyint",
+		ColumnType:    "tinyint(4)",
+		IsNullable:    "NO",
+		ColumnComment: "状态",
+	})
+	if status.Component != ComponentInput {
+		t.Fatalf("status without enum should fallback to Input: got=%s", status.Component)
+	}
+
+	isActive := buildFieldMeta(columnInfo{
+		ColumnName:    "is_active",
+		DataType:      "tinyint",
+		ColumnType:    "tinyint(1)",
+		IsNullable:    "NO",
+		ColumnComment: "是否激活",
+	})
+	if isActive.Component != ComponentSwitch {
+		t.Fatalf("is_active without enum should default to Switch: got=%s", isActive.Component)
+	}
+}
+
 func TestMapComponentRecognizesCoreComponentTypes(t *testing.T) {
 	tests := []struct {
 		name  string

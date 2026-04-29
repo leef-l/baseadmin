@@ -688,6 +688,8 @@ func (s *s{{.ModelName}}) Tree(ctx context.Context, in *model.{{.ModelName}}Tree
 			tree = append(tree, item)
 		} else if parent, ok := nodeMap[int64(item.ParentID)]; ok {
 			parent.Children = append(parent.Children, item)
+		} else {
+			tree = append(tree, item)
 		}
 	}
 {{- /* 填充非 parent_id 的外键关联字段 */}}
