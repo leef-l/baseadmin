@@ -18,7 +18,7 @@ type UserReviewCreateReq struct {
 	g.Meta `path:"/user_review/create" method:"post" tags:"用户审核" summary:"创建用户审核"`
 	UserID snowflake.JsonInt64 `json:"userId" v:"required" dc:"UserID"`
 	ReviewType int `json:"reviewType"  dc:"ReviewType"`
-	Content string `json:"content" v:"max-length:500" dc:"Content"`
+	Content string `json:"content"  dc:"Content"`
 	Score int `json:"score"  dc:"Score"`
 	IsPassed int `json:"isPassed"  dc:"IsPassed"`
 	Sort int `json:"sort"  dc:"Sort"`
@@ -38,7 +38,7 @@ type UserReviewUpdateReq struct {
 	ID     snowflake.JsonInt64 `json:"id" v:"required#ID不能为空" dc:"用户审核ID"`
 	UserID snowflake.JsonInt64 `json:"userId"  dc:"UserID"`
 	ReviewType int `json:"reviewType"  dc:"ReviewType"`
-	Content string `json:"content" v:"max-length:500" dc:"Content"`
+	Content string `json:"content"  dc:"Content"`
 	Score int `json:"score"  dc:"Score"`
 	IsPassed int `json:"isPassed"  dc:"IsPassed"`
 	Sort int `json:"sort"  dc:"Sort"`
@@ -115,7 +115,6 @@ type UserReviewListReq struct {
 	ReviewType *int `json:"reviewType" dc:"ReviewType"`
 	IsPassed *int `json:"isPassed" dc:"IsPassed"`
 	Status *int `json:"status" dc:"Status"`
-	Content string `json:"content" dc:"Content"`
 }
 
 // UserReviewListRes 获取用户审核列表响应
@@ -137,7 +136,6 @@ type UserReviewExportReq struct {
 	ReviewType *int `json:"reviewType" dc:"ReviewType"`
 	IsPassed *int `json:"isPassed" dc:"IsPassed"`
 	Status *int `json:"status" dc:"Status"`
-	Content string `json:"content" dc:"Content"`
 }
 
 // UserReviewExportRes 导出用户审核响应

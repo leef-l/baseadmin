@@ -4,7 +4,7 @@
 {{- if and .RefFieldName (not .IsHidden)}}
 {{- $hasRef = true}}
 {{- end}}
-{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField) (or (eq .GoType "int") (eq .GoType "int64") (eq .GoType "float64") (eq .GoType "JsonInt64") .IsMoney)}}
+{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField) (or (eq .GoType "int") (eq .GoType "int64") (eq .GoType "float64") (eq .GoType "JsonInt64") .IsMoney) (ne .Name "tenant_id") (ne .Name "merchant_id")}}
 {{- $hasNumericImport = true}}
 {{- end}}
 {{- end}}
@@ -335,7 +335,7 @@ func (s *s{{.ModelName}}) collectChildIDs(ctx context.Context, parentID snowflak
 
 func (s *s{{.ModelName}}) doCollectChildIDs(ctx context.Context, parentID snowflake.JsonInt64, depth int) ([]snowflake.JsonInt64, error) {
 	if depth > 20 {
-		return nil, nil
+		return nil, gerror.New("子树深度超过 20 层上限，请检查数据完整性")
 	}
 	var childIDs []snowflake.JsonInt64
 	m := dao.{{.DaoName}}.Ctx(ctx).
@@ -800,6 +800,7 @@ func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (s
 	defer f.Close()
 
 	reader := csv.NewReader(f)
+	reader.FieldsPerRecord = -1
 	// 跳过表头
 	if _, err = reader.Read(); err != nil {
 		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)

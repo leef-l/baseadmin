@@ -355,6 +355,7 @@ func (s *sTag) Import(ctx context.Context, file *ghttp.UploadFile) (success int,
 	defer f.Close()
 
 	reader := csv.NewReader(f)
+	reader.FieldsPerRecord = -1
 	// 跳过表头
 	if _, err = reader.Read(); err != nil {
 		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)

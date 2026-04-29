@@ -106,7 +106,6 @@ func (c *cUserReview) List(ctx context.Context, req *v1.UserReviewListReq) (res 
 		ReviewType: req.ReviewType,
 		IsPassed: req.IsPassed,
 		Status: req.Status,
-		Content: req.Content,
 	})
 	return
 }
@@ -123,7 +122,6 @@ func (c *cUserReview) Export(ctx context.Context, req *v1.UserReviewExportReq) (
 		ReviewType: req.ReviewType,
 		IsPassed: req.IsPassed,
 		Status: req.Status,
-		Content: req.Content,
 	})
 	if err != nil {
 		return

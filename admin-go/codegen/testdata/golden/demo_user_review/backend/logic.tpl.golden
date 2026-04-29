@@ -201,9 +201,6 @@ func (s *sUserReview) applyListFilter(ctx context.Context, in *model.UserReviewL
 	if in.Status != nil {
 		m = m.Where(dao.DemoUserReview.Columns().Status, *in.Status)
 	}
-	if in.Content != "" {
-		m = m.WhereLike(dao.DemoUserReview.Columns().Content, "%"+in.Content+"%")
-	}
 	if in.StartTime != "" {
 		m = m.WhereGTE(dao.DemoUserReview.Columns().CreatedAt, in.StartTime)
 	}
@@ -416,6 +413,7 @@ func (s *sUserReview) Import(ctx context.Context, file *ghttp.UploadFile) (succe
 	defer f.Close()
 
 	reader := csv.NewReader(f)
+	reader.FieldsPerRecord = -1
 	// 跳过表头
 	if _, err = reader.Read(); err != nil {
 		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)

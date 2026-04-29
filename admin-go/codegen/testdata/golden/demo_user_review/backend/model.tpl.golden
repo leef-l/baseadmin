@@ -87,7 +87,6 @@ type UserReviewListInput struct {
 	ReviewType *int `json:"reviewType"`
 	IsPassed *int `json:"isPassed"`
 	Status *int `json:"status"`
-	Content string `json:"content"`
 }
 
 // UserReviewBatchUpdateInput 批量编辑用户审核输入

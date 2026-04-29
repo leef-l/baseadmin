@@ -26,7 +26,7 @@ var rules = fieldRuleRegistry{
 		"avatar", "cover", "logo", "banner", "thumbnail", "poster",
 	),
 	imageFieldSuffixes: []string{
-		"_image", "_img", "_photo", "_pic", "_cover", "_banner", "_logo", "_thumbnail", "_poster",
+		"_image", "_img", "_photo", "_pic", "_cover", "_banner", "_logo", "_thumbnail", "_poster", "_avatar",
 	},
 	searchableTextFieldNames: toStructSet(
 		"title", "name", "username", "nickname",
@@ -47,7 +47,7 @@ var rules = fieldRuleRegistry{
 		"price", "amount", "balance", "income_total", "income_balance",
 	),
 	moneyFieldSuffixes: []string{
-		"_price", "_amount", "_balance", "_income", "_fee", "_cost",
+		"_price", "_amount", "_balance", "_income", "_fee", "_cost", "_deposit", "_refund",
 	},
 }
 

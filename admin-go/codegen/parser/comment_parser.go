@@ -89,6 +89,7 @@ func ParseCommentMeta(comment string) CommentMeta {
 	meta := CommentMeta{}
 	for _, directive := range parts[1:] {
 		directive = strings.TrimSpace(directive)
+		directive = strings.ReplaceAll(directive, "：", ":")
 		if strings.HasPrefix(directive, "ref:") {
 			refValue := strings.TrimSpace(strings.TrimPrefix(directive, "ref:"))
 			if refValue == "" {

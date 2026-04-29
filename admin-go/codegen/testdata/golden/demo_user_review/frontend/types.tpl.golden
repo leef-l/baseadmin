@@ -33,7 +33,6 @@ export interface UserReviewListParams {
   reviewType?: number;
   isPassed?: number;
   status?: number;
-  content?: string;
 }
 
 /** 用户审核创建参数 */

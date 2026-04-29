@@ -804,11 +804,9 @@ func buildUserReviewMeta() *parser.TableMeta {
 			f.EnumValues = []parser.EnumValue{{Value: "1", Label: "内容", NameIdent: "Content"}, {Value: "2", Label: "行为", NameIdent: "Behavior"}, {Value: "3", Label: "申诉", NameIdent: "Appeal"}}
 		}),
 		f("content", "Content", "Content", "content", "string", "string", func(f *parser.FieldMeta) {
+			f.DBType = "text"
 			f.IsSearchable = true
-			f.MaxLength = 500
-			f.Component = "Input"
-			f.ValidationRules = []string{"max-length:500"}
-			f.UpdateValidationRules = []string{"max-length:500"}
+			f.Component = parser.ComponentRichText
 		}),
 		f("score", "Score", "Score", "score", "int", "number", func(f *parser.FieldMeta) { f.Component = "InputNumber" }),
 		f("is_passed", "IsPassed", "IsPassed", "isPassed", "int", "number", func(f *parser.FieldMeta) {

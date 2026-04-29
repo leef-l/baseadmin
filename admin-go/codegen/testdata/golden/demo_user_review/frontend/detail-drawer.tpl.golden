@@ -5,6 +5,7 @@ import { Descriptions, DescriptionsItem, Tag } from 'ant-design-vue';
 import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getUserReviewDetail } from '#/api/demo/user_review';
 import type { UserReviewItem } from '#/api/demo/user_review/types';
+import RichText from '#/components/tinymce/index.vue';
 
 /** 标签颜色池 */
 const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
@@ -109,14 +110,17 @@ const [Modal, modalApi] = useVbenModal({
 </script>
 
 <template>
-  <Modal class="w-[600px]">
+  <Modal class="w-[800px]">
     <Descriptions v-if="detail" bordered :column="1" size="small">
       <DescriptionsItem label="ID">{{ detail.id }}</DescriptionsItem>
       <DescriptionsItem label="UserID">{{ detail.usersUsername || '-' }}</DescriptionsItem>
       <DescriptionsItem label="ReviewType">
         <Tag :color="getReviewTypeColor(detail.reviewType)">{{ getEnumLabel(reviewTypeMap, detail.reviewType) }}</Tag>
       </DescriptionsItem>
-      <DescriptionsItem label="Content">{{ displayValue(detail.content) }}</DescriptionsItem>
+      <DescriptionsItem label="Content">
+        <RichText v-if="detail.content" :value="detail.content" disabled :height="260" />
+        <span v-else>-</span>
+      </DescriptionsItem>
       <DescriptionsItem label="Score">{{ displayValue(detail.score) }}</DescriptionsItem>
       <DescriptionsItem label="IsPassed">
         <Tag :color="getIsPassedColor(detail.isPassed)">{{ getEnumLabel(isPassedMap, detail.isPassed) }}</Tag>

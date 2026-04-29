@@ -216,12 +216,6 @@ const formOptions: VbenFormProps = {
       label: 'Status',
     },
     {
-      component: 'Input',
-      componentProps: { placeholder: '请输入Content', allowClear: true },
-      fieldName: 'content',
-      label: 'Content',
-    },
-    {
       component: 'RangePicker',
       fieldName: 'timeRange',
       label: '创建时间',
@@ -243,7 +237,6 @@ const gridOptions: VxeGridProps<UserReviewItem> = {
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { field: 'usersUsername', title: 'UserID' },
     { field: 'reviewType', title: 'ReviewType', width: 120, slots: { default: 'reviewType_cell' } },
-    { field: 'content', title: 'Content', sortable: true },
     { field: 'score', title: 'Score' },
     { field: 'isPassed', title: 'IsPassed', width: 120, slots: { default: 'isPassed_cell' } },
     { field: 'sort', title: 'Sort', slots: { header: tooltipHeader('Sort', '升序') }, sortable: true },

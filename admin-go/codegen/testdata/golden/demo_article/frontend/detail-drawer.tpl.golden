@@ -124,7 +124,8 @@ const [Modal, modalApi] = useVbenModal({
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="AttachmentFile">
-        <a v-if="detail.attachmentFile" :href="detail.attachmentFile" target="_blank" rel="noreferrer noopener">查看文件</a>
+        <a v-if="detail.attachmentFile && /^https?:\/\//i.test(detail.attachmentFile)" :href="detail.attachmentFile" target="_blank" rel="noreferrer noopener">查看文件</a>
+        <span v-else-if="detail.attachmentFile">{{ detail.attachmentFile }}</span>
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="BodyContent">
@@ -135,7 +136,8 @@ const [Modal, modalApi] = useVbenModal({
         <pre style="max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 12px;">{{ (() => { const value = detail.extraJSON; if (!value) return '-'; try { return JSON.stringify(JSON.parse(value), null, 2) } catch { return value } })() }}</pre>
       </DescriptionsItem>
       <DescriptionsItem label="LinkURL">
-        <a v-if="detail.linkURL" :href="detail.linkURL" target="_blank" rel="noreferrer noopener">{{ detail.linkURL }}</a>
+        <a v-if="detail.linkURL && /^https?:\/\//i.test(detail.linkURL)" :href="detail.linkURL" target="_blank" rel="noreferrer noopener">{{ detail.linkURL }}</a>
+        <span v-else-if="detail.linkURL">{{ detail.linkURL }}</span>
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="Status">

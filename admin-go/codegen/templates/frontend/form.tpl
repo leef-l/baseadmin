@@ -341,7 +341,7 @@ const [Form, formApi] = useVbenForm({
 {{- if .IsRequired}}
       rules: 'required',
 {{- end}}
-      componentProps: { placeholder: '请输入URL地址'{{if gt .MaxLength 0}}, maxlength: {{.MaxLength}}{{end}}, addonBefore: 'https://' },
+      componentProps: { placeholder: '请输入完整URL地址（含 http:// 或 https://）'{{if gt .MaxLength 0}}, maxlength: {{.MaxLength}}{{end}} },
     },
 {{- else}}
     {

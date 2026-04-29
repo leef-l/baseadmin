@@ -188,7 +188,7 @@ func (s *sCategory) collectChildIDs(ctx context.Context, parentID snowflake.Json
 
 func (s *sCategory) doCollectChildIDs(ctx context.Context, parentID snowflake.JsonInt64, depth int) ([]snowflake.JsonInt64, error) {
 	if depth > 20 {
-		return nil, nil
+		return nil, gerror.New("子树深度超过 20 层上限，请检查数据完整性")
 	}
 	var childIDs []snowflake.JsonInt64
 	m := dao.DemoCategory.Ctx(ctx).

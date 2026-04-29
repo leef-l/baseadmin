@@ -123,7 +123,7 @@ const [Form, formApi] = useVbenForm({
       component: 'Input',
       fieldName: 'linkURL',
       label: 'LinkURL',
-      componentProps: { placeholder: '请输入URL地址', maxlength: 500, addonBefore: 'https://' },
+      componentProps: { placeholder: '请输入完整URL地址（含 http:// 或 https://）', maxlength: 500 },
     },
     {
       component: 'RadioGroup',

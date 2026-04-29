@@ -404,7 +404,8 @@ func buildFieldMeta(col columnInfo) FieldMeta {
 	isPassword := name == "password" || strings.HasSuffix(name, "_password") || strings.HasSuffix(name, "_pwd") ||
 		strings.HasSuffix(name, "_secret") || strings.HasSuffix(name, "_secret_key") ||
 		strings.HasSuffix(name, "_secret_id") || strings.HasSuffix(name, "_access_key") ||
-		strings.HasSuffix(name, "_token")
+		strings.HasSuffix(name, "_access_token") || strings.HasSuffix(name, "_refresh_token") ||
+		strings.HasSuffix(name, "_api_token")
 	isForeignKey := strings.HasSuffix(name, "_id") && name != "id" && name != "dept_id" && name != "parent_id" && isIntType && !isPassword
 	isMultiFK := strings.HasSuffix(name, "_ids")
 	isParentID := name == "parent_id"

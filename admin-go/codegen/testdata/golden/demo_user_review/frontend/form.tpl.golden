@@ -61,10 +61,10 @@ const [Form, formApi] = useVbenForm({
       componentProps: { options: reviewTypeOptions },
     },
     {
-      component: 'Input',
+      component: 'RichText',
       fieldName: 'content',
       label: 'Content',
-      componentProps: { placeholder: '请输入Content', maxlength: 500 },
+      formItemClass: 'col-span-full',
     },
     {
       component: 'InputNumber',
@@ -235,7 +235,7 @@ const [Modal, modalApi] = useVbenModal({
 </script>
 
 <template>
-  <Modal class="w-[600px]">
+  <Modal class="w-[800px]">
     <Form />
   </Modal>
 </template>
