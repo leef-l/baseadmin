@@ -47,7 +47,7 @@ var rules = fieldRuleRegistry{
 		"price", "amount", "balance", "income_total", "income_balance",
 	),
 	moneyFieldSuffixes: []string{
-		"_price", "_amount", "_balance", "_income", "_fee", "_cost", "_deposit", "_refund",
+		"_price", "_amount", "_balance", "_income", "_fee", "_cost", "_deposit", "_refund", "_turnover", "_expense",
 	},
 }
 

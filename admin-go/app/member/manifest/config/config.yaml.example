@@ -1,0 +1,36 @@
+# https://goframe.org/docs/web/server-config-file-template
+server:
+  address:     ":10027"
+  openapiPath: "/api.json"
+  swaggerPath: "/swagger"
+
+# https://goframe.org/docs/core/glog-config
+logger:
+  level : "all"
+  stdout: true
+
+# https://goframe.org/docs/core/gdb-config-file
+# member 业务表使用 funddisk 库
+database:
+  default:
+    link: "mysql:sql_funddisk_easytestdev_online:daa5129899a218@tcp(127.0.0.1:3306)/sql_funddisk_easytestdev_online"
+    debug: true
+    charset: "utf8mb4"
+
+# https://goframe.org/docs/components/os-gredis-config
+redis:
+  default:
+    address: "127.0.0.1:6379"
+    pass: "123456"
+    db: 0
+
+# JWT 配置
+jwt:
+  secret: "change_me"
+  expire: 24
+
+# 应用间票据互通配置
+sso:
+  appId: "gbaseadmin-admin"
+  sharedKey: "change_me_shared_sso_key"
+  ticketExpireSeconds: 60
