@@ -362,6 +362,7 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
     },
   },
 {{- end}}
+{{- if not .HasParentID}}
   sortConfig: {
     remote: true,
     trigger: 'cell',
@@ -371,6 +372,7 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
     defaultSort: { field: 'createdAt', order: 'desc' },
 {{- end}}
   },
+{{- end}}
   toolbarConfig: {
     custom: true,
     refresh: true,

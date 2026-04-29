@@ -542,17 +542,29 @@ func buildValidationRules(f FieldMeta) (goRules []string, frontendRule string) {
 	// 邮箱
 	if f.Name == "email" || strings.HasSuffix(f.Name, "_email") {
 		goRules = append(goRules, "email")
-		frontendRule = "email"
+		if f.IsRequired {
+			frontendRule = "requiredEmail"
+		} else {
+			frontendRule = "email"
+		}
 	}
 	// 手机号
 	if f.Name == "phone" || f.Name == "mobile" || strings.HasSuffix(f.Name, "_phone") || strings.HasSuffix(f.Name, "_mobile") {
 		goRules = append(goRules, "phone-loose")
-		frontendRule = "phone"
+		if f.IsRequired {
+			frontendRule = "requiredPhone"
+		} else {
+			frontendRule = "phone"
+		}
 	}
 	// URL
 	if f.Name == "url" || strings.HasSuffix(f.Name, "_url") || strings.HasSuffix(f.Name, "_link") {
 		goRules = append(goRules, "url")
-		frontendRule = "url"
+		if f.IsRequired {
+			frontendRule = "requiredUrl"
+		} else {
+			frontendRule = "url"
+		}
 	}
 	// 长度限制（仅 string 类型且有 MaxLength）
 	if f.GoType == "string" && f.MaxLength > 0 && !f.IsPassword {

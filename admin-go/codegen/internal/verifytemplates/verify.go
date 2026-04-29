@@ -203,6 +203,12 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 				chk(strings.Contains(output, "middleware.ApplyDataScope"), "缺少数据权限过滤")
 				chk(strings.Contains(output, `"gbaseadmin/app/`+meta.AppName+`/internal/middleware"`), "缺少 middleware 导入")
 			}
+			if meta.HasTenantScope {
+				chk(strings.Contains(output, "ApplyTenantScopeToWrite"), "缺少租户写入守卫 ApplyTenantScopeToWrite")
+				chk(strings.Contains(output, "EnsureTenantMerchantAccessible"), "缺少租户/商户可访问性校验")
+				chk(strings.Contains(output, "ApplyTenantScopeToModel"), "列表查询缺少租户范围过滤 ApplyTenantScopeToModel")
+				chk(strings.Contains(output, "EnsureTenantScopedRow"), "行级操作缺少租户行守卫")
+			}
 			// 检查外键关联字段填充
 			for _, f := range meta.Fields {
 				if f.RefFieldName != "" && !f.IsHidden {
@@ -365,10 +371,14 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 				chk(!strings.Contains(output, "handleImportChange"), "未启用导入时不应生成 handleImportChange")
 				chk(!strings.Contains(output, "handleDownloadTemplate"), "未启用导入时不应生成模板下载")
 			}
-			if meta.HasSort {
-				chk(strings.Contains(output, "defaultSort: { field: 'sort', order: 'asc' }"), "含 sort 字段的列表默认排序应为 sort asc")
+			if !meta.HasParentID {
+				if meta.HasSort {
+					chk(strings.Contains(output, "defaultSort: { field: 'sort', order: 'asc' }"), "含 sort 字段的列表默认排序应为 sort asc")
+				} else {
+					chk(strings.Contains(output, "defaultSort: { field: 'createdAt', order: 'desc' }"), "无 sort 字段的列表默认排序应为 createdAt desc")
+				}
 			} else {
-				chk(strings.Contains(output, "defaultSort: { field: 'createdAt', order: 'desc' }"), "无 sort 字段的列表默认排序应为 createdAt desc")
+				chk(!strings.Contains(output, "sortConfig"), "树形表不应生成远程排序配置 sortConfig")
 			}
 			if meta.HasBatchEdit {
 				chk(strings.Contains(output, "handleBatchUpdateStatus"), "缺少 handleBatchUpdateStatus")

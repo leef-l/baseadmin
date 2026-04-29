@@ -565,6 +565,25 @@ func containsInt64(values []int64, target int64) bool {
 	return false
 }
 
+func countDistinctIDs(ids interface{}) int {
+	switch v := ids.(type) {
+	case []snowflake.JsonInt64:
+		seen := make(map[int64]struct{}, len(v))
+		for _, id := range v {
+			seen[int64(id)] = struct{}{}
+		}
+		return len(seen)
+	case []int64:
+		seen := make(map[int64]struct{}, len(v))
+		for _, id := range v {
+			seen[id] = struct{}{}
+		}
+		return len(seen)
+	default:
+		return 0
+	}
+}
+
 // EnsureDataScopedRowAccessible 检查单行数据权限
 func EnsureDataScopedRowAccessible(ctx context.Context, m *gdb.Model, id interface{}, idColumn, createdByColumn, deptIDColumn string) error {
 	scope, err := resolveDataScope(ctx)
@@ -629,6 +648,10 @@ func EnsureDataScopedRowsAccessible(ctx context.Context, m *gdb.Model, ids inter
 	}
 	if len(rows) == 0 {
 		return gerror.New("数据不存在")
+	}
+	expectedCount := countDistinctIDs(ids)
+	if expectedCount > 0 && len(rows) != expectedCount {
+		return gerror.New("部分数据不存在或已删除")
 	}
 	for _, row := range rows {
 		accessible := false

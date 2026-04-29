@@ -141,6 +141,22 @@ func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}Up
 		return err
 	}
 {{- end}}
+{{- if .HasParentID}}
+	if in.ParentID == in.ID {
+		return gerror.New("不能将自身设为父节点")
+	}
+	if int64(in.ParentID) != 0 {
+		childIDs, collectErr := s.collectChildIDs(ctx, in.ID)
+		if collectErr != nil {
+			return collectErr
+		}
+		for _, cid := range childIDs {
+			if cid == in.ParentID {
+				return gerror.New("不能将子节点设为父节点，会形成循环引用")
+			}
+		}
+	}
+{{- end}}
 	data := do.{{.DaoName}}{
 {{- range .Fields}}
 {{- if and (not .IsID) (not .IsHidden) (not .IsPassword) (ne .Name "tenant_id") (ne .Name "merchant_id")}}
@@ -265,6 +281,7 @@ func (s *s{{.ModelName}}) collectDeleteIDs(ctx context.Context, ids []snowflake.
 	if len(normalized) == 0 {
 		return nil, nil
 	}
+	const maxCollect = 10000
 	collected := make([]snowflake.JsonInt64, 0, len(normalized))
 	seen := make(map[int64]struct{}, len(normalized))
 	for _, id := range normalized {
@@ -282,6 +299,9 @@ func (s *s{{.ModelName}}) collectDeleteIDs(ctx context.Context, ids []snowflake.
 			}
 			seen[int64(childID)] = struct{}{}
 			collected = append(collected, childID)
+			if len(collected) > maxCollect {
+				return nil, gerror.Newf("子树节点过多（超过 %d），请分批删除", maxCollect)
+			}
 		}
 	}
 	return collected, nil

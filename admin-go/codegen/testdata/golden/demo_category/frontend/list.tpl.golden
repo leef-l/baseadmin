@@ -210,11 +210,6 @@ const gridOptions: VxeGridProps<CategoryItem> = {
       },
     },
   },
-  sortConfig: {
-    remote: true,
-    trigger: 'cell',
-    defaultSort: { field: 'sort', order: 'asc' },
-  },
   toolbarConfig: {
     custom: true,
     refresh: true,

@@ -145,7 +145,7 @@ const [Form, formApi] = useVbenForm({
       fieldName: '{{.NameLower}}',
       label: {{if .TooltipText}}tooltipLabel('{{.ShortLabel}}', '{{.TooltipText}}'){{else}}'{{.Label}}'{{end}},
 {{- if .IsRequired}}
-      rules: 'required',
+      rules: 'selectRequired',
 {{- end}}
       componentProps: { options: {{.NameLower}}Options },
     },

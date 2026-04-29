@@ -51,6 +51,7 @@ var SharedFuncMap = template.FuncMap{
 		if s == "" {
 			return false
 		}
+		hasDigit := false
 		hasDot := false
 		for i, c := range s {
 			if c == '-' && i == 0 {
@@ -63,11 +64,9 @@ var SharedFuncMap = template.FuncMap{
 			if c < '0' || c > '9' {
 				return false
 			}
+			hasDigit = true
 		}
-		if len(s) == 1 && (s[0] == '-' || s[0] == '.') {
-			return false
-		}
-		return true
+		return hasDigit
 	},
 }
 

@@ -62,6 +62,30 @@ async function initSetupVbenForm() {
         }
         return true;
       },
+      requiredEmail: (value, _params, ctx) => {
+        if (!value)
+          return $t('ui.formRules.required', [ctx.label]);
+        if (!/^[\w.+-]+@[\w-]+\.[\w.]+$/.test(String(value))) {
+          return '请输入正确的邮箱地址';
+        }
+        return true;
+      },
+      requiredPhone: (value, _params, ctx) => {
+        if (!value)
+          return $t('ui.formRules.required', [ctx.label]);
+        if (!/^1[3-9]\d{9}$/.test(String(value))) {
+          return '请输入正确的手机号码';
+        }
+        return true;
+      },
+      requiredUrl: (value, _params, ctx) => {
+        if (!value)
+          return $t('ui.formRules.required', [ctx.label]);
+        if (!/^https?:\/\/.+/i.test(String(value))) {
+          return '请输入正确的URL地址';
+        }
+        return true;
+      },
     },
   });
 }
