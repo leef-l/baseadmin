@@ -367,6 +367,15 @@ const [Modal, modalApi] = useVbenModal({
       | {{.ModelName}}CreateParams
       | undefined;
     if (!values) return;
+{{- if .HasMoney}}
+{{- range .Fields}}
+{{- if and .IsMoney (not .IsHidden)}}
+    if (values.{{.NameLower}} != null) {
+      (values as any).{{.NameLower}} = Math.round(Number(values.{{.NameLower}}) * 100);
+    }
+{{- end}}
+{{- end}}
+{{- end}}
     modalApi.lock();
     try {
       if (isEdit.value) {
@@ -496,7 +505,19 @@ const [Modal, modalApi] = useVbenModal({
           return;
         }
         if (detail) {
+{{- if .HasMoney}}
+          const formData = { ...detail };
+{{- range .Fields}}
+{{- if and .IsMoney (not .IsHidden)}}
+          if (formData.{{.NameLower}} != null) {
+            formData.{{.NameLower}} = formData.{{.NameLower}} / 100;
+          }
+{{- end}}
+{{- end}}
+          formApi.setValues(formData);
+{{- else}}
           formApi.setValues(detail);
+{{- end}}
         }
       } catch {
         if (currentOpenToken === openToken.value) {

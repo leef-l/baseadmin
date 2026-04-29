@@ -64,8 +64,14 @@ function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | 
 
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
+{{- if .HasSort}}
+  sort: 'sort',
+{{- end}}
+{{- if .HasStatus}}
+  status: 'status',
+{{- end}}
 {{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (not .RefFieldJSON)}}
+{{- if and (not .IsHidden) (not .IsID) (not .RefFieldJSON) (or .IsMoney .IsSearchable)}}
   {{.NameLower}}: '{{.Name}}',
 {{- end}}
 {{- end}}

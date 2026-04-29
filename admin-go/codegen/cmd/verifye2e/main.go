@@ -159,7 +159,7 @@ func main() {
 }
 
 func renderE2E(codegenRoot, tempRoot string, cfg verifyConfig) error {
-	tableNames := []string{"verifydemo_category", "verifydemo_article", "verifydemo_tag"}
+	tableNames := []string{"verifydemo_category", "verifydemo_article", "verifydemo_tag", "verifydemo_user_review"}
 	p, err := parser.New(cfg.dsn(), []string{"created_at", "updated_at", "deleted_at", "created_by", "dept_id"})
 	if err != nil {
 		return fmt.Errorf("初始化 parser 失败: %w", err)
@@ -397,7 +397,7 @@ func prepareVerifySchema(db *sql.DB, cfg verifyConfig, sqlPath string) (func(), 
 		return nil, err
 	}
 
-	dropTables := []string{"verifydemo_article", "verifydemo_category", "verifydemo_tag"}
+	dropTables := []string{"verifydemo_user_review", "verifydemo_article", "verifydemo_category", "verifydemo_tag"}
 	for _, tableName := range dropTables {
 		if _, err := db.Exec("DROP TABLE IF EXISTS `" + tableName + "`"); err != nil {
 			return nil, fmt.Errorf("清理旧验证表失败(%s): %w", tableName, err)

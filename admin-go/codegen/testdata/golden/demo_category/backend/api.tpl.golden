@@ -120,7 +120,7 @@ type CategoryListRes struct {
 type CategoryExportReq struct {
 	g.Meta    `path:"/category/export" method:"get" tags:"分类" summary:"导出分类"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	Name string `json:"name" dc:"Name"`

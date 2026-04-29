@@ -52,9 +52,9 @@ type CommentMeta struct {
 // "排序（升序）" → shortLabel="排序", tooltip="升序"
 // "部门名称"     → shortLabel="部门名称", tooltip=""
 func extractParentheses(label string) (shortLabel string, tooltip string) {
-	// 优先匹配中文括号
+	// 优先匹配中文括号（使用 LastIndex 匹配最外层右括号）
 	if idx := strings.Index(label, "（"); idx >= 0 {
-		if end := strings.Index(label, "）"); end > idx {
+		if end := strings.LastIndex(label, "）"); end > idx {
 			shortLabel = strings.TrimSpace(label[:idx])
 			tooltip = strings.TrimSpace(label[idx+len("（") : end])
 			return
@@ -62,7 +62,7 @@ func extractParentheses(label string) (shortLabel string, tooltip string) {
 	}
 	// 再匹配英文括号
 	if idx := strings.Index(label, "("); idx >= 0 {
-		if end := strings.Index(label, ")"); end > idx {
+		if end := strings.LastIndex(label, ")"); end > idx {
 			shortLabel = strings.TrimSpace(label[:idx])
 			tooltip = strings.TrimSpace(label[idx+1 : end])
 			return
@@ -120,6 +120,7 @@ func ParseCommentMeta(comment string) CommentMeta {
 			if v, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(directive, "search-priority:"))); err == nil {
 				meta.SearchPriority = v
 			}
+			continue
 		}
 	}
 

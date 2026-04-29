@@ -35,27 +35,13 @@ function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | 
 
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
+  sort: 'sort',
+  status: 'status',
   title: 'title',
   orderNo: 'order_no',
-  cover: 'cover',
-  attachmentFile: 'attachment_file',
-  bodyContent: 'body_content',
-  extraJSON: 'extra_json',
-  linkURL: 'link_url',
-  status: 'status',
-  type: 'type',
-  isTop: 'is_top',
   price: 'price',
-  payPassword: 'pay_password',
-  sort: 'sort',
-  icon: 'icon',
-  email: 'email',
   phone: 'phone',
   remark: 'remark',
-  level: 'level',
-  extraField: 'extra_field',
-  publishAt: 'publish_at',
-  expireAt: 'expire_at',
 };
 
 function resolveSortField(field?: string) {

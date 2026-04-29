@@ -244,6 +244,9 @@ const [Modal, modalApi] = useVbenModal({
       | ArticleCreateParams
       | undefined;
     if (!values) return;
+    if (values.price != null) {
+      (values as any).price = Math.round(Number(values.price) * 100);
+    }
     modalApi.lock();
     try {
       if (isEdit.value) {
@@ -377,7 +380,11 @@ const [Modal, modalApi] = useVbenModal({
           return;
         }
         if (detail) {
-          formApi.setValues(detail);
+          const formData = { ...detail };
+          if (formData.price != null) {
+            formData.price = formData.price / 100;
+          }
+          formApi.setValues(formData);
         }
       } catch {
         if (currentOpenToken === openToken.value) {

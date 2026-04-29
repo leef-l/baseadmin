@@ -33,12 +33,9 @@ function getEnumLabel(map: Record<EnumValue, string>, value: EnumValue | null | 
 
 const sortableFieldMap: Record<string, string> = {
   createdAt: 'created_at',
-  reviewType: 'review_type',
-  content: 'content',
-  score: 'score',
-  isPassed: 'is_passed',
   sort: 'sort',
   status: 'status',
+  content: 'content',
 };
 
 function resolveSortField(field?: string) {

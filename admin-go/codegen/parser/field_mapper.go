@@ -222,6 +222,7 @@ func MapComponent(field FieldMeta) string {
 	if name == "sort" || name == "order" || strings.HasSuffix(name, "_num") ||
 		strings.HasSuffix(name, "_price") || strings.HasSuffix(name, "_amount") ||
 		strings.HasSuffix(name, "_income") || strings.HasSuffix(name, "_balance") ||
+		strings.HasSuffix(name, "_fee") || strings.HasSuffix(name, "_cost") ||
 		name == "price" || name == "amount" || name == "balance" || name == "quantity" ||
 		name == "income_total" || name == "income_balance" {
 		return ComponentInputNumber

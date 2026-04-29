@@ -97,37 +97,37 @@ const [Modal, modalApi] = useVbenModal({
 {{- if .RefFieldJSON}}
       <DescriptionsItem {{if $isScopeField}}v-if="isPlatformSuperAdmin" {{end}}label="{{.ShortLabel}}">{{"{{"}} detail.{{.RefFieldJSON}} || '-' {{"}}"}}</DescriptionsItem>
 {{- else if .IsEnum}}
-      <DescriptionsItem label="{{.ShortLabel}}">
+      <DescriptionsItem {{if $isScopeField}}v-if="isPlatformSuperAdmin" {{end}}label="{{.ShortLabel}}">
         <Tag :color="get{{.NameCamel}}Color(detail.{{.NameLower}})">{{"{{"}} getEnumLabel({{.NameLower}}Map, detail.{{.NameLower}}) {{"}}"}}</Tag>
       </DescriptionsItem>
 {{- else if .IsMoney}}
-      <DescriptionsItem label="{{.ShortLabel}}">{{"{{"}} detail.{{.NameLower}} != null ? (detail.{{.NameLower}} / 100).toFixed(2) : '-' {{"}}"}}</DescriptionsItem>
+      <DescriptionsItem {{if $isScopeField}}v-if="isPlatformSuperAdmin" {{end}}label="{{.ShortLabel}}">{{"{{"}} detail.{{.NameLower}} != null ? (detail.{{.NameLower}} / 100).toFixed(2) : '-' {{"}}"}}</DescriptionsItem>
 {{- else if eq .Component "ImageUpload"}}
-      <DescriptionsItem label="{{.ShortLabel}}">
+      <DescriptionsItem {{if $isScopeField}}v-if="isPlatformSuperAdmin" {{end}}label="{{.ShortLabel}}">
         <img v-if="detail.{{.NameLower}}" :src="detail.{{.NameLower}}" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
         <span v-else>-</span>
       </DescriptionsItem>
 {{- else if eq .Component "FileUpload"}}
-      <DescriptionsItem label="{{.ShortLabel}}">
+      <DescriptionsItem {{if $isScopeField}}v-if="isPlatformSuperAdmin" {{end}}label="{{.ShortLabel}}">
         <a v-if="detail.{{.NameLower}}" :href="detail.{{.NameLower}}" target="_blank" rel="noreferrer noopener">查看文件</a>
         <span v-else>-</span>
       </DescriptionsItem>
 {{- else if eq .Component "InputUrl"}}
-      <DescriptionsItem label="{{.ShortLabel}}">
+      <DescriptionsItem {{if $isScopeField}}v-if="isPlatformSuperAdmin" {{end}}label="{{.ShortLabel}}">
         <a v-if="detail.{{.NameLower}}" :href="detail.{{.NameLower}}" target="_blank" rel="noreferrer noopener">{{"{{"}} detail.{{.NameLower}} {{"}}"}}</a>
         <span v-else>-</span>
       </DescriptionsItem>
 {{- else if eq .Component "RichText"}}
-      <DescriptionsItem label="{{.ShortLabel}}">
+      <DescriptionsItem {{if $isScopeField}}v-if="isPlatformSuperAdmin" {{end}}label="{{.ShortLabel}}">
         <RichText v-if="detail.{{.NameLower}}" :value="detail.{{.NameLower}}" disabled :height="260" />
         <span v-else>-</span>
       </DescriptionsItem>
 {{- else if eq .Component "JsonEditor"}}
-      <DescriptionsItem label="{{.ShortLabel}}">
+      <DescriptionsItem {{if $isScopeField}}v-if="isPlatformSuperAdmin" {{end}}label="{{.ShortLabel}}">
         <pre style="max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 12px;">{{"{{"}} (() => { const value = detail.{{.NameLower}}; if (!value) return '-'; try { return JSON.stringify(JSON.parse(value), null, 2) } catch { return value } })() {{"}}"}}</pre>
       </DescriptionsItem>
 {{- else}}
-      <DescriptionsItem label="{{.ShortLabel}}">{{"{{"}} displayValue(detail.{{.NameLower}}) {{"}}"}}</DescriptionsItem>
+      <DescriptionsItem {{if $isScopeField}}v-if="isPlatformSuperAdmin" {{end}}label="{{.ShortLabel}}">{{"{{"}} displayValue(detail.{{.NameLower}}) {{"}}"}}</DescriptionsItem>
 {{- end}}
 {{- end}}
 {{- end}}
