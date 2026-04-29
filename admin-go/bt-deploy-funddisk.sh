@@ -24,10 +24,10 @@ DB_FUNDDISK_PASS="daa5129899a218"
 
 DB_HOST="127.0.0.1"
 DB_PORT="3306"
-JWT_SECRET="change_me"
+JWT_SECRET="${JWT_SECRET:-$(openssl rand -hex 32)}"
 
 APPS=("system" "upload" "member")
-PORTS=("10022" "10023" "10027")
+PORTS=("10032" "10033" "10027")
 
 SERVICE_PREFIX="funddisk"
 SSL_MODE="auto"
