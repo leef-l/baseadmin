@@ -231,7 +231,7 @@ func (c *cArticle) ImportTemplate(ctx context.Context, req *v1.ArticleImportTemp
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="article_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{"CategoryID", "UserID", "Title", "OrderNo", "Cover", "AttachmentFile", "BodyContent", "ExtraJSON", "LinkURL", "Status", "Type", "IsTop", "Price", "Sort", "Icon", "Email", "Phone", "Remark", "Level", "ExtraField", "租户", "商户"})
+	_ = w.Write([]string{"CategoryID", "UserID", "Title", "OrderNo", "Cover", "AttachmentFile", "BodyContent", "ExtraJSON", "LinkURL", "Status", "Type", "IsTop", "Price", "Sort", "Icon", "Email", "Phone", "Remark", "Level", "ExtraField"})
 	w.Flush()
 	return
 }

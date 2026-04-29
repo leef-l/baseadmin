@@ -166,7 +166,7 @@ func (c *cUserReview) ImportTemplate(ctx context.Context, req *v1.UserReviewImpo
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="user_review_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{"UserID", "ReviewType", "Content", "Score", "IsPassed", "Sort", "Status", "租户", "商户"})
+	_ = w.Write([]string{"UserID", "ReviewType", "Content", "Score", "IsPassed", "Sort", "Status"})
 	w.Flush()
 	return
 }

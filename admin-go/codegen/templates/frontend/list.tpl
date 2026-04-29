@@ -652,15 +652,15 @@ function handleBatchUpdateStatus() {
 {{- end}}
     <Grid>
       <template #toolbar-actions>
-        <Button v-auth="['{{.AppName}}:{{.ModuleName}}:create']" type="primary" @click="handleCreate">新建</Button>
-        <Button v-auth="['{{.AppName}}:{{.ModuleName}}:batch-delete']" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
-        <Button v-auth="['{{.AppName}}:{{.ModuleName}}:export']" class="ml-2" @click="handleExport">导出</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:export'" class="ml-2" @click="handleExport">导出</Button>
 {{- if .HasImport}}
-        <Button v-auth="['{{.AppName}}:{{.ModuleName}}:import']" class="ml-2" @click="handleImportTrigger">导入</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
         <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
 {{- end}}
 {{- if .HasBatchEdit}}
-        <Button v-auth="['{{.AppName}}:{{.ModuleName}}:batch-update']" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
 {{- end}}
       </template>
 {{- range .Fields}}
@@ -688,9 +688,9 @@ function handleBatchUpdateStatus() {
 {{- end}}
 {{- end}}
       <template #action="{ row }">
-        <Button v-auth="['{{.AppName}}:{{.ModuleName}}:detail']" type="link" size="small" @click="handleView(row)">查看</Button>
-        <Button v-auth="['{{.AppName}}:{{.ModuleName}}:update']" type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button v-auth="['{{.AppName}}:{{.ModuleName}}:delete']" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:detail'" type="link" size="small" @click="handleView(row)">查看</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
       </template>
     </Grid>
   </Page>

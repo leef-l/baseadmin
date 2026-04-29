@@ -6,6 +6,9 @@ import { ref } from 'vue';
 {{- end}}
 import { useVbenModal } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
+{{- if .HasTenantScope}}
+import { isPlatformSuperAdminUser } from '@/utils/auth-scope';
+{{- end}}
 {{- if .HasTooltip}}
 import { message, Tooltip } from 'ant-design-vue';
 import { QuestionCircleOutlined } from '@ant-design/icons-vue';
@@ -91,6 +94,7 @@ const [Form, formApi] = useVbenForm({
   schema: [
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID)}}
+{{- $isScopeField := or (eq .Name "tenant_id") (eq .Name "merchant_id")}}
 {{- if eq .Component "Password"}}
     {
       component: 'InputPassword',
@@ -186,6 +190,9 @@ const [Form, formApi] = useVbenForm({
       component: 'Select',
       fieldName: '{{.NameLower}}',
       label: {{if .TooltipText}}tooltipLabel('{{.ShortLabel}}', '{{.TooltipText}}'){{else}}'{{.Label}}'{{end}},
+{{- if and $.HasTenantScope $isScopeField}}
+      ifShow: () => isPlatformSuperAdminUser(),
+{{- end}}
 {{- if .IsRequired}}
       rules: 'selectRequired',
 {{- end}}

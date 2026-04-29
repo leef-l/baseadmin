@@ -149,7 +149,7 @@ func (c *cTag) ImportTemplate(ctx context.Context, req *v1.TagImportTemplateReq)
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="tag_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{"Name", "Color", "Sort", "Status", "租户", "商户"})
+	_ = w.Write([]string{"Name", "Color", "Sort", "Status"})
 	w.Flush()
 	return
 }

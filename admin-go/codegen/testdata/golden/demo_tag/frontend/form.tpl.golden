@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
+import { isPlatformSuperAdminUser } from '@/utils/auth-scope';
 import { message } from 'ant-design-vue';
 import {
   getTagDetail,
@@ -55,12 +56,14 @@ const [Form, formApi] = useVbenForm({
     {
       component: 'Select',
       fieldName: 'tenantID',
+      ifShow: () => isPlatformSuperAdminUser(),
       label: '租户',
       componentProps: { options: [], placeholder: '请选择租户', allowClear: true, class: 'w-full' },
     },
     {
       component: 'Select',
       fieldName: 'merchantID',
+      ifShow: () => isPlatformSuperAdminUser(),
       label: '商户',
       componentProps: { options: [], placeholder: '请选择商户', allowClear: true, class: 'w-full' },
     },
