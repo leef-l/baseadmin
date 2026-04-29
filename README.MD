@@ -10,7 +10,7 @@
 
 当前代码里实际保留的业务模块：
 
-- `system`：`auth`、`dept`、`role`、`menu`、`users`、`tenant`、`merchant`、`domain`、`daemon`，以及公开探活 `healthz` / `readyz`
+- `system`：`auth`（含登出 Token 黑名单）、`dept`、`role`、`menu`、`users`、`tenant`、`merchant`、`domain`、`daemon`，以及公开探活 `healthz` / `readyz`
 - `upload`：`config`、`dir`、`dir_rule`、`file`、`uploader`，以及公开探活 `healthz` / `readyz`
 - `demo`：`appointment`、`audit_log`、`campaign`、`category`、`contract`、`customer`、`order`、`product`、`survey`、`work_order`（codegen 全场景覆盖示例）
 - `web-antd` 页面：`views/system/{dept,menu,role,users,tenant,merchant,domain,daemon}`、`views/upload/{config,dir,dir_rule,file}`、`views/demo/{appointment,audit_log,campaign,category,contract,customer,order,product,survey,work_order}`

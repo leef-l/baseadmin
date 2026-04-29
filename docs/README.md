@@ -16,6 +16,11 @@
 - [代码生成器说明](../admin-go/codegen/README.md)
 - [Codegen AI 执行手册](../admin-go/codegen/docs/Codegen-AI执行手册.md)
 
+## 安全与认证
+
+- Token 黑名单、登出流程、登录限流、时序攻击防护、域名严格模式 → 见 [代码库导读](代码库导读.md) 认证主链路部分
+- Redis Token 黑名单运维 → 见 [生产运维说明](生产运维说明.md)
+
 ## 开发与部署
 
 - [Docker 开发说明](Docker开发说明.md)

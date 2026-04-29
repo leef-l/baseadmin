@@ -46,6 +46,7 @@
 | 认证 | `GET /api/system/auth/info` | 是 | 当前用户信息，返回 `roles` 和 `perms` |
 | 认证 | `GET /api/system/auth/menus` | 是 | 当前用户菜单树，供 `web-antd` 动态路由使用 |
 | 认证 | `POST /api/system/auth/change-password` | 是 | 修改当前用户密码 |
+| 认证 | `POST /api/system/auth/logout` | 是 | 退出登录，Token 加入黑名单 |
 | 租户 | `/api/system/tenant/list,create,update,delete,batch-delete,detail` | 是 | 租户管理，可创建租户管理员 |
 | 商户 | `/api/system/merchant/list,create,update,delete,batch-delete,detail` | 是 | 商户管理，可创建商户管理员 |
 | 域名 | `/api/system/domain/list,create,update,delete,batch-delete,detail` | 是 | 租户/商户自定义域名管理 |
@@ -63,7 +64,7 @@
 - 角色设置 `is_admin=1` 为超级管理员，跳过权限判断，可查看所有菜单和数据
 - 普通角色通过 `system_role_menu` 关联表控制菜单权限
 - 数据权限通过 `system_role_dept` 关联表控制（`data_scope=5` 时生效）
-- `middleware/auth.go` 会在服务端校验按钮权限，不再只依赖前端隐藏按钮
+- `middleware/auth.go` 会在服务端校验按钮权限，不再只依赖前端隐藏按钮；同时检查 Token 黑名单，已注销 Token 会被拒绝
 - 数据权限已经进入运行时查询和写操作校验，当前覆盖用户、部门、角色、租户/商户、域名、守护进程等系统管理入口；平台级专用能力仍会额外校验平台超级管理员
 - 用户分配角色时，服务端会再次校验“当前操作者可分配的启用角色”；非超级管理员只能分配自己当前持有的启用角色
 - 角色数据权限授权会按当前操作者的数据范围再次校验自定义部门列表，不能只靠前端树控件限制
