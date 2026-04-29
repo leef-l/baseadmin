@@ -5,8 +5,11 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
+	"github.com/gogf/gf/v2/os/gctx"
 )
 
 type DomainScope struct {
@@ -16,6 +19,46 @@ type DomainScope struct {
 	OwnerType  int
 	TenantID   int64
 	MerchantID int64
+}
+
+var (
+	domainStrictOnce sync.Once
+	domainStrictMode bool
+)
+
+func isDomainStrictMode() bool {
+	domainStrictOnce.Do(func() {
+		ctx := gctx.New()
+		val, _ := g.Cfg().Get(ctx, "domain.strictMode", false)
+		domainStrictMode = val.Bool()
+	})
+	return domainStrictMode
+}
+
+var (
+	domainExistsCacheMu   sync.Mutex
+	domainExistsCacheTime time.Time
+	domainExistsCacheVal  bool
+)
+
+func hasDomainRecords(ctx context.Context) bool {
+	domainExistsCacheMu.Lock()
+	defer domainExistsCacheMu.Unlock()
+	if time.Since(domainExistsCacheTime) < time.Minute {
+		return domainExistsCacheVal
+	}
+	count, err := g.DB().Ctx(ctx).Model("system_domain").
+		Where("app_code", "admin").
+		Where("verify_status", 1).
+		Where("status", 1).
+		Where("deleted_at", nil).
+		Count()
+	if err != nil {
+		return false
+	}
+	domainExistsCacheVal = count > 0
+	domainExistsCacheTime = time.Now()
+	return domainExistsCacheVal
 }
 
 func CurrentDomainScope(ctx context.Context) DomainScope {
@@ -49,6 +92,9 @@ func CurrentRequestHost(ctx context.Context) string {
 func DomainScopeAllows(ctx context.Context, tenantID, merchantID int64) bool {
 	scope := CurrentDomainScope(ctx)
 	if !scope.Matched {
+		if isDomainStrictMode() && hasDomainRecords(ctx) {
+			return false
+		}
 		return true
 	}
 	if scope.TenantID > 0 && tenantID != scope.TenantID {

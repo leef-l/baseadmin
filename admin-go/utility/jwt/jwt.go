@@ -1,10 +1,14 @@
 package jwt
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/gogf/gf/v2/database/gredis"
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gctx"
 	gojwt "github.com/golang-jwt/jwt/v5"
@@ -26,11 +30,19 @@ var (
 	expireTime   time.Duration
 )
 
+const defaultInsecureSecret = "gbaseadmin-secret-key"
+
 func init() {
 	ctx := gctx.New()
-	key, _ := g.Cfg().Get(ctx, "jwt.secret", "gbaseadmin-secret-key")
-	secret = []byte(normalizeSecret(key.String(), "gbaseadmin-secret-key"))
-	// 会员端独立 secret，未配置时回退到管理端 secret
+	key, _ := g.Cfg().Get(ctx, "jwt.secret", "")
+	raw := strings.TrimSpace(key.String())
+	if raw == "" || raw == defaultInsecureSecret || raw == "change_me" {
+		panic("jwt.secret 未配置或仍为默认值，请在配置文件中设置一个安全的随机密钥（至少 32 字符）")
+	}
+	if len(raw) < 32 {
+		panic("jwt.secret 长度不足 32 字符，请使用更长的随机密钥")
+	}
+	secret = []byte(raw)
 	mKey, _ := g.Cfg().Get(ctx, "jwt.memberSecret", "")
 	if memberKey := strings.TrimSpace(mKey.String()); memberKey != "" {
 		memberSecret = []byte(memberKey)
@@ -137,10 +149,64 @@ func parseToken(tokenStr string, claims gojwt.Claims, key []byte) (*gojwt.Token,
 	})
 }
 
-func normalizeSecret(value string, fallback string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return fallback
-	}
-	return value
+const blacklistKeyPrefix = "system:token:blacklist:"
+
+func tokenHash(tokenStr string) string {
+	h := sha256.Sum256([]byte(tokenStr))
+	return hex.EncodeToString(h[:])
 }
+
+func BlacklistToken(ctx context.Context, tokenStr string, remainingTTL time.Duration) error {
+	tokenStr = strings.TrimSpace(tokenStr)
+	if tokenStr == "" {
+		return nil
+	}
+	if remainingTTL <= 0 {
+		return nil
+	}
+	client := safeRedis(ctx)
+	if client == nil {
+		return nil
+	}
+	key := blacklistKeyPrefix + tokenHash(tokenStr)
+	seconds := int64(remainingTTL/time.Second) + 1
+	return client.SetEX(ctx, key, "1", seconds)
+}
+
+func IsBlacklisted(ctx context.Context, tokenStr string) bool {
+	tokenStr = strings.TrimSpace(tokenStr)
+	if tokenStr == "" {
+		return false
+	}
+	client := safeRedis(ctx)
+	if client == nil {
+		return false
+	}
+	key := blacklistKeyPrefix + tokenHash(tokenStr)
+	val, err := client.Get(ctx, key)
+	if err != nil || val == nil {
+		return false
+	}
+	return val.String() != ""
+}
+
+func TokenRemainingTTL(claims *Claims) time.Duration {
+	if claims == nil || claims.ExpiresAt == nil {
+		return 0
+	}
+	remaining := time.Until(claims.ExpiresAt.Time)
+	if remaining <= 0 {
+		return 0
+	}
+	return remaining
+}
+
+func safeRedis(ctx context.Context) (client *gredis.Redis) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			client = nil
+		}
+	}()
+	return g.Redis()
+}
+

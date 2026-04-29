@@ -110,7 +110,7 @@ func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model
 	if in.Username == "" {
 		return nil, gerror.New("用户名不能为空")
 	}
-	if s.isLoginRateLimited(ctx, in.Username) {
+	if s.checkAndIncrLoginFail(ctx, in.Username) {
 		return nil, gerror.New("登录失败次数过多，请10分钟后再试")
 	}
 
@@ -119,7 +119,7 @@ func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model
 		return nil, gerror.New("用户名或密码错误")
 	}
 	if user == nil || user.Id == 0 {
-		s.recordLoginFailure(ctx, in.Username)
+		password.DummyVerify(in.Password)
 		return nil, gerror.New("用户名或密码错误")
 	}
 
@@ -133,7 +133,6 @@ func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model
 
 	// 校验密码
 	if !password.Verify(user.Password, in.Password) {
-		s.recordLoginFailure(ctx, in.Username)
 		return nil, gerror.New("用户名或密码错误")
 	}
 	s.clearLoginFailures(ctx, in.Username)
@@ -203,6 +202,9 @@ func (s *sAuth) TicketLogin(ctx context.Context, in *model.AuthTicketLoginInput)
 	}
 	if user.Status == 0 {
 		return nil, gerror.New("账号已被禁用")
+	}
+	if !shared.DomainScopeAllows(ctx, user.TenantId, user.MerchantId) {
+		return nil, gerror.New("当前账号不属于该访问域名")
 	}
 
 	token, err := jwt.GenerateToken(user.Id, user.Username, user.DeptId, user.TenantId, user.MerchantId)
@@ -337,6 +339,22 @@ func (s *sAuth) loadInfo(ctx context.Context, userID snowflake.JsonInt64) (out *
 	return
 }
 
+// Logout 登出，将 token 加入黑名单
+func (s *sAuth) Logout(ctx context.Context, tokenStr string, claims *jwt.Claims) error {
+	if claims == nil || tokenStr == "" {
+		return nil
+	}
+	remaining := jwt.TokenRemainingTTL(claims)
+	if remaining <= 0 {
+		return nil
+	}
+	if err := jwt.BlacklistToken(ctx, tokenStr, remaining); err != nil {
+		g.Log().Warningf(ctx, "blacklist token failed: %v", err)
+	}
+	s.clearAuthCache(ctx, claims.UserID)
+	return nil
+}
+
 // ChangePassword 修改密码
 func (s *sAuth) ChangePassword(ctx context.Context, in *model.AuthChangePasswordInput) error {
 	if err := inpututil.Require(in); err != nil {
@@ -443,13 +461,9 @@ func (s *sAuth) loadMenus(ctx context.Context, userID snowflake.JsonInt64) ([]*m
 	return buildMenuTree(list), nil
 }
 
-func (s *sAuth) isLoginRateLimited(ctx context.Context, username string) bool {
-	count, err := cache.GetInt64(ctx, s.loginFailKey(ctx, username))
-	return err == nil && count >= authLoginFailLimit
-}
-
-func (s *sAuth) recordLoginFailure(ctx context.Context, username string) {
-	_, _ = cache.IncrWithTTL(ctx, s.loginFailKey(ctx, username), authLoginFailWindow)
+func (s *sAuth) checkAndIncrLoginFail(ctx context.Context, username string) bool {
+	count, _ := cache.IncrWithTTL(ctx, s.loginFailKey(ctx, username), authLoginFailWindow)
+	return count > authLoginFailLimit
 }
 
 func (s *sAuth) clearLoginFailures(ctx context.Context, username string) {
@@ -630,7 +644,7 @@ func markTicketUsedLocal(key string, ttl time.Duration) bool {
 	}
 	const maxLocalTicketEntries = 10000
 	if len(localTicketReplay) >= maxLocalTicketEntries {
-		return false
+		return true
 	}
 	localTicketReplay[key] = now.Add(ttl)
 	return false

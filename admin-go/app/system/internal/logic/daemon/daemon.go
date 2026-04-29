@@ -400,6 +400,9 @@ func (s *sDaemon) validateDaemonConfig(
 	if len(command) > 1000 || strings.ContainsAny(command, "\r\n") {
 		return gerror.New("启动命令格式不正确")
 	}
+	if containsShellMeta(command) {
+		return gerror.New("启动命令包含不安全的 shell 元字符")
+	}
 	if err := validateDirectory(directory); err != nil {
 		return err
 	}
@@ -651,6 +654,16 @@ func daemonConfigFromUpdateInput(in *model.DaemonUpdateInput, program string) su
 		Environment:  in.Environment,
 		Remark:       in.Remark,
 	}
+}
+
+func containsShellMeta(cmd string) bool {
+	for _, ch := range cmd {
+		switch ch {
+		case '|', ';', '&', '$', '`', '(', ')', '{', '}', '<', '>', '!', '\\':
+			return true
+		}
+	}
+	return false
 }
 
 func ensurePlatformSuperAdmin(ctx context.Context) error {

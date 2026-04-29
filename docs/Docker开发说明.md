@@ -44,7 +44,8 @@
 - `web-antd` 开发环境 `VITE_GLOB_API_URL=/api`
 - `docker/dev/.env` 默认注入 `VITE_PROXY_SYSTEM_TARGET=http://system:10022`
 - `docker/dev/.env` 默认注入 `VITE_PROXY_UPLOAD_TARGET=http://upload:10023`
-- 如果不是走 Docker 前端容器，而是宿主机直跑 `web-antd`，`apps/web-antd/.env.development` 默认把 `/api/system`、`/api/upload` 转发到 `127.0.0.1:10022`、`127.0.0.1:10023`
+- `docker/dev/.env` 默认注入 `VITE_PROXY_DEMO_TARGET=http://demo:10026`
+- 如果不是走 Docker 前端容器，而是宿主机直跑 `web-antd`，`apps/web-antd/.env.development` 默认把 `/api/system`、`/api/upload`、`/api/demo` 分别转发到对应后端端口
 - 前端容器内端口为 `10024`，compose 暴露端口为 `10024`
 
 ## env 同步规则
@@ -71,6 +72,7 @@
 - upload：`127.0.0.1:10023`
 - frontend：`127.0.0.1:10024`（需显式启用 `frontend` profile）
 - adminer：`127.0.0.1:10025`
+- demo：`127.0.0.1:10026`（codegen 全场景示例应用）
 - `system` 健康检查：`GET /healthz`
 - `system` 就绪检查：`GET /readyz`
 - `upload` 健康检查：`GET /healthz`
@@ -79,7 +81,7 @@
 ## 初始化来源
 
 - MySQL 容器不再挂载初始化 SQL
-- `system` / `upload` 容器启动前会自动执行 `golang-migrate up`
+- `system` / `upload` / `demo` 容器启动前会自动执行 `golang-migrate up`
 - `DB_MIGRATE_AUTO=0/false/no/off` 可关闭启动迁移；`auto` 模式默认仅 `system` 执行迁移
 - 数据库真源迁移目录为 [admin-go/database/migrations](../admin-go/database/migrations)
 - 默认上传配置使用本地存储，目录为 `resource/upload`

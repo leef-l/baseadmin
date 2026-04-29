@@ -220,7 +220,7 @@ async function previewImage(
   if (!isImageFile(file)) {
     const url = file.url || file.preview;
     if (url) {
-      window.open(url, '_blank');
+      window.open(url, '_blank', 'noopener,noreferrer');
     } else {
       message.error($t('ui.formRules.previewWarning'));
     }

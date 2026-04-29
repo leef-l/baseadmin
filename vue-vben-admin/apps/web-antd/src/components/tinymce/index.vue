@@ -96,6 +96,7 @@ const initOptions = {
   images_upload_handler: imagesUploadHandler,
   skin_url: `${import.meta.env.BASE_URL}tinymce/skins/ui/oxide`,
   content_css: `${import.meta.env.BASE_URL}tinymce/skins/content/default/content.min.css`,
+  invalid_elements: 'script,iframe,object,embed,form,input,select,textarea',
 };
 </script>
 

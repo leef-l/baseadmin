@@ -75,6 +75,7 @@ export async function issueTicketApi(data: AuthApi.IssueTicketParams) {
 export async function refreshTokenApi() {
   return baseRequestClient.post<{ data: string; status: number }>(
     '/system/auth/refresh',
+    {},
     { withCredentials: true },
   );
 }
@@ -83,8 +84,11 @@ export async function refreshTokenApi() {
  * 退出登录
  */
 export async function logoutApi() {
-  // 后端暂无 logout 接口，前端清除 token 即可
-  return Promise.resolve();
+  try {
+    await requestClient.post('/system/auth/logout');
+  } catch {
+    // 即使后端调用失败，前端仍需清除本地 token
+  }
 }
 
 /**

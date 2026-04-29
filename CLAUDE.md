@@ -9,12 +9,14 @@
 5. [Docker 开发说明](docs/Docker开发说明.md)
 6. [system 服务路由入口](admin-go/app/system/internal/cmd/cmd.go)
 7. [upload 服务路由入口](admin-go/app/upload/internal/cmd/cmd.go)
+8. [demo 服务路由入口](admin-go/app/demo/internal/cmd/cmd.go)
 
-当前仓库已经收缩为后台基础框架，AI/代理默认只围绕以下范围工作：
+当前仓库是后台基础框架，AI/代理默认只围绕以下范围工作：
 
 - 后端：`admin-go/app/system`
 - 后端：`admin-go/app/upload`
-- 管理端：`vue-vben-admin/apps/web-antd/src/` 下的 `system` / `upload` 以及后台公共壳
+- 后端：`admin-go/app/demo`（codegen 全场景示例，只用于开发验证）
+- 管理端：`vue-vben-admin/apps/web-antd/src/` 下的 `system` / `upload` / `demo` 以及后台公共壳
 - 生成器：`admin-go/codegen/`
 - Docker 入口：`docker/dev/`、`docker/prod/`
 

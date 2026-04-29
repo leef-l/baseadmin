@@ -34,11 +34,11 @@ func CurrentActorMerchantID(ctx context.Context) int64 {
 
 func ResolveTenantAccessScope(ctx context.Context) TenantAccessScope {
 	if ctx == nil {
-		return TenantAccessScope{All: true}
+		return TenantAccessScope{}
 	}
 	req := g.RequestFromCtx(ctx)
 	if req == nil {
-		return TenantAccessScope{All: true}
+		return TenantAccessScope{}
 	}
 	tenantID := req.GetCtxVar("jwt_tenant_id").Int64()
 	merchantID := req.GetCtxVar("jwt_merchant_id").Int64()

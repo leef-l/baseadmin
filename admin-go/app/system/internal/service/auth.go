@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"gbaseadmin/app/system/internal/model"
+	"gbaseadmin/utility/jwt"
 	"gbaseadmin/utility/snowflake"
 )
 
@@ -14,6 +15,7 @@ type IAuth interface {
 	Info(ctx context.Context, userID snowflake.JsonInt64) (out *model.AuthInfoOutput, err error)
 	ChangePassword(ctx context.Context, in *model.AuthChangePasswordInput) error
 	Menus(ctx context.Context, userID snowflake.JsonInt64) ([]*model.AuthMenuOutput, error)
+	Logout(ctx context.Context, tokenStr string, claims *jwt.Claims) error
 }
 
 var localAuth IAuth

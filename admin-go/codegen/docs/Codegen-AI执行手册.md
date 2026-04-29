@@ -153,7 +153,7 @@ git diff -- admin-go/codegen/README.md admin-go/codegen/docs
 cd admin-go/codegen
 ../../scripts/wait-for-cpu-idle.sh
 ../../scripts/run-go-task-with-limits.sh go run verify_codegen.go
-../../scripts/run-go-task-with-limits.sh go run . --table demo_article --dry-run --manifest-out /tmp/baseadmin-codegen-manifest.json
+../../scripts/run-go-task-with-limits.sh go run . --table demo_customer --dry-run --manifest-out /tmp/baseadmin-codegen-manifest.json
 ```
 
 有 MySQL 且需要端到端验证：

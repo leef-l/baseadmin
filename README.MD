@@ -1,9 +1,10 @@
 # GBaseAdmin
 
-这是一个精简后的后台基础框架仓库，只保留：
+后台基础框架仓库，保留：
 
 - `admin-go/app/system`
 - `admin-go/app/upload`
+- `admin-go/app/demo`（codegen 生成的示例应用，验证生成器全场景覆盖）
 - `vue-vben-admin/apps/web-antd/src/`
 - `admin-go/codegen/`
 
@@ -11,7 +12,8 @@
 
 - `system`：`auth`、`dept`、`role`、`menu`、`users`、`tenant`、`merchant`、`domain`、`daemon`，以及公开探活 `healthz` / `readyz`
 - `upload`：`config`、`dir`、`dir_rule`、`file`、`uploader`，以及公开探活 `healthz` / `readyz`
-- `web-antd` 页面：`views/system/{dept,menu,role,users,tenant,merchant,domain,daemon}`、`views/upload/{config,dir,dir_rule,file}`
+- `demo`：`appointment`、`audit_log`、`campaign`、`category`、`contract`、`customer`、`order`、`product`、`survey`、`work_order`（codegen 全场景覆盖示例）
+- `web-antd` 页面：`views/system/{dept,menu,role,users,tenant,merchant,domain,daemon}`、`views/upload/{config,dir,dir_rule,file}`、`views/demo/{appointment,audit_log,campaign,category,contract,customer,order,product,survey,work_order}`
 - 上传复用组件：`components/file-manager`、`components/upload`、`components/tinymce`、`components/json-editor`
 
 详细说明统一放在 `docs/` 目录，新人从代码库导读开始读：
@@ -20,6 +22,7 @@
 - [文档索引](docs/README.md)
 - [System 应用说明](admin-go/app/system/README.MD)
 - [Upload 应用说明](admin-go/app/upload/README.MD)
+- [Demo 应用说明](admin-go/app/demo/README.MD)
 - [代码生成器说明](admin-go/codegen/README.md)
 - [Codegen AI 执行手册](admin-go/codegen/docs/Codegen-AI执行手册.md)
 - [SaaS 多租户与域名说明](docs/SaaS多租户与域名说明.md)

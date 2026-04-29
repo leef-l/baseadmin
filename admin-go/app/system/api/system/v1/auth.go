@@ -44,6 +44,13 @@ type AuthIssueTicketRes struct {
 	ExpiresIn int    `json:"expiresIn"`
 }
 
+// 登出
+type AuthLogoutReq struct {
+	g.Meta `path:"/auth/logout" method:"post" tags:"认证" summary:"退出登录"`
+}
+
+type AuthLogoutRes struct{}
+
 // 获取当前用户信息
 type AuthInfoReq struct {
 	g.Meta `path:"/auth/info" method:"get" tags:"认证" summary:"获取当前用户信息"`

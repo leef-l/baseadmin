@@ -106,7 +106,11 @@ func (s *snowflakeGen) generate() int64 {
 	if now == s.timestamp {
 		s.sequence = (s.sequence + 1) & sequenceMax
 		if s.sequence == 0 {
-			for now <= s.timestamp {
+			for retries := 0; now <= s.timestamp; retries++ {
+				if retries > 1000 {
+					panic("snowflake: 等待下一毫秒超时，可能存在时钟故障")
+				}
+				time.Sleep(100 * time.Microsecond)
 				now = s.currentTimestamp()
 			}
 		}

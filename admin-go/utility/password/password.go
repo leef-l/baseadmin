@@ -28,6 +28,21 @@ func Verify(stored, plain string) bool {
 	return stored == gsha256.Encrypt(plain)
 }
 
+// 预计算的 bcrypt hash，用于 DummyVerify 的恒定时间消耗。
+// 即使 bcrypt.GenerateFromPassword 理论上失败，硬编码兜底也能保证非 nil。
+var dummyHash = func() []byte {
+	h, err := bcrypt.GenerateFromPassword([]byte("dummy-timing-pad"), bcrypt.DefaultCost)
+	if err != nil {
+		h = []byte("$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy")
+	}
+	return h
+}()
+
+// DummyVerify 执行一次虚拟 bcrypt 验证，用于防止时序攻击探测用户是否存在。
+func DummyVerify(plain string) {
+	_ = bcrypt.CompareHashAndPassword(dummyHash, []byte(plain))
+}
+
 // NeedsRehash 判断是否需要升级为 bcrypt 摘要。
 func NeedsRehash(stored string) bool {
 	stored = normalizeStoredHash(stored)

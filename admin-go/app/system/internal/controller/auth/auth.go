@@ -2,8 +2,10 @@ package auth
 
 import (
 	"context"
+	"strings"
 
 	"github.com/gogf/gf/v2/errors/gerror"
+	"github.com/gogf/gf/v2/frame/g"
 
 	v1 "gbaseadmin/app/system/api/system/v1"
 	"gbaseadmin/app/system/internal/model"
@@ -76,6 +78,22 @@ func (c *cAuth) IssueTicket(ctx context.Context, req *v1.AuthIssueTicketReq) (re
 		ExpiresIn: out.ExpiresIn,
 	}
 	return
+}
+
+// Logout 退出登录
+func (c *cAuth) Logout(ctx context.Context, req *v1.AuthLogoutReq) (res *v1.AuthLogoutRes, err error) {
+	claims := GetClaims(ctx)
+	if claims == nil {
+		return nil, gerror.New("unauthorized")
+	}
+	tokenStr := ""
+	if r := g.RequestFromCtx(ctx); r != nil {
+		tokenStr = r.GetHeader("Authorization")
+		tokenStr = strings.TrimPrefix(tokenStr, "Bearer ")
+		tokenStr = strings.TrimSpace(tokenStr)
+	}
+	_ = service.Auth().Logout(ctx, tokenStr, claims)
+	return &v1.AuthLogoutRes{}, nil
 }
 
 // Info 获取当前用户信息

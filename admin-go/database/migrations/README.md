@@ -37,6 +37,8 @@ go run ./cmd/migrate create add_system_logs
 | `000012` | `add_domain_ssl_permission` | 补域名 SSL 申请按钮权限 |
 | `000013` | `add_system_daemon` | 新增守护进程表，补守护进程菜单和按钮权限 |
 | `000014` | `add_scope_fields_to_upload_and_system` | 为上传管理和系统管理补齐租户、商户归属字段 |
+| `000015` | `add_rich_demo_app` | demo 体验应用 10 张表（category/customer/product/campaign/order/work_order/contract/survey/appointment/audit_log）和菜单种子 |
+| `000016` | `fix_domain_verify_status_default` | 修复域名 verify_status 默认值 |
 
 ## SaaS 迁移约定
 

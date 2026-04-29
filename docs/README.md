@@ -10,6 +10,7 @@
 
 - [System 应用说明](../admin-go/app/system/README.MD)
 - [Upload 应用说明](../admin-go/app/upload/README.MD)
+- [Demo 应用说明](../admin-go/app/demo/README.MD) — codegen 全场景示例
 - [SaaS 多租户与域名说明](SaaS多租户与域名说明.md)
 - [守护进程管理说明](守护进程管理说明.md)
 - [代码生成器说明](../admin-go/codegen/README.md)

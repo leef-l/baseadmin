@@ -274,6 +274,14 @@ function handleResetPassword(row: UsersItem) {
         message.warning('请输入新密码');
         return Promise.reject(new Error('请输入新密码'));
       }
+      if (newPassword.length < 8) {
+        message.warning('密码长度不能少于8位');
+        return Promise.reject(new Error('密码长度不能少于8位'));
+      }
+      if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
+        message.warning('密码需包含大写字母、小写字母和数字');
+        return Promise.reject(new Error('密码需包含大写字母、小写字母和数字'));
+      }
       await resetUsersPassword({ id: row.id, password: newPassword });
       message.success('密码重置成功');
     },

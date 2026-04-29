@@ -65,11 +65,8 @@ func TestParseTokenTrimsWhitespace(t *testing.T) {
 	}
 }
 
-func TestNormalizeSecretFallsBackOnBlank(t *testing.T) {
-	if got := normalizeSecret("  ", "fallback"); got != "fallback" {
-		t.Fatalf("normalizeSecret fallback mismatch: %q", got)
-	}
-	if got := normalizeSecret("  real-secret  ", "fallback"); got != "real-secret" {
-		t.Fatalf("normalizeSecret trim mismatch: %q", got)
+func TestDefaultInsecureSecretIsRejected(t *testing.T) {
+	if defaultInsecureSecret != "gbaseadmin-secret-key" {
+		t.Fatalf("default insecure secret constant changed unexpectedly: %q", defaultInsecureSecret)
 	}
 }

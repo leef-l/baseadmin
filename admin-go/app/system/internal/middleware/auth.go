@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 
 	"gbaseadmin/app/system/internal/logic/shared"
@@ -36,6 +37,11 @@ func Auth(r *ghttp.Request) {
 		return
 	}
 
+	if jwt.IsBlacklisted(r.Context(), tokenStr) {
+		response.Unauthorized(r, "Token已注销")
+		return
+	}
+
 	// 将用户信息写入 context
 	r.SetCtxVar("jwt_user_id", claims.UserID)
 	r.SetCtxVar("jwt_username", claims.Username)
@@ -56,6 +62,7 @@ func Auth(r *ghttp.Request) {
 		}
 		allowed, err := authz.HasPermission(r.Context(), claims.UserID, permission)
 		if err != nil {
+			g.Log().Warningf(r.Context(), "authz check failed for user %d permission %s: %v", claims.UserID, permission, err)
 			response.Forbidden(r, "权限校验失败")
 			return
 		}
@@ -127,7 +134,7 @@ func resolveSystemPermission(method, path string) string {
 
 func isAllowedAuthAction(action string) bool {
 	switch action {
-	case "login", "ticket-login", "ticket", "info", "menus", "change-password":
+	case "login", "ticket-login", "ticket", "info", "menus", "change-password", "logout":
 		return true
 	default:
 		return false

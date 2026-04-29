@@ -44,9 +44,11 @@ AI/代理处理 codegen 前必须先读：
 | `upload_file` | upload | file |
 | `upload_config` | upload | config |
 | `upload_dir_rule` | upload | dir_rule |
-| `demo_demo` | demo | demo |
+| `demo_category` | demo | category |
+| `demo_customer` | demo | customer |
+| `demo_order` | demo | order |
 
-代码生成器根据第一个 `_` 拆分表名，前半部分为应用名，后半部分为模块名。
+代��生成器根据第一个 `_` 拆分表名，前半部分为应用名，后半部分为模块名���
 
 ## 使用方法
 
@@ -227,6 +229,11 @@ backend:
 frontend:
   output: ../../vue-vben-admin/apps/web-antd/src/
 
+allowed_apps:                 # 允许生成的应用列表
+  - system
+  - upload
+  - demo
+
 skip_fields:                  # 这些字段在表单中隐藏，不生成前端组件
   - created_at
   - updated_at
@@ -234,28 +241,38 @@ skip_fields:                  # 这些字段在表单中隐藏，不生成前端
   - created_by
   - dept_id
 
-allow_missing_dict_module: false # true 时，带 dict 字段的前端页面会内联空字典兜底，不再强依赖 system/dict API
-
 menu_apps:                    # 菜单应用目录配置（新增应用在此添加即可）
   system:
     title: 系统管理
     icon: SettingOutlined
+    sort: 10
   upload:
     title: 上传管理
     icon: CloudUploadOutlined
+    sort: 20
+  demo:
+    title: Demo体验
+    icon: ExperimentOutlined
+    sort: 90
 
-menu_modules:                 # 模块级菜单配置（可选）
-  upload/file:
-    icon: FileTextOutlined
-  upload/dir_rule:
-    icon: PartitionOutlined
+menu_modules:                 # 模块级菜��配置（可选，key 格式: 应用名/��块名）
+  demo/category:
+    sort: 10
+    icon: ApartmentOutlined
+  demo/customer:
+    sort: 20
+    icon: UserOutlined
+
+operation_log: false          # 生成的 CRUD 方法是否自动记录操作日志
+
+allow_missing_dict_module: false # 字典兜底开关，见下方说明
 ```
 
 补充说明：
 
-- 默认仍要求仓库里存在 `#/api/system/dict`；这是正常业务场景。
-- 只有在当前精简仓库明确不保留字典模块、但又需要验证带 `dict:` 字段的 codegen 输出时，才把 `allow_missing_dict_module` 设为 `true`。
-- 打开该开关后，生成的前端页面会内联一个返回空数组的 `getDictByType()` 兜底实现，保证模板可生成、可编译，但不会自动提供真实字典数据。
+- `allowed_apps`：限定 codegen 允许生成的应用列表，表名前缀不在列表内时拒绝生成。
+- `operation_log`：控制生成的 CRUD 方法是否自动记录操作日志，默认关闭。
+- `allow_missing_dict_module`：默认要求仓库里存在 `#/api/system/dict`（正常业务场景）。只有在精简仓库不保留字典模块、又需要验证带 `dict:` 字段的 codegen 输出时，才设为 `true`。打开后生成的前端页面会内联一个返回空数组的 `getDictByType()` 兜底实现。
 
 ### 环境变量支持
 
