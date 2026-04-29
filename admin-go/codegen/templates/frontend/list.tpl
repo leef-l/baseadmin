@@ -256,7 +256,7 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
 {{- if and $.HasTenantScope $isScopeField}}
     ] : []),
 {{- end}}
-{{- if not (or (eq .Component "RichText") (eq .Component "JsonEditor"))}}
+{{- if not (or (eq .Component "RichText") (eq .Component "JsonEditor") (and $.HasTenantScope $isScopeField))}}
 {{- $firstDataCol = false}}
 {{- end}}
 {{- end}}

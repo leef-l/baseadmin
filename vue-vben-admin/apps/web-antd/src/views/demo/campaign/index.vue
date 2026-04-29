@@ -592,12 +592,12 @@ function handleBatchUpdateStatus() {
     />
     <Grid>
       <template #toolbar-actions>
-        <Button v-auth="['demo:campaign:create']" type="primary" @click="handleCreate">新建</Button>
-        <Button v-auth="['demo:campaign:batch-delete']" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
-        <Button v-auth="['demo:campaign:export']" class="ml-2" @click="handleExport">导出</Button>
-        <Button v-auth="['demo:campaign:import']" class="ml-2" @click="handleImportTrigger">导入</Button>
+        <Button v-access:code="'demo:campaign:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'demo:campaign:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
+        <Button v-access:code="'demo:campaign:export'" class="ml-2" @click="handleExport">导出</Button>
+        <Button v-access:code="'demo:campaign:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
         <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
-        <Button v-auth="['demo:campaign:batch-update']" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
+        <Button v-access:code="'demo:campaign:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
       </template>
       <template #banner_cell="{ row }">
         <img v-if="row.banner" :src="row.banner" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
@@ -628,9 +628,9 @@ function handleBatchUpdateStatus() {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button v-auth="['demo:campaign:detail']" type="link" size="small" @click="handleView(row)">查看</Button>
-        <Button v-auth="['demo:campaign:update']" type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button v-auth="['demo:campaign:delete']" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <Button v-access:code="'demo:campaign:detail'" type="link" size="small" @click="handleView(row)">查看</Button>
+        <Button v-access:code="'demo:campaign:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+        <Button v-access:code="'demo:campaign:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
       </template>
     </Grid>
   </Page>

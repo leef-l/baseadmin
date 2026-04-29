@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { isPlatformSuperAdminUser } from '@/utils/auth-scope';
 import { useVbenModal } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
 import { message } from 'ant-design-vue';
@@ -126,12 +127,14 @@ const [Form, formApi] = useVbenForm({
     },
     {
       component: 'Select',
+      ifShow: () => isPlatformSuperAdminUser(),
       fieldName: 'tenantID',
       label: '租户',
       componentProps: { options: [], placeholder: '请选择租户', allowClear: true, class: 'w-full' },
     },
     {
       component: 'Select',
+      ifShow: () => isPlatformSuperAdminUser(),
       fieldName: 'merchantID',
       label: '商户',
       componentProps: { options: [], placeholder: '请选择商户', allowClear: true, class: 'w-full' },

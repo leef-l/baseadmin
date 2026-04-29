@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 
 	"gbaseadmin/app/system/internal/dao"
@@ -24,7 +25,7 @@ func DomainContext(r *ghttp.Request) {
 	}
 	if host != "" {
 		var row domainScopeRow
-		_ = dao.Domain.Ctx(r.Context()).
+		err := dao.Domain.Ctx(r.Context()).
 			Fields(
 				dao.Domain.Columns().Domain,
 				dao.Domain.Columns().OwnerType+" AS ownerType",
@@ -38,6 +39,9 @@ func DomainContext(r *ghttp.Request) {
 			Where(dao.Domain.Columns().Status, 1).
 			Where(dao.Domain.Columns().DeletedAt, nil).
 			Scan(&row)
+		if err != nil {
+			g.Log().Errorf(r.Context(), "DomainContext: query failed for host %s: %v", host, err)
+		}
 		if row.Domain != "" {
 			r.SetCtxVar("domain_scope_matched", true)
 			r.SetCtxVar("domain_scope_domain", row.Domain)

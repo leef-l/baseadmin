@@ -626,7 +626,7 @@ func loadUploadConfigByURL(ctx context.Context, storage int, fileURL string) (*e
 	var configs []*entity.UploadConfig
 	m := dao.UploadConfig.Ctx(ctx).
 		Where(dao.UploadConfig.Columns().Storage, storage).
-		OrderAsc(dao.UploadConfig.Columns().DeletedAt).
+		Where(dao.UploadConfig.Columns().DeletedAt, nil).
 		OrderDesc(dao.UploadConfig.Columns().Id)
 	m = shared.ApplyTenantScopeToModel(ctx, m, shared.ColumnTenantID, shared.ColumnMerchantID)
 	if err := m.Scan(&configs); err != nil {

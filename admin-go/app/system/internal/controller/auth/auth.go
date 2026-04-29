@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 
+	"github.com/gogf/gf/v2/errors/gerror"
+
 	v1 "gbaseadmin/app/system/api/system/v1"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
@@ -58,7 +60,7 @@ func (c *cAuth) TicketLogin(ctx context.Context, req *v1.AuthTicketLoginReq) (re
 func (c *cAuth) IssueTicket(ctx context.Context, req *v1.AuthIssueTicketReq) (res *v1.AuthIssueTicketRes, err error) {
 	claims := GetClaims(ctx)
 	if claims == nil {
-		return nil, nil
+		return nil, gerror.New("unauthorized")
 	}
 	out, err := service.Auth().IssueTicket(ctx, &model.AuthIssueTicketInput{
 		UserID:    snowflake.JsonInt64(claims.UserID),
@@ -80,7 +82,7 @@ func (c *cAuth) IssueTicket(ctx context.Context, req *v1.AuthIssueTicketReq) (re
 func (c *cAuth) Info(ctx context.Context, req *v1.AuthInfoReq) (res *v1.AuthInfoRes, err error) {
 	claims := GetClaims(ctx)
 	if claims == nil {
-		return nil, nil
+		return nil, gerror.New("unauthorized")
 	}
 	out, err := service.Auth().Info(ctx, snowflake.JsonInt64(claims.UserID))
 	if err != nil {
@@ -107,7 +109,7 @@ func (c *cAuth) Info(ctx context.Context, req *v1.AuthInfoReq) (res *v1.AuthInfo
 func (c *cAuth) ChangePassword(ctx context.Context, req *v1.AuthChangePasswordReq) (res *v1.AuthChangePasswordRes, err error) {
 	claims := GetClaims(ctx)
 	if claims == nil {
-		return nil, nil
+		return nil, gerror.New("unauthorized")
 	}
 	err = service.Auth().ChangePassword(ctx, &model.AuthChangePasswordInput{
 		UserID:      snowflake.JsonInt64(claims.UserID),
@@ -121,7 +123,7 @@ func (c *cAuth) ChangePassword(ctx context.Context, req *v1.AuthChangePasswordRe
 func (c *cAuth) Menus(ctx context.Context, req *v1.AuthMenusReq) (res *v1.AuthMenusRes, err error) {
 	claims := GetClaims(ctx)
 	if claims == nil {
-		return nil, nil
+		return nil, gerror.New("unauthorized")
 	}
 	menus, err := service.Auth().Menus(ctx, snowflake.JsonInt64(claims.UserID))
 	if err != nil {

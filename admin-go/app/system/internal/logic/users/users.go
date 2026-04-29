@@ -85,6 +85,7 @@ func (s *sUsers) Create(ctx context.Context, in *model.UsersCreateInput) error {
 			DeptId:     in.DeptID,
 			TenantId:   in.TenantID,
 			MerchantId: in.MerchantID,
+			CreatedBy:  in.CreatedBy,
 		}).Insert()
 		if err != nil {
 			return err

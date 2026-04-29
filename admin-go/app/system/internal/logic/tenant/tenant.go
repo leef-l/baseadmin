@@ -364,6 +364,7 @@ func (s *sTenant) ensureDeletable(ctx context.Context, id snowflake.JsonInt64) e
 		{dao.Users.Table(), dao.Users.Columns().TenantId, "当前租户下存在用户，不能删除"},
 		{dao.Dept.Table(), dao.Dept.Columns().TenantId, "当前租户下存在部门，不能删除"},
 		{dao.Role.Table(), dao.Role.Columns().TenantId, "当前租户下存在角色，不能删除"},
+		{dao.Domain.Table(), dao.Domain.Columns().TenantId, "当前租户下存在域名绑定，不能删除"},
 	}
 	for _, item := range tables {
 		count, err := dao.Tenant.DB().Model(item.name).Ctx(ctx).

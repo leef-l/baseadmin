@@ -389,10 +389,10 @@ function handleBatchUpdateStatus() {
     <DetailDrawerComp />
     <Grid>
       <template #toolbar-actions>
-        <Button v-auth="['demo:category:create']" type="primary" @click="handleCreate">新建</Button>
-        <Button v-auth="['demo:category:batch-delete']" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
-        <Button v-auth="['demo:category:export']" class="ml-2" @click="handleExport">导出</Button>
-        <Button v-auth="['demo:category:batch-update']" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
+        <Button v-access:code="'demo:category:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'demo:category:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
+        <Button v-access:code="'demo:category:export'" class="ml-2" @click="handleExport">导出</Button>
+        <Button v-access:code="'demo:category:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
       </template>
       <template #status_cell="{ row }">
         <Tag :color="getStatusColor(row.status)">
@@ -400,9 +400,9 @@ function handleBatchUpdateStatus() {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button v-auth="['demo:category:detail']" type="link" size="small" @click="handleView(row)">查看</Button>
-        <Button v-auth="['demo:category:update']" type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button v-auth="['demo:category:delete']" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <Button v-access:code="'demo:category:detail'" type="link" size="small" @click="handleView(row)">查看</Button>
+        <Button v-access:code="'demo:category:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+        <Button v-access:code="'demo:category:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
       </template>
     </Grid>
   </Page>

@@ -53,8 +53,24 @@ type DomainDetailOutput struct {
 	UpdatedAt    *gtime.Time         `json:"updatedAt"`
 }
 
-// DomainListOutput 域名绑定列表输出
-type DomainListOutput = DomainDetailOutput
+// DomainListOutput 域名绑定列表输出（不含 VerifyToken）
+type DomainListOutput struct {
+	ID           snowflake.JsonInt64 `json:"id"`
+	Domain       string              `json:"domain"`
+	OwnerType    int                 `json:"ownerType"`
+	TenantID     snowflake.JsonInt64 `json:"tenantId"`
+	TenantName   string              `json:"tenantName"`
+	MerchantID   snowflake.JsonInt64 `json:"merchantId"`
+	MerchantName string              `json:"merchantName"`
+	AppCode      string              `json:"appCode"`
+	VerifyStatus int                 `json:"verifyStatus"`
+	SslStatus    int                 `json:"sslStatus"`
+	NginxStatus  int                 `json:"nginxStatus"`
+	Status       int                 `json:"status"`
+	Remark       string              `json:"remark"`
+	CreatedAt    *gtime.Time         `json:"createdAt"`
+	UpdatedAt    *gtime.Time         `json:"updatedAt"`
+}
 
 // DomainListInput 域名绑定列表查询输入
 type DomainListInput struct {

@@ -406,6 +406,7 @@ func (s *sMerchant) ensureDeletable(ctx context.Context, id snowflake.JsonInt64)
 		{dao.Users.Table(), dao.Users.Columns().MerchantId, "当前商户下存在用户，不能删除"},
 		{dao.Dept.Table(), dao.Dept.Columns().MerchantId, "当前商户下存在部门，不能删除"},
 		{dao.Role.Table(), dao.Role.Columns().MerchantId, "当前商户下存在角色，不能删除"},
+		{dao.Domain.Table(), dao.Domain.Columns().MerchantId, "当前商户下存在域名绑定，不能删除"},
 	}
 	for _, item := range tables {
 		count, err := dao.Merchant.DB().Model(item.name).Ctx(ctx).

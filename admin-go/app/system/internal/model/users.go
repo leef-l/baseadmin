@@ -19,6 +19,7 @@ type UsersCreateInput struct {
 	DeptID     snowflake.JsonInt64   `json:"deptId"`
 	TenantID   snowflake.JsonInt64   `json:"tenantId"`
 	MerchantID snowflake.JsonInt64   `json:"merchantId"`
+	CreatedBy  snowflake.JsonInt64   `json:"createdBy"`
 	RoleIDs    []snowflake.JsonInt64 `json:"roleIds"`
 }
 

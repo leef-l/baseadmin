@@ -3,6 +3,8 @@ package users
 import (
 	"context"
 
+	"github.com/gogf/gf/v2/frame/g"
+
 	v1 "gbaseadmin/app/system/api/system/v1"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/service"
@@ -13,8 +15,9 @@ var Users = cUsers{}
 
 type cUsers struct{}
 
-// Create 创建用户表
+// Create 创建用��表
 func (c *cUsers) Create(ctx context.Context, req *v1.UsersCreateReq) (res *v1.UsersCreateRes, err error) {
+	createdBy := snowflake.JsonInt64(g.RequestFromCtx(ctx).GetCtxVar("jwt_user_id").Int64())
 	err = service.Users().Create(ctx, &model.UsersCreateInput{
 		Username:   req.Username,
 		Password:   req.Password,
@@ -25,6 +28,7 @@ func (c *cUsers) Create(ctx context.Context, req *v1.UsersCreateReq) (res *v1.Us
 		DeptID:     req.DeptID,
 		TenantID:   req.TenantID,
 		MerchantID: req.MerchantID,
+		CreatedBy:  createdBy,
 		RoleIDs:    req.RoleIDs,
 	})
 	return

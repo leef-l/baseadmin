@@ -628,6 +628,10 @@ func markTicketUsedLocal(key string, ttl time.Duration) bool {
 	if expiresAt, ok := localTicketReplay[key]; ok && expiresAt.After(now) {
 		return true
 	}
+	const maxLocalTicketEntries = 10000
+	if len(localTicketReplay) >= maxLocalTicketEntries {
+		return false
+	}
 	localTicketReplay[key] = now.Add(ttl)
 	return false
 }

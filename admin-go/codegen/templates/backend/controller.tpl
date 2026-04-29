@@ -175,7 +175,7 @@ func (c *c{{.ModelName}}) ImportTemplate(ctx context.Context, req *v1.{{.ModelNa
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="{{.ModuleName}}_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{ {{- $first := true}}{{- range .Fields}}{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField)}}{{if not $first}}, {{end}}"{{.ShortLabel}}"{{$first = false}}{{- end}}{{- end}}})
+	_ = w.Write([]string{ {{- $first := true}}{{- range .Fields}}{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField) (or (not $.HasTenantScope) (and (ne .Name "tenant_id") (ne .Name "merchant_id")))}}{{if not $first}}, {{end}}"{{.ShortLabel}}"{{$first = false}}{{- end}}{{- end}}})
 	w.Flush()
 	return
 }

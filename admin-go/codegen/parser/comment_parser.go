@@ -31,6 +31,7 @@ var enumLabelIdents = map[string]string{
 	"免费": "Free", "付费": "Paid",
 	"公开": "Public", "私密": "Private",
 	"全部": "All", "本部门及以下": "DeptAndBelow", "本部门": "DeptOnly", "仅本人": "SelfOnly", "自定义": "Custom",
+	"内容": "Content", "行为": "Behavior", "申诉": "Appeal",
 }
 
 type CommentMeta struct {

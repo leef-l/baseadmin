@@ -543,10 +543,10 @@ async function handleDownloadTemplate() {
     />
     <Grid>
       <template #toolbar-actions>
-        <Button v-auth="['demo:audit_log:create']" type="primary" @click="handleCreate">新建</Button>
-        <Button v-auth="['demo:audit_log:batch-delete']" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
-        <Button v-auth="['demo:audit_log:export']" class="ml-2" @click="handleExport">导出</Button>
-        <Button v-auth="['demo:audit_log:import']" class="ml-2" @click="handleImportTrigger">导入</Button>
+        <Button v-access:code="'demo:audit_log:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'demo:audit_log:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
+        <Button v-access:code="'demo:audit_log:export'" class="ml-2" @click="handleExport">导出</Button>
+        <Button v-access:code="'demo:audit_log:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
         <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
       </template>
       <template #action_cell="{ row }">
@@ -565,9 +565,9 @@ async function handleDownloadTemplate() {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button v-auth="['demo:audit_log:detail']" type="link" size="small" @click="handleView(row)">查看</Button>
-        <Button v-auth="['demo:audit_log:update']" type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button v-auth="['demo:audit_log:delete']" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <Button v-access:code="'demo:audit_log:detail'" type="link" size="small" @click="handleView(row)">查看</Button>
+        <Button v-access:code="'demo:audit_log:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+        <Button v-access:code="'demo:audit_log:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
       </template>
     </Grid>
   </Page>

@@ -615,12 +615,12 @@ function handleBatchUpdateStatus() {
     />
     <Grid>
       <template #toolbar-actions>
-        <Button v-auth="['demo:work_order:create']" type="primary" @click="handleCreate">新建</Button>
-        <Button v-auth="['demo:work_order:batch-delete']" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
-        <Button v-auth="['demo:work_order:export']" class="ml-2" @click="handleExport">导出</Button>
-        <Button v-auth="['demo:work_order:import']" class="ml-2" @click="handleImportTrigger">导入</Button>
+        <Button v-access:code="'demo:work_order:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'demo:work_order:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
+        <Button v-access:code="'demo:work_order:export'" class="ml-2" @click="handleExport">导出</Button>
+        <Button v-access:code="'demo:work_order:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
         <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
-        <Button v-auth="['demo:work_order:batch-update']" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
+        <Button v-access:code="'demo:work_order:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
       </template>
       <template #priority_cell="{ row }">
         <Tag :color="getPriorityColor(row.priority)">
@@ -642,9 +642,9 @@ function handleBatchUpdateStatus() {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button v-auth="['demo:work_order:detail']" type="link" size="small" @click="handleView(row)">查看</Button>
-        <Button v-auth="['demo:work_order:update']" type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button v-auth="['demo:work_order:delete']" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <Button v-access:code="'demo:work_order:detail'" type="link" size="small" @click="handleView(row)">查看</Button>
+        <Button v-access:code="'demo:work_order:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
+        <Button v-access:code="'demo:work_order:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
       </template>
     </Grid>
   </Page>

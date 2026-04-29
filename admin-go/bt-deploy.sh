@@ -264,10 +264,6 @@ server {
             add_header Cache-Control "no-cache, no-store, must-revalidate";
         }
     }
-    # 根路径回退到后台应用
-    location / {
-        try_files $uri $uri/ /admin/index.html;
-    }
 
     # 安全 Header
     add_header X-Frame-Options "SAMEORIGIN" always;

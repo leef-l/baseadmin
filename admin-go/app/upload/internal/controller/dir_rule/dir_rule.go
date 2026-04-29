@@ -20,6 +20,7 @@ func (c *cDirRule) Create(ctx context.Context, req *v1.DirRuleCreateReq) (res *v
 		FileType:     req.FileType,
 		StorageTypes: req.StorageTypes,
 		SavePath:     req.SavePath,
+		KeepName:     req.KeepName,
 		Status:       req.Status,
 	})
 	return
@@ -34,6 +35,7 @@ func (c *cDirRule) Update(ctx context.Context, req *v1.DirRuleUpdateReq) (res *v
 		FileType:     req.FileType,
 		StorageTypes: req.StorageTypes,
 		SavePath:     req.SavePath,
+		KeepName:     req.KeepName,
 		Status:       req.Status,
 	})
 	return
