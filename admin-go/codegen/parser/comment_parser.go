@@ -163,6 +163,7 @@ func ParseCommentMeta(comment string) CommentMeta {
 	}
 
 	pairs := strings.Split(enumPart, ",")
+	seenValues := make(map[string]struct{})
 	for _, pair := range pairs {
 		pair = strings.TrimSpace(pair)
 		if pair == "" {
@@ -174,9 +175,14 @@ func ParseCommentMeta(comment string) CommentMeta {
 		}
 		val := strings.TrimSpace(pair[:eqIdx])
 		lab := strings.TrimSpace(pair[eqIdx+1:])
-		if val != "" && lab != "" {
-			meta.EnumValues = append(meta.EnumValues, EnumValue{Value: val, Label: lab, NameIdent: labelToIdent(lab)})
+		if val == "" || lab == "" {
+			continue
 		}
+		if _, exists := seenValues[val]; exists {
+			continue
+		}
+		seenValues[val] = struct{}{}
+		meta.EnumValues = append(meta.EnumValues, EnumValue{Value: val, Label: lab, NameIdent: labelToIdent(lab)})
 	}
 
 	return meta

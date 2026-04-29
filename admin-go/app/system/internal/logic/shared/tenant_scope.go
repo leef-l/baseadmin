@@ -147,7 +147,7 @@ func EnsureTenantScopedRowsAccessible(ctx context.Context, m *gdb.Model, ids []s
 		fields = append(fields, merchantIDColumn+" AS merchantId")
 	}
 	var rows []TenantScopedRow
-	if err := m.Fields(fields...).WhereIn(idColumn, ids).Scan(&rows); err != nil {
+	if err := m.Fields(fields...).WhereIn(idColumn, ids).Where("deleted_at", nil).Scan(&rows); err != nil {
 		return err
 	}
 	if len(rows) != len(ids) {

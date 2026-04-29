@@ -415,10 +415,6 @@ func (s *sUserReview) Import(ctx context.Context, file *ghttp.UploadFile) (succe
 
 	rowCount := 0
 	for {
-		if rowCount >= maxImportRows {
-			break
-		}
-		rowCount++
 		record, readErr := reader.Read()
 		if readErr != nil {
 			if readErr == io.EOF {
@@ -428,6 +424,10 @@ func (s *sUserReview) Import(ctx context.Context, file *ghttp.UploadFile) (succe
 		}
 		if len(record) == 0 {
 			continue
+		}
+		rowCount++
+		if rowCount > maxImportRows {
+			break
 		}
 		// 逐行插入
 		id := snowflake.Generate()

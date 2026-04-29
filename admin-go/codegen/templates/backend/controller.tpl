@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 
@@ -11,6 +12,16 @@ import (
 	"gbaseadmin/app/{{.AppName}}/internal/model"
 	"gbaseadmin/app/{{.AppName}}/internal/service"
 )
+
+func csvSafe{{.ModelName}}(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	if strings.ContainsAny(s[:1], "=+-@\t\r") {
+		return "'" + s
+	}
+	return s
+}
 
 var {{.ModelName}} = c{{.ModelName}}{}
 
@@ -135,11 +146,11 @@ func (c *c{{.ModelName}}) Export(ctx context.Context, req *v1.{{.ModelName}}Expo
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (not .IsPassword)}}
 {{- if .RefFieldJSON}}
-			item.{{.RefFieldName}},
+			csvSafe{{$.ModelName}}(item.{{.RefFieldName}}),
 {{- else if eq .GoType "*gtime.Time"}}
 			func() string { if item.{{.NameCamel}} != nil { return item.{{.NameCamel}}.String() }; return "" }(),
 {{- else if eq .GoType "string"}}
-			item.{{.NameCamel}},
+			csvSafe{{$.ModelName}}(item.{{.NameCamel}}),
 {{- else}}
 			fmt.Sprintf("%v", item.{{.NameCamel}}),
 {{- end}}

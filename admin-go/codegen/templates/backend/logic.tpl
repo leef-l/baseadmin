@@ -427,7 +427,7 @@ func (s *s{{.ModelName}}) applyListFilter(ctx context.Context, in *model.{{.Mode
 	}
 {{- if or .HasCreatedBy .HasDeptID}}
 	// 数据权限过滤
-	m = middleware.ApplyDataScope(ctx, m{{if .HasCreatedBy}}, dao.{{.DaoName}}.Columns().CreatedBy{{end}}{{if .HasDeptID}}, dao.{{.DaoName}}.Columns().DeptId{{end}})
+	m = middleware.ApplyDataScope(ctx, m, {{if .HasCreatedBy}}dao.{{.DaoName}}.Columns().CreatedBy{{else}}""{{end}}, {{if .HasDeptID}}dao.{{.DaoName}}.Columns().DeptId{{else}}""{{end}})
 {{- end}}
 	return m
 }
@@ -609,9 +609,9 @@ func (s *s{{.ModelName}}) Tree(ctx context.Context, in *model.{{.ModelName}}Tree
 	}
 {{- if or .HasCreatedBy .HasDeptID}}
 	// 数据权限过滤
-	m = middleware.ApplyDataScope(ctx, m{{if .HasCreatedBy}}, dao.{{.DaoName}}.Columns().CreatedBy{{end}}{{if .HasDeptID}}, dao.{{.DaoName}}.Columns().DeptId{{end}})
+	m = middleware.ApplyDataScope(ctx, m, {{if .HasCreatedBy}}dao.{{.DaoName}}.Columns().CreatedBy{{else}}""{{end}}, {{if .HasDeptID}}dao.{{.DaoName}}.Columns().DeptId{{else}}""{{end}})
 {{- end}}
-	err = m.{{if .HasSort}}OrderAsc(dao.{{.DaoName}}.Columns().Sort).{{end}}Scan(&list)
+	err = m.{{if .HasSort}}OrderAsc(dao.{{.DaoName}}.Columns().Sort).{{end}}Limit(5000).Scan(&list)
 	if err != nil {
 		return
 	}
@@ -738,10 +738,6 @@ func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (s
 
 	rowCount := 0
 	for {
-		if rowCount >= maxImportRows {
-			break
-		}
-		rowCount++
 		record, readErr := reader.Read()
 		if readErr != nil {
 			if readErr == io.EOF {
@@ -751,6 +747,10 @@ func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (s
 		}
 		if len(record) == 0 {
 			continue
+		}
+		rowCount++
+		if rowCount > maxImportRows {
+			break
 		}
 		// 逐行插入
 		id := snowflake.Generate()

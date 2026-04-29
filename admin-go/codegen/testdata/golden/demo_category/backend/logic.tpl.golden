@@ -454,7 +454,7 @@ func (s *sCategory) Tree(ctx context.Context, in *model.CategoryTreeInput) (tree
 	}
 	// 数据权限过滤
 	m = middleware.ApplyDataScope(ctx, m, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId)
-	err = m.OrderAsc(dao.DemoCategory.Columns().Sort).Scan(&list)
+	err = m.OrderAsc(dao.DemoCategory.Columns().Sort).Limit(5000).Scan(&list)
 	if err != nil {
 		return
 	}

@@ -99,10 +99,10 @@ type {{.ModelName}}DetailRes struct {
 // {{.ModelName}}ListReq 获取{{.Comment}}列表请求
 type {{.ModelName}}ListReq struct {
 	g.Meta    `path:"/{{.ModuleName}}/list" method:"get" tags:"{{.Comment}}" summary:"获取{{.Comment}}列表"`
-	PageNum   int    `json:"pageNum" d:"1" dc:"页码"`
-	PageSize  int    `json:"pageSize" d:"10" dc:"每页数量"`
+	PageNum   int    `json:"pageNum" d:"1" v:"min:1" dc:"页码"`
+	PageSize  int    `json:"pageSize" d:"10" v:"between:1,500" dc:"每页数量"`
 	OrderBy   string `json:"orderBy" dc:"排序字段"`
-	OrderDir  string `json:"orderDir" d:"desc" dc:"排序方向:asc/desc"`
+	OrderDir  string `json:"orderDir" d:"desc" v:"in:asc,desc" dc:"排序方向:asc/desc"`
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 {{- if .HasKeywordSearch}}

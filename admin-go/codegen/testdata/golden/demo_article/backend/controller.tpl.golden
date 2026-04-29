@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 
@@ -11,6 +12,16 @@ import (
 	"gbaseadmin/app/demo/internal/model"
 	"gbaseadmin/app/demo/internal/service"
 )
+
+func csvSafeArticle(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	if strings.ContainsAny(s[:1], "=+-@\t\r") {
+		return "'" + s
+	}
+	return s
+}
 
 var Article = cArticle{}
 
@@ -178,30 +189,30 @@ func (c *cArticle) Export(ctx context.Context, req *v1.ArticleExportReq) (res *v
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
-			item.CategoryName,
-			item.UsersUsername,
-			item.Title,
-			item.OrderNo,
-			item.Cover,
-			item.AttachmentFile,
-			item.BodyContent,
-			item.ExtraJSON,
-			item.LinkURL,
+			csvSafeArticle(item.CategoryName),
+			csvSafeArticle(item.UsersUsername),
+			csvSafeArticle(item.Title),
+			csvSafeArticle(item.OrderNo),
+			csvSafeArticle(item.Cover),
+			csvSafeArticle(item.AttachmentFile),
+			csvSafeArticle(item.BodyContent),
+			csvSafeArticle(item.ExtraJSON),
+			csvSafeArticle(item.LinkURL),
 			fmt.Sprintf("%v", item.Status),
 			fmt.Sprintf("%v", item.Type),
 			fmt.Sprintf("%v", item.IsTop),
 			fmt.Sprintf("%v", item.Price),
 			fmt.Sprintf("%v", item.Sort),
-			item.Icon,
-			item.Email,
-			item.Phone,
-			item.Remark,
-			item.Level,
-			item.ExtraField,
+			csvSafeArticle(item.Icon),
+			csvSafeArticle(item.Email),
+			csvSafeArticle(item.Phone),
+			csvSafeArticle(item.Remark),
+			csvSafeArticle(item.Level),
+			csvSafeArticle(item.ExtraField),
 			func() string { if item.PublishAt != nil { return item.PublishAt.String() }; return "" }(),
 			func() string { if item.ExpireAt != nil { return item.ExpireAt.String() }; return "" }(),
-			item.TenantName,
-			item.MerchantName,
+			csvSafeArticle(item.TenantName),
+			csvSafeArticle(item.MerchantName),
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}
