@@ -798,7 +798,7 @@ func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (s
 		}
 		rowCount++
 		if rowCount > maxImportRows {
-			break
+			return success, fail, fmt.Errorf("导入数据超过 %d 行上限，已处理 %d 条成功、%d 条失败", maxImportRows, success, fail)
 		}
 		// 逐行插入
 		id := snowflake.Generate()

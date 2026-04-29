@@ -332,7 +332,9 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			chk(strings.Contains(output, "downloadFileFromBlob"), "list 应使用 vben 下载工具")
 			chk(strings.Contains(output, "const sortableFieldMap"), "list 缺少排序字段映射")
 			chk(strings.Contains(output, "resolveSortField"), "list 缺少排序字段转换 helper")
-			chk(strings.Contains(output, "getSortColumns"), "list 导出应读取当前表格排序状态")
+			if !meta.HasParentID {
+				chk(strings.Contains(output, "getSortColumns"), "list 导出应读取当前表格排序状态")
+			}
 			chk(strings.Contains(output, "useAccess"), "list 缺少 useAccess 权限能力")
 			chk(strings.Contains(output, "const canBatchDelete = hasAccessByCodes(['"+meta.AppName+":"+meta.ModuleName+":batch-delete'])"), "list 缺少 batch-delete 权限判断")
 			chk(strings.Contains(output, "checkboxConfig: canBatchDelete ? { highlight: true } : undefined"), "list 复选框高亮必须跟 batch-delete 权限绑定")
@@ -379,6 +381,7 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 				}
 			} else {
 				chk(!strings.Contains(output, "sortConfig"), "树形表不应生成远程排序配置 sortConfig")
+				chk(!strings.Contains(output, "sortable: true"), "树形表列不应标记 sortable")
 			}
 			if meta.HasBatchEdit {
 				chk(strings.Contains(output, "handleBatchUpdateStatus"), "缺少 handleBatchUpdateStatus")

@@ -414,7 +414,7 @@ function handleBatchUpdateStatus() {
         <Button v-access:code="'demo:tag:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
         <Button v-access:code="'demo:tag:export'" class="ml-2" @click="handleExport">导出</Button>
         <Button v-access:code="'demo:tag:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
-        <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-access:code="'demo:tag:import'" class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
         <Button v-access:code="'demo:tag:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
       </template>
       <template #status_cell="{ row }">

@@ -246,6 +246,9 @@ const [Modal, modalApi] = useVbenModal({
       | ArticleCreateParams
       | undefined;
     if (!values) return;
+    if (isEdit.value && !values.payPassword) {
+      delete (values as any).payPassword;
+    }
     if (values.price != null) {
       (values as any).price = Math.round(Number(values.price) * 100);
     }

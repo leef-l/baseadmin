@@ -247,7 +247,7 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
 {{- if .RefFieldJSON}}
     { field: '{{.RefFieldJSON}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
 {{- else if .IsEnum}}
-    { field: '{{.NameLower}}', title: '{{.ShortLabel}}', width: 120, slots: { default: '{{.NameLower}}_cell' }{{if and $isTree $firstDataCol}}, treeNode: true{{end}}{{if $isSortable}}, sortable: true{{end}} },
+    { field: '{{.NameLower}}', title: '{{.ShortLabel}}', width: 120, slots: { default: '{{.NameLower}}_cell' }{{if and $isTree $firstDataCol}}, treeNode: true{{end}}{{if and $isSortable (not $isTree)}}, sortable: true{{end}} },
 {{- else if eq .Component "ImageUpload"}}
     { field: '{{.NameLower}}', title: '{{.ShortLabel}}', width: 100, slots: { default: '{{.NameLower}}_cell' }{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
 {{- else if eq .Component "InputUrl"}}
@@ -257,9 +257,9 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
 {{- else if or (eq .Component "RichText") (eq .Component "JsonEditor")}}
 {{- /* 富文本和JSON字段不在列表中显示，不消耗 firstDataCol */}}
 {{- else if .IsMoney}}
-    { field: '{{.NameLower}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}, width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-'{{if and $isTree $firstDataCol}}, treeNode: true{{end}}, sortable: true },
+    { field: '{{.NameLower}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}, width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-'{{if and $isTree $firstDataCol}}, treeNode: true{{end}}{{if not $isTree}}, sortable: true{{end}} },
 {{- else}}
-    { field: '{{.NameLower}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}{{if and $isTree $firstDataCol}}, treeNode: true{{end}}{{if $isSortable}}, sortable: true{{end}} },
+    { field: '{{.NameLower}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}{{if and $isTree $firstDataCol}}, treeNode: true{{end}}{{if and $isSortable (not $isTree)}}, sortable: true{{end}} },
 {{- end}}
 {{- if and $.HasTenantScope $isScopeField}}
     ] : []),
@@ -274,7 +274,7 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
     { field: '{{.NameLower}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}, width: 180, formatter: 'formatDateTime' },
 {{- end}}
 {{- end}}
-    { field: 'createdAt', title: '创建时间', width: 180, formatter: 'formatDateTime', sortable: true },
+    { field: 'createdAt', title: '创建时间', width: 180, formatter: 'formatDateTime'{{if not $isTree}}, sortable: true{{end}} },
     { title: '操作', width: 240, fixed: 'right', slots: { default: 'action' } },
   ],
 {{- if .HasParentID}}
@@ -543,7 +543,9 @@ async function handleExport() {
   try {
     const formValues = await gridApi.formApi.getValues();
     const params: Record<string, any> = { ...formValues };
+{{- if not .HasParentID}}
     const sorts = gridApi.grid?.getSortColumns?.() ?? [];
+{{- end}}
     if (params.timeRange && params.timeRange.length === 2) {
       params.startTime = params.timeRange[0];
       params.endTime = params.timeRange[1];
@@ -567,6 +569,7 @@ async function handleExport() {
     delete params.{{.SearchFormField}};
 {{- end}}
 {{- end}}
+{{- if not .HasParentID}}
     if (sorts.length > 0) {
       const sort = sorts[0];
       if (sort?.field && sort?.order) {
@@ -574,6 +577,7 @@ async function handleExport() {
         params.orderDir = sort.order;
       }
     }
+{{- end}}
     const blob = await export{{.ModelName}}(params);
     downloadFileFromBlob({ fileName: '{{.Comment}}.csv', source: blob as Blob });
     message.success('导出成功');
@@ -668,7 +672,7 @@ function handleBatchUpdateStatus() {
         <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:export'" class="ml-2" @click="handleExport">导出</Button>
 {{- if .HasImport}}
         <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
-        <Button class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:import'" class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
 {{- end}}
 {{- if .HasBatchEdit}}
         <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>

@@ -17,7 +17,7 @@ func csvSafe{{.ModelName}}(s string) string {
 	if len(s) == 0 {
 		return s
 	}
-	if strings.ContainsAny(s[:1], "=+-@\t\r") {
+	if s[0] == 0 || strings.ContainsAny(s[:1], "=+-@\t\r") {
 		return "'" + s
 	}
 	return s

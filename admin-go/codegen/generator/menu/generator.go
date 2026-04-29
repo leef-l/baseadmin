@@ -340,8 +340,8 @@ func (g *Generator) ensureDirectory(store menuStore, appName, path string) (int6
 	}
 
 	_, err = store.Exec(
-		`INSERT INTO system_menu (id, parent_id, title, type, path, component, permission, icon, sort, is_show, is_cache, status, created_by, dept_id, created_at, updated_at)
-		 VALUES (?, 0, ?, ?, ?, NULL, '', ?, ?, 1, 0, 1, 0, 0, NOW(), NOW())`,
+		`INSERT INTO system_menu (id, parent_id, title, type, path, component, permission, icon, sort, is_show, is_cache, status, created_by, dept_id, tenant_id, merchant_id, created_at, updated_at)
+		 VALUES (?, 0, ?, ?, ?, NULL, '', ?, ?, 1, 0, 1, 0, 0, 0, 0, NOW(), NOW())`,
 		id, title, menuTypeDirectory, path, icon, sortVal,
 	)
 	if err != nil {
@@ -385,8 +385,8 @@ func (g *Generator) ensureMenu(store menuStore, parentID int64, title, path, com
 	}
 
 	_, err = store.Exec(
-		`INSERT INTO system_menu (id, parent_id, title, type, path, component, permission, icon, sort, is_show, is_cache, status, created_by, dept_id, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 0, 0, NOW(), NOW())`,
+		`INSERT INTO system_menu (id, parent_id, title, type, path, component, permission, icon, sort, is_show, is_cache, status, created_by, dept_id, tenant_id, merchant_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 0, 0, 0, 0, NOW(), NOW())`,
 		id, parentID, title, menuTypePage, path, component, permission, icon, sort, isShow,
 	)
 	if err != nil {
@@ -430,8 +430,8 @@ func (g *Generator) ensureButton(store menuStore, parentID int64, title, permiss
 	}
 
 	_, err = store.Exec(
-		`INSERT INTO system_menu (id, parent_id, title, type, path, component, permission, icon, sort, is_show, is_cache, status, created_by, dept_id, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, NULL, NULL, ?, '', ?, 0, 0, 1, 0, 0, NOW(), NOW())`,
+		`INSERT INTO system_menu (id, parent_id, title, type, path, component, permission, icon, sort, is_show, is_cache, status, created_by, dept_id, tenant_id, merchant_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, NULL, NULL, ?, '', ?, 0, 0, 1, 0, 0, 0, 0, NOW(), NOW())`,
 		id, parentID, title, menuTypeButton, permission, sort,
 	)
 	if err != nil {
@@ -572,9 +572,17 @@ func dashCase(s string) string {
 	return strings.ReplaceAll(s, "_", "-")
 }
 
+var allowedMenuFields = map[string]bool{
+	"path":       true,
+	"permission": true,
+}
+
 func findMenuID(store menuStore, field string, value any, menuType int) (int64, error) {
 	if store == nil {
 		return 0, sql.ErrConnDone
+	}
+	if !allowedMenuFields[field] {
+		return 0, fmt.Errorf("非法查询字段: %s", field)
 	}
 	var id int64
 	query := fmt.Sprintf("SELECT id FROM system_menu WHERE %s = ? AND type = ? AND deleted_at IS NULL", field)

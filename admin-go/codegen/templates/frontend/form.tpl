@@ -372,6 +372,13 @@ const [Modal, modalApi] = useVbenModal({
       | {{.ModelName}}CreateParams
       | undefined;
     if (!values) return;
+{{- range .Fields}}
+{{- if .IsPassword}}
+    if (isEdit.value && !values.{{.NameLower}}) {
+      delete (values as any).{{.NameLower}};
+    }
+{{- end}}
+{{- end}}
 {{- if .HasMoney}}
 {{- range .Fields}}
 {{- if and .IsMoney (not .IsHidden)}}
@@ -429,6 +436,9 @@ const [Modal, modalApi] = useVbenModal({
 {{- if and .IsForeignKey (not .IsHidden) .RefTable}}
 {{- $isScopeField := and $.HasTenantScope (or (eq .Name "tenant_id") (eq .Name "merchant_id"))}}
 {{- if .RefIsTree}}
+{{- if $isScopeField}}
+    if (isPlatformSuperAdmin.value) {
+{{- end}}
     // 加载{{.Label}}树形数据
     try {
       const {{.RefTableLower}}Res = await get{{.RefTableCamel}}Tree();
@@ -445,6 +455,9 @@ const [Modal, modalApi] = useVbenModal({
     } catch {
       // ignore
     }
+{{- if $isScopeField}}
+    }
+{{- end}}
 {{- else}}
 {{- if $isScopeField}}
     if (isPlatformSuperAdmin.value) {

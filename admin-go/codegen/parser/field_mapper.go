@@ -100,7 +100,7 @@ func MapGoType(dbType string, isID bool) string {
 	case "tinyint":
 		return "int"
 	case "float":
-		return "float32"
+		return "float64"
 	case "double":
 		return "float64"
 	case "decimal":
