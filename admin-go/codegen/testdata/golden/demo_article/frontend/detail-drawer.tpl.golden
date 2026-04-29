@@ -4,6 +4,7 @@ import { useVbenModal } from '@vben/common-ui';
 import { Descriptions, DescriptionsItem, Tag } from 'ant-design-vue';
 import { getArticleDetail } from '#/api/demo/article';
 import type { ArticleItem } from '#/api/demo/article/types';
+import RichText from '#/components/tinymce/index.vue';
 
 /** 标签颜色池 */
 const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
@@ -109,7 +110,7 @@ const [Modal, modalApi] = useVbenModal({
 </script>
 
 <template>
-  <Modal class="w-[600px]">
+  <Modal class="w-[800px]">
     <Descriptions v-if="detail" bordered :column="1" size="small">
       <DescriptionsItem label="ID">{{ detail.id }}</DescriptionsItem>
       <DescriptionsItem label="CategoryID">{{ detail.categoryName || '-' }}</DescriptionsItem>
@@ -125,7 +126,8 @@ const [Modal, modalApi] = useVbenModal({
         <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="BodyContent">
-        <div v-html="detail.bodyContent" style="max-height: 300px; overflow: auto;" />
+        <RichText v-if="detail.bodyContent" :value="detail.bodyContent" disabled :height="260" />
+        <span v-else>-</span>
       </DescriptionsItem>
       <DescriptionsItem label="ExtraJSON">
         <pre style="max-height: 300px; overflow: auto; white-space: pre-wrap; word-break: break-all; margin: 0; font-size: 12px;">{{ (() => { const value = detail.extraJSON; if (!value) return '-'; try { return JSON.stringify(JSON.parse(value), null, 2) } catch { return value } })() }}</pre>
@@ -151,6 +153,8 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="Remark">{{ displayValue(detail.remark) }}</DescriptionsItem>
       <DescriptionsItem label="Level">{{ displayValue(detail.level) }}</DescriptionsItem>
       <DescriptionsItem label="ExtraField">{{ displayValue(detail.extraField) }}</DescriptionsItem>
+      <DescriptionsItem label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
       <DescriptionsItem label="PublishAt">{{ displayValue(detail.publishAt) }}</DescriptionsItem>
       <DescriptionsItem label="ExpireAt">{{ displayValue(detail.expireAt) }}</DescriptionsItem>
       <DescriptionsItem label="创建时间">{{ displayValue(detail.createdAt) }}</DescriptionsItem>

@@ -98,8 +98,39 @@ func (p *Parser) ParseTable(tableName string) (*TableMeta, error) {
 	}
 
 	FinalizeTemplateMeta(meta)
+	if err := validateRequiredScopeFields(meta); err != nil {
+		return nil, err
+	}
 
 	return meta, nil
+}
+
+func validateRequiredScopeFields(meta *TableMeta) error {
+	if meta == nil {
+		return fmt.Errorf("表元数据不能为空")
+	}
+
+	var missing []string
+	if !meta.HasTenantID {
+		missing = append(missing, "tenant_id")
+	}
+	if !meta.HasMerchantID {
+		missing = append(missing, "merchant_id")
+	}
+	if !meta.HasCreatedBy {
+		missing = append(missing, "created_by")
+	}
+	if !meta.HasDeptID {
+		missing = append(missing, "dept_id")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf(
+			"表 %s 缺少必需的权限归属字段: %s。请在迁移中补齐 tenant_id BIGINT UNSIGNED、merchant_id BIGINT UNSIGNED、created_by BIGINT UNSIGNED 和 dept_id BIGINT UNSIGNED",
+			meta.TableName,
+			strings.Join(missing, ", "),
+		)
+	}
+	return nil
 }
 
 // FinalizeTemplateMeta 统一收口模板依赖的派生元数据。
@@ -115,11 +146,15 @@ func FinalizeTemplateMeta(meta *TableMeta) {
 	meta.HasPassword = false
 	meta.HasTooltip = false
 	meta.HasRichText = false
+	meta.HasRichTextComponent = false
 	meta.HasMoney = false
 	meta.HasSearchable = false
 	meta.HasTreeSelect = false
 	meta.HasCreatedBy = false
 	meta.HasDeptID = false
+	meta.HasTenantID = false
+	meta.HasMerchantID = false
+	meta.HasTenantScope = false
 	meta.HasDict = false
 	meta.HasBatchEdit = false
 	meta.HasImport = false
@@ -154,10 +189,14 @@ func FinalizeTemplateMeta(meta *TableMeta) {
 		if field.IsPassword {
 			meta.HasPassword = true
 		}
-		if field.TooltipText != "" {
+		if field.TooltipText != "" && !field.IsHidden && !field.IsID {
 			meta.HasTooltip = true
 		}
-		if field.Component == "RichText" || field.Component == "JsonEditor" {
+		if field.Component == "RichText" {
+			meta.HasRichText = true
+			meta.HasRichTextComponent = true
+		}
+		if field.Component == "JsonEditor" {
 			meta.HasRichText = true
 		}
 		if field.IsMoney {
@@ -168,6 +207,12 @@ func FinalizeTemplateMeta(meta *TableMeta) {
 		}
 		if field.Name == "dept_id" {
 			meta.HasDeptID = true
+		}
+		if field.Name == "tenant_id" {
+			meta.HasTenantID = true
+		}
+		if field.Name == "merchant_id" {
+			meta.HasMerchantID = true
 		}
 		if field.DictType != "" {
 			meta.HasDict = true
@@ -194,6 +239,7 @@ func FinalizeTemplateMeta(meta *TableMeta) {
 
 	meta.HasBatchEdit = hasBatchEditStatus
 	meta.HasImport = !meta.HasParentID
+	meta.HasTenantScope = meta.HasTenantID
 
 	finalizeSearchMeta(meta)
 }
@@ -402,6 +448,8 @@ func buildFieldMeta(col columnInfo) FieldMeta {
 		RefTableHint:       commentMeta.RefTableHint,
 		RefDisplayHint:     commentMeta.RefDisplayHint,
 	}
+	applySystemScopeRefHint(&field)
+	applySystemScopeFieldPresentation(&field)
 
 	// 判断是否可搜索的文本字段（用于关键词模糊查询）
 	goType := field.GoType
@@ -450,6 +498,36 @@ func buildFieldMeta(col columnInfo) FieldMeta {
 	applySearchMeta(&field)
 
 	return field
+}
+
+func applySystemScopeRefHint(field *FieldMeta) {
+	if field == nil || field.RefTableHint != "" {
+		return
+	}
+	switch field.Name {
+	case "tenant_id":
+		field.RefTableHint = "system_tenant"
+		field.RefDisplayHint = "name"
+	case "merchant_id":
+		field.RefTableHint = "system_merchant"
+		field.RefDisplayHint = "name"
+	}
+}
+
+func applySystemScopeFieldPresentation(field *FieldMeta) {
+	if field == nil {
+		return
+	}
+	switch field.Name {
+	case "tenant_id":
+		field.Label = "租户"
+		field.ShortLabel = "租户"
+		field.TooltipText = ""
+	case "merchant_id":
+		field.Label = "商户"
+		field.ShortLabel = "商户"
+		field.TooltipText = ""
+	}
 }
 
 // buildValidationRules 根据字段名和类型自动推导验证规则

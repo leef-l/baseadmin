@@ -67,6 +67,8 @@ func (s *sMenu) Create(ctx context.Context, in *model.MenuCreateInput) error {
 		IsCache:    in.IsCache,
 		LinkUrl:    in.LinkURL,
 		Status:     in.Status,
+		CreatedBy:  shared.CurrentActorUserID(ctx),
+		DeptId:     shared.CurrentActorDeptID(ctx),
 	}).Insert()
 	if err == nil {
 		authlogic.ClearUserCaches(ctx, s.getAdminUserIDs(ctx)...)

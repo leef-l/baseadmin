@@ -23,6 +23,8 @@ func (c *cTag) Create(ctx context.Context, req *v1.TagCreateReq) (res *v1.TagCre
 		Color: req.Color,
 		Sort: req.Sort,
 		Status: req.Status,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 	})
 	return
 }
@@ -35,6 +37,8 @@ func (c *cTag) Update(ctx context.Context, req *v1.TagUpdateReq) (res *v1.TagUpd
 		Color: req.Color,
 		Sort: req.Sort,
 		Status: req.Status,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 	})
 	return
 }
@@ -78,6 +82,8 @@ func (c *cTag) List(ctx context.Context, req *v1.TagListReq) (res *v1.TagListRes
 		StartTime: req.StartTime,
 		EndTime:   req.EndTime,
 		Name: req.Name,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 		Status: req.Status,
 	})
 	return
@@ -90,6 +96,8 @@ func (c *cTag) Export(ctx context.Context, req *v1.TagExportReq) (res *v1.TagExp
 		StartTime: req.StartTime,
 		EndTime:   req.EndTime,
 		Name: req.Name,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 		Status: req.Status,
 	})
 	if err != nil {
@@ -102,7 +110,7 @@ func (c *cTag) Export(ctx context.Context, req *v1.TagExportReq) (res *v1.TagExp
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
 	// 表头
-	_ = w.Write([]string{"Name", "Color", "Sort", "Status", "创建时间"})
+	_ = w.Write([]string{"Name", "Color", "Sort", "Status", "租户", "商户", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
@@ -110,6 +118,8 @@ func (c *cTag) Export(ctx context.Context, req *v1.TagExportReq) (res *v1.TagExp
 			item.Color,
 			fmt.Sprintf("%v", item.Sort),
 			fmt.Sprintf("%v", item.Status),
+			item.TenantName,
+			item.MerchantName,
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}
@@ -139,7 +149,7 @@ func (c *cTag) ImportTemplate(ctx context.Context, req *v1.TagImportTemplateReq)
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="tag_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{"Name", "Color", "Sort", "Status"})
+	_ = w.Write([]string{"Name", "Color", "Sort", "Status", "租户", "商户"})
 	w.Flush()
 	return
 }

@@ -10,7 +10,7 @@ import (
 )
 
 func defaultAllowedApps() []string {
-	return []string{"system", "upload"}
+	return []string{"system", "upload", "demo"}
 }
 
 func isAllowedApp(cfg *Config, appName string) bool {

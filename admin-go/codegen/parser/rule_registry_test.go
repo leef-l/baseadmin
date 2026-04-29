@@ -26,7 +26,7 @@ func TestRuleRegistryFieldNameHelpers(t *testing.T) {
 func TestDisplayFieldPriorityOrderStable(t *testing.T) {
 	got := displayFieldPriorityOrder()
 	want := []string{
-		"title", "name", "username", "nickname",
+		"title", "sku_no", "name", "username", "nickname",
 		"real_name", "label", "phone", "mobile",
 		"order_no", "code", "no", "email",
 	}

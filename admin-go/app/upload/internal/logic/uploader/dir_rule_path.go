@@ -106,6 +106,7 @@ func loadUploadRules(ctx context.Context, dirID int64) ([]*uploadDirRuleRecord, 
 		Where(dao.UploadDirRule.Columns().Status, 1).
 		Where(dao.UploadDirRule.Columns().DeletedAt, nil).
 		OrderAsc(dao.UploadDirRule.Columns().Id)
+	m = shared.ApplyTenantScopeToModel(ctx, m, shared.ColumnTenantID, shared.ColumnMerchantID)
 	if dirID > 0 {
 		m = m.Where(dao.UploadDirRule.Columns().DirId, dirID)
 	}
@@ -120,11 +121,12 @@ func loadUploadDirKeepName(ctx context.Context, dirID int64) (bool, error) {
 	if dirID <= 0 {
 		return false, nil
 	}
-	value, err := dao.UploadDir.Ctx(ctx).
+	m := dao.UploadDir.Ctx(ctx).
 		Fields("keep_name").
 		Where(dao.UploadDir.Columns().Id, dirID).
-		Where(dao.UploadDir.Columns().DeletedAt, nil).
-		Value("keep_name")
+		Where(dao.UploadDir.Columns().DeletedAt, nil)
+	m = shared.ApplyTenantScopeToModel(ctx, m, shared.ColumnTenantID, shared.ColumnMerchantID)
+	value, err := m.Value("keep_name")
 	if err != nil {
 		return false, fmt.Errorf("读取目录配置失败: %w", err)
 	}

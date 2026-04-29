@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS `demo_category` (
   `icon` VARCHAR(100) DEFAULT '' COMMENT '图标',
   `sort` INT NOT NULL DEFAULT 0 COMMENT '排序（升序）',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:0=禁用,1=启用',
+  `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '租户',
+  `merchant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '商户',
   `created_by` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `created_at` DATETIME,
@@ -72,6 +74,8 @@ CREATE TABLE IF NOT EXISTS `demo_article` (
   `publish_at` DATETIME COMMENT '发布时间',
   `expire_at` DATETIME COMMENT '过期时间',
   -- 公共字段
+  `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '租户',
+  `merchant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '商户',
   `created_by` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `created_at` DATETIME,
@@ -87,6 +91,8 @@ CREATE TABLE IF NOT EXISTS `demo_tag` (
   `color` VARCHAR(20) DEFAULT '' COMMENT '颜色',
   `sort` INT NOT NULL DEFAULT 0 COMMENT '排序',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:0=禁用,1=启用',
+  `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '租户',
+  `merchant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '商户',
   `created_by` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `created_at` DATETIME,
@@ -115,6 +121,8 @@ CREATE TABLE IF NOT EXISTS `demo_user_review` (
   -- 枚举 Switch
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:0=禁用,1=启用',
   -- 公共字段
+  `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '租户',
+  `merchant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '商户',
   `created_by` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `created_at` DATETIME,

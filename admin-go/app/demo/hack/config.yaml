@@ -1,0 +1,24 @@
+
+# CLI tool, only in development environment.
+# https://goframe.org/docs/cli
+gfcli:
+  run:
+    path: "main.go"
+    extra: ""
+    watchPaths:
+      - "internal"
+      - "api"
+
+  gen:
+    dao:
+      - link: "mysql:sql_baseadmin_easytestdev_online:4365d2c5953988@tcp(127.0.0.1:3306)/sql_baseadmin_easytestdev_online?charset=utf8mb4"
+        tables: "demo_appointment,demo_audit_log,demo_campaign,demo_category,demo_contract,demo_customer,demo_order,demo_product,demo_survey,demo_work_order"
+        descriptionTag: true
+        noJsonTag: true
+        noModelComment: false
+        overwriteDao: false
+
+  docker:
+    build: "-a amd64 -s linux -p temp -ew"
+    tagPrefixes:
+      - my.image.pub/my-app

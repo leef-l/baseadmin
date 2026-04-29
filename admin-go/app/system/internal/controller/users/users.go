@@ -16,14 +16,16 @@ type cUsers struct{}
 // Create 创建用户表
 func (c *cUsers) Create(ctx context.Context, req *v1.UsersCreateReq) (res *v1.UsersCreateRes, err error) {
 	err = service.Users().Create(ctx, &model.UsersCreateInput{
-		Username: req.Username,
-		Password: req.Password,
-		Nickname: req.Nickname,
-		Email:    req.Email,
-		Avatar:   req.Avatar,
-		Status:   req.Status,
-		DeptID:   req.DeptID,
-		RoleIDs:  req.RoleIDs,
+		Username:   req.Username,
+		Password:   req.Password,
+		Nickname:   req.Nickname,
+		Email:      req.Email,
+		Avatar:     req.Avatar,
+		Status:     req.Status,
+		DeptID:     req.DeptID,
+		TenantID:   req.TenantID,
+		MerchantID: req.MerchantID,
+		RoleIDs:    req.RoleIDs,
 	})
 	return
 }
@@ -35,15 +37,17 @@ func (c *cUsers) Update(ctx context.Context, req *v1.UsersUpdateReq) (res *v1.Us
 		return nil, err
 	}
 	err = service.Users().Update(ctx, &model.UsersUpdateInput{
-		ID:       req.ID,
-		Username: pickStringField(req.Username, detail.Username),
-		Password: req.Password,
-		Nickname: pickStringField(req.Nickname, detail.Nickname),
-		Email:    pickStringField(req.Email, detail.Email),
-		Avatar:   pickStringField(req.Avatar, detail.Avatar),
-		Status:   pickIntField(req.Status, detail.Status),
-		DeptID:   pickSnowflakeField(req.DeptID, detail.DeptID),
-		RoleIDs:  req.RoleIDs,
+		ID:         req.ID,
+		Username:   pickStringField(req.Username, detail.Username),
+		Password:   req.Password,
+		Nickname:   pickStringField(req.Nickname, detail.Nickname),
+		Email:      pickStringField(req.Email, detail.Email),
+		Avatar:     pickStringField(req.Avatar, detail.Avatar),
+		Status:     pickIntField(req.Status, detail.Status),
+		DeptID:     pickSnowflakeField(req.DeptID, detail.DeptID),
+		TenantID:   pickSnowflakeField(req.TenantID, detail.TenantID),
+		MerchantID: pickSnowflakeField(req.MerchantID, detail.MerchantID),
+		RoleIDs:    req.RoleIDs,
 	})
 	return
 }
@@ -92,14 +96,16 @@ func (c *cUsers) Detail(ctx context.Context, req *v1.UsersDetailReq) (res *v1.Us
 func (c *cUsers) List(ctx context.Context, req *v1.UsersListReq) (res *v1.UsersListRes, err error) {
 	res = &v1.UsersListRes{}
 	res.List, res.Total, err = service.Users().List(ctx, &model.UsersListInput{
-		PageNum:  req.PageNum,
-		PageSize: req.PageSize,
-		Keyword:  req.Keyword,
-		Username: req.Username,
-		Nickname: req.Nickname,
-		Email:    req.Email,
-		DeptId:   req.DeptId,
-		Status:   req.Status,
+		PageNum:    req.PageNum,
+		PageSize:   req.PageSize,
+		Keyword:    req.Keyword,
+		Username:   req.Username,
+		Nickname:   req.Nickname,
+		Email:      req.Email,
+		DeptId:     req.DeptId,
+		TenantId:   req.TenantId,
+		MerchantId: req.MerchantId,
+		Status:     req.Status,
 	})
 	return
 }

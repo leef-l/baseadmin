@@ -42,6 +42,8 @@ func (c *cArticle) Create(ctx context.Context, req *v1.ArticleCreateReq) (res *v
 		ExtraField: req.ExtraField,
 		PublishAt: req.PublishAt,
 		ExpireAt: req.ExpireAt,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 	})
 	return
 }
@@ -73,6 +75,8 @@ func (c *cArticle) Update(ctx context.Context, req *v1.ArticleUpdateReq) (res *v
 		ExtraField: req.ExtraField,
 		PublishAt: req.PublishAt,
 		ExpireAt: req.ExpireAt,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 	})
 	return
 }
@@ -123,6 +127,8 @@ func (c *cArticle) List(ctx context.Context, req *v1.ArticleListReq) (res *v1.Ar
 		Email: req.Email,
 		CategoryID: req.CategoryID,
 		UserID: req.UserID,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 		Status: req.Status,
 		Type: req.Type,
 		IsTop: req.IsTop,
@@ -147,6 +153,8 @@ func (c *cArticle) Export(ctx context.Context, req *v1.ArticleExportReq) (res *v
 		Email: req.Email,
 		CategoryID: req.CategoryID,
 		UserID: req.UserID,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 		Status: req.Status,
 		Type: req.Type,
 		IsTop: req.IsTop,
@@ -166,7 +174,7 @@ func (c *cArticle) Export(ctx context.Context, req *v1.ArticleExportReq) (res *v
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
 	// 表头
-	_ = w.Write([]string{"CategoryID", "UserID", "Title", "OrderNo", "Cover", "AttachmentFile", "BodyContent", "ExtraJSON", "LinkURL", "Status", "Type", "IsTop", "Price", "Sort", "Icon", "Email", "Phone", "Remark", "Level", "ExtraField", "PublishAt", "ExpireAt", "创建时间"})
+	_ = w.Write([]string{"CategoryID", "UserID", "Title", "OrderNo", "Cover", "AttachmentFile", "BodyContent", "ExtraJSON", "LinkURL", "Status", "Type", "IsTop", "Price", "Sort", "Icon", "Email", "Phone", "Remark", "Level", "ExtraField", "PublishAt", "ExpireAt", "租户", "商户", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
@@ -192,6 +200,8 @@ func (c *cArticle) Export(ctx context.Context, req *v1.ArticleExportReq) (res *v
 			item.ExtraField,
 			func() string { if item.PublishAt != nil { return item.PublishAt.String() }; return "" }(),
 			func() string { if item.ExpireAt != nil { return item.ExpireAt.String() }; return "" }(),
+			item.TenantName,
+			item.MerchantName,
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}
@@ -221,7 +231,7 @@ func (c *cArticle) ImportTemplate(ctx context.Context, req *v1.ArticleImportTemp
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="article_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{"CategoryID", "UserID", "Title", "OrderNo", "Cover", "AttachmentFile", "BodyContent", "ExtraJSON", "LinkURL", "Status", "Type", "IsTop", "Price", "Sort", "Icon", "Email", "Phone", "Remark", "Level", "ExtraField"})
+	_ = w.Write([]string{"CategoryID", "UserID", "Title", "OrderNo", "Cover", "AttachmentFile", "BodyContent", "ExtraJSON", "LinkURL", "Status", "Type", "IsTop", "Price", "Sort", "Icon", "Email", "Phone", "Remark", "Level", "ExtraField", "租户", "商户"})
 	w.Flush()
 	return
 }

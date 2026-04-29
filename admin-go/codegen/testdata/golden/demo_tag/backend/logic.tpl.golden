@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 
 	"gbaseadmin/app/demo/internal/dao"
@@ -54,12 +55,18 @@ func normalizeTagIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 // Create 创建标签
 func (s *sTag) Create(ctx context.Context, in *model.TagCreateInput) error {
 	id := snowflake.Generate()
+	middleware.ApplyTenantScopeToWrite(ctx, &in.TenantID, &in.MerchantID)
+	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
+		return err
+	}
 	_, err := dao.DemoTag.Ctx(ctx).Data(do.DemoTag{
 		Id:        id,
 		Name: in.Name,
 		Color: in.Color,
 		Sort: in.Sort,
 		Status: in.Status,
+		TenantId: in.TenantID,
+		MerchantId: in.MerchantID,
 		CreatedBy: middleware.GetUserID(ctx),
 		DeptId: middleware.GetDeptID(ctx),
 	}).Insert()
@@ -68,11 +75,20 @@ func (s *sTag) Create(ctx context.Context, in *model.TagCreateInput) error {
 
 // Update 更新标签
 func (s *sTag) Update(ctx context.Context, in *model.TagUpdateInput) error {
+	middleware.ApplyTenantScopeToWrite(ctx, &in.TenantID, &in.MerchantID)
+	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
+		return err
+	}
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoTag.Ctx(ctx), in.ID, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().TenantId, dao.DemoTag.Columns().MerchantId, "标签"); err != nil {
+		return err
+	}
 	data := do.DemoTag{
 		Name: in.Name,
 		Color: in.Color,
 		Sort: in.Sort,
 		Status: in.Status,
+		TenantId: in.TenantID,
+		MerchantId: in.MerchantID,
 	}
 	_, err := dao.DemoTag.Ctx(ctx).Where(dao.DemoTag.Columns().Id, in.ID).Data(data).Update()
 	return err
@@ -80,6 +96,9 @@ func (s *sTag) Update(ctx context.Context, in *model.TagUpdateInput) error {
 
 // Delete 软删除标签
 func (s *sTag) Delete(ctx context.Context, id snowflake.JsonInt64) error {
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoTag.Ctx(ctx), id, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().TenantId, dao.DemoTag.Columns().MerchantId, "标签"); err != nil {
+		return err
+	}
 	_, err := dao.DemoTag.Ctx(ctx).Where(dao.DemoTag.Columns().Id, id).Delete()
 	return err
 }
@@ -90,12 +109,18 @@ func (s *sTag) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error
 	if len(normalizedIDs) == 0 {
 		return nil
 	}
+	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoTag.Ctx(ctx), normalizedIDs, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().TenantId, dao.DemoTag.Columns().MerchantId, "标签"); err != nil {
+		return err
+	}
 	_, err := dao.DemoTag.Ctx(ctx).WhereIn(dao.DemoTag.Columns().Id, normalizedIDs).Delete()
 	return err
 }
 
 // Detail 获取标签详情
 func (s *sTag) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.TagDetailOutput, err error) {
+	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoTag.Ctx(ctx), id, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().TenantId, dao.DemoTag.Columns().MerchantId, "标签"); err != nil {
+		return nil, err
+	}
 	out = &model.TagDetailOutput{}
 	err = dao.DemoTag.Ctx(ctx).Where(dao.DemoTag.Columns().Id, id).Where(dao.DemoTag.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
@@ -104,14 +129,37 @@ func (s *sTag) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.T
 	if out.ID == 0 {
 		return nil, nil
 	}
+	// 查询租户关联显示
+	if out.TenantID != 0 {
+		refQuery := g.DB().Ctx(ctx).Model("system_tenant").Where("id", out.TenantID)
+		val, err := refQuery.Value("name")
+		if err == nil {
+			out.TenantName = val.String()
+		}
+	}
+	// 查询商户关联显示
+	if out.MerchantID != 0 {
+		refQuery := g.DB().Ctx(ctx).Model("system_merchant").Where("id", out.MerchantID)
+		val, err := refQuery.Value("name")
+		if err == nil {
+			out.MerchantName = val.String()
+		}
+	}
 	return
 }
 
 // applyListFilter 应用列表通用过滤条件
 func (s *sTag) applyListFilter(ctx context.Context, in *model.TagListInput) *gdb.Model {
 	m := dao.DemoTag.Ctx(ctx).Where(dao.DemoTag.Columns().DeletedAt, nil)
+	m = middleware.ApplyTenantScopeToModel(ctx, m, dao.DemoTag.Columns().TenantId, dao.DemoTag.Columns().MerchantId)
 	if in.Name != "" {
 		m = m.WhereLike(dao.DemoTag.Columns().Name, "%"+in.Name+"%")
+	}
+	if in.TenantID != nil {
+		m = m.Where(dao.DemoTag.Columns().TenantId, *in.TenantID)
+	}
+	if in.MerchantID != nil {
+		m = m.Where(dao.DemoTag.Columns().MerchantId, *in.MerchantID)
 	}
 	if in.Status != nil {
 		m = m.Where(dao.DemoTag.Columns().Status, *in.Status)
@@ -125,6 +173,66 @@ func (s *sTag) applyListFilter(ctx context.Context, in *model.TagListInput) *gdb
 	// 数据权限过滤
 	m = middleware.ApplyDataScope(ctx, m, dao.DemoTag.Columns().CreatedBy, dao.DemoTag.Columns().DeptId)
 	return m
+}
+
+// fillRefFields 批量填充关联显示字段（避免 N+1 查询）
+func (s *sTag) fillRefFields(ctx context.Context, list []*model.TagListOutput) {
+	{
+		idSet := make(map[int64]struct{})
+		for _, item := range list {
+			if item.TenantID != 0 {
+				idSet[int64(item.TenantID)] = struct{}{}
+			}
+		}
+		if len(idSet) > 0 {
+			ids := make([]int64, 0, len(idSet))
+			for id := range idSet {
+				ids = append(ids, id)
+			}
+			refQuery := g.DB().Ctx(ctx).Model("system_tenant").
+				Fields("id", "name")
+			rows, err := refQuery.WhereIn("id", ids).All()
+			if err == nil {
+				refMap := make(map[int64]string, len(rows))
+				for _, row := range rows {
+					refMap[row["id"].Int64()] = row["name"].String()
+				}
+				for _, item := range list {
+					if val, ok := refMap[int64(item.TenantID)]; ok {
+						item.TenantName = val
+					}
+				}
+			}
+		}
+	}
+	{
+		idSet := make(map[int64]struct{})
+		for _, item := range list {
+			if item.MerchantID != 0 {
+				idSet[int64(item.MerchantID)] = struct{}{}
+			}
+		}
+		if len(idSet) > 0 {
+			ids := make([]int64, 0, len(idSet))
+			for id := range idSet {
+				ids = append(ids, id)
+			}
+			refQuery := g.DB().Ctx(ctx).Model("system_merchant").
+				Fields("id", "name")
+			rows, err := refQuery.WhereIn("id", ids).All()
+			if err == nil {
+				refMap := make(map[int64]string, len(rows))
+				for _, row := range rows {
+					refMap[row["id"].Int64()] = row["name"].String()
+				}
+				for _, item := range list {
+					if val, ok := refMap[int64(item.MerchantID)]; ok {
+						item.MerchantName = val
+					}
+				}
+			}
+		}
+	}
 }
 
 // List 获取标签列表
@@ -152,6 +260,7 @@ func (s *sTag) List(ctx context.Context, in *model.TagListInput) (list []*model.
 	if err != nil {
 		return
 	}
+	s.fillRefFields(ctx, list)
 	return
 }
 
@@ -187,6 +296,7 @@ func (s *sTag) Export(ctx context.Context, in *model.TagListInput) (list []*mode
 	if err != nil {
 		return
 	}
+	s.fillRefFields(ctx, list)
 	return
 }
 
@@ -196,7 +306,14 @@ func (s *sTag) BatchUpdate(ctx context.Context, in *model.TagBatchUpdateInput) e
 	if in.Status != nil {
 		data.Status = *in.Status
 	}
-	_, err := dao.DemoTag.Ctx(ctx).WhereIn(dao.DemoTag.Columns().Id, in.IDs).Data(data).Update()
+	normalizedIDs := normalizeTagIDs(in.IDs)
+	if len(normalizedIDs) == 0 {
+		return nil
+	}
+	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoTag.Ctx(ctx), normalizedIDs, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().TenantId, dao.DemoTag.Columns().MerchantId, "标签"); err != nil {
+		return err
+	}
+	_, err := dao.DemoTag.Ctx(ctx).WhereIn(dao.DemoTag.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }
 
@@ -249,6 +366,15 @@ func (s *sTag) Import(ctx context.Context, file *ghttp.UploadFile) (success int,
 			data.Status = record[idx]
 		}
 		idx++
+		tenantID := snowflake.JsonInt64(0)
+		merchantID := snowflake.JsonInt64(0)
+		middleware.ApplyTenantScopeToWrite(ctx, &tenantID, &merchantID)
+		if err := middleware.EnsureTenantMerchantAccessible(ctx, tenantID, merchantID); err != nil {
+			fail++
+			continue
+		}
+		data.TenantId = tenantID
+		data.MerchantId = merchantID
 		if _, insertErr := dao.DemoTag.Ctx(ctx).Data(data).Insert(); insertErr != nil {
 			fail++
 		} else {

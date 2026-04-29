@@ -30,4 +30,6 @@ type UploadConfig struct {
 	DeletedAt    *gtime.Time `orm:"deleted_at"     description:"删除时间"`                        // 删除时间
 	CreatedBy    uint64      `orm:"created_by"     description:"创建人"`                         // 创建人
 	DeptId       uint64      `orm:"dept_id"        description:"部门ID"`                        // 部门ID
+	TenantId     uint64      `orm:"tenant_id"      description:"租户"`                          // 租户
+	MerchantId   uint64      `orm:"merchant_id"    description:"商户"`                          // 商户
 }

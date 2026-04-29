@@ -21,7 +21,7 @@ func TestE2EVerifySQLCoversDemoSchemaCoreFields(t *testing.T) {
 		{
 			demoTable: "demo_category",
 			e2eTable:  "verifydemo_category",
-			fields:    []string{"id", "parent_id", "name", "icon", "sort", "status", "created_by", "dept_id", "created_at", "updated_at", "deleted_at"},
+			fields:    []string{"id", "parent_id", "name", "icon", "sort", "status", "tenant_id", "merchant_id", "created_by", "dept_id", "created_at", "updated_at", "deleted_at"},
 			snippets:  []string{"COMMENT='分类'"},
 		},
 		{
@@ -31,7 +31,7 @@ func TestE2EVerifySQLCoversDemoSchemaCoreFields(t *testing.T) {
 				"id", "category_id", "user_id", "title", "order_no", "cover", "attachment_file",
 				"body_content", "extra_json", "link_url", "status", "type", "is_top", "price",
 				"pay_password", "sort", "icon", "email", "phone", "remark", "level", "extra_field",
-				"publish_at", "expire_at", "created_by", "dept_id", "created_at", "updated_at", "deleted_at",
+				"publish_at", "expire_at", "tenant_id", "merchant_id", "created_by", "dept_id", "created_at", "updated_at", "deleted_at",
 			},
 			snippets: []string{
 				"|ref:system_users.username",
@@ -43,7 +43,7 @@ func TestE2EVerifySQLCoversDemoSchemaCoreFields(t *testing.T) {
 		{
 			demoTable: "demo_tag",
 			e2eTable:  "verifydemo_tag",
-			fields:    []string{"id", "name", "color", "sort", "status", "created_by", "dept_id", "created_at", "updated_at", "deleted_at"},
+			fields:    []string{"id", "name", "color", "sort", "status", "tenant_id", "merchant_id", "created_by", "dept_id", "created_at", "updated_at", "deleted_at"},
 			snippets:  []string{"COMMENT='标签'"},
 		},
 		{
@@ -51,7 +51,7 @@ func TestE2EVerifySQLCoversDemoSchemaCoreFields(t *testing.T) {
 			e2eTable:  "verifydemo_user_review",
 			fields: []string{
 				"id", "user_id", "review_type", "content", "score", "is_passed",
-				"sort", "status", "created_by", "dept_id", "created_at", "updated_at", "deleted_at",
+				"sort", "status", "tenant_id", "merchant_id", "created_by", "dept_id", "created_at", "updated_at", "deleted_at",
 			},
 			snippets: []string{
 				"|ref:system_users.username",

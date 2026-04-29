@@ -8,9 +8,9 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// UserDept is the golang structure of table user_dept for DAO operations like Where/Data.
+// UserDept is the golang structure of table system_user_dept for DAO operations like Where/Data.
 type UserDept struct {
-	g.Meta `orm:"table:user_dept, do:true"`
+	g.Meta `orm:"table:system_user_dept, do:true"`
 	UserId any // 用户ID
 	DeptId any // 部门ID
 }

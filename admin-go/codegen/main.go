@@ -300,8 +300,9 @@ func main() {
 				failures.Add("应用 "+appName+" 创建 hack 目录", err)
 			} else {
 				hackData := map[string]string{
-					"DBLink": cfg.Database.DSNForHack(),
-					"Tables": strings.Join(allTables, ","),
+					"AppName": appName,
+					"DBLink":  cfg.Database.DSNForHack(),
+					"Tables":  strings.Join(allTables, ","),
 				}
 				written, err := renderTemplate(
 					filepath.Join(templateDir, "backend", "hack_config.tpl"),

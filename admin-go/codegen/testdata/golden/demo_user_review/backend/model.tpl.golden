@@ -17,6 +17,8 @@ type UserReviewCreateInput struct {
 	IsPassed int `json:"isPassed"`
 	Sort int `json:"sort"`
 	Status int `json:"status"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"`
 }
 
 // UserReviewUpdateInput 更新用户审核输入
@@ -29,6 +31,8 @@ type UserReviewUpdateInput struct {
 	IsPassed int `json:"isPassed"`
 	Sort int `json:"sort"`
 	Status int `json:"status"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"`
 }
 
 // UserReviewDetailOutput 用户审核详情输出
@@ -42,6 +46,10 @@ type UserReviewDetailOutput struct {
 	IsPassed int `json:"isPassed"`
 	Sort int `json:"sort"`
 	Status int `json:"status"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"`
+	TenantName string `json:"tenantName"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"`
+	MerchantName string `json:"merchantName"`
 	CreatedAt *gtime.Time `json:"createdAt"`
 	UpdatedAt *gtime.Time `json:"updatedAt"`
 }
@@ -57,6 +65,10 @@ type UserReviewListOutput struct {
 	IsPassed int `json:"isPassed"`
 	Sort int `json:"sort"`
 	Status int `json:"status"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"`
+	TenantName string `json:"tenantName"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"`
+	MerchantName string `json:"merchantName"`
 	CreatedAt *gtime.Time `json:"createdAt"`
 	UpdatedAt *gtime.Time `json:"updatedAt"`
 }
@@ -70,6 +82,8 @@ type UserReviewListInput struct {
 	StartTime string `json:"startTime"`
 	EndTime   string `json:"endTime"`
 	UserID *snowflake.JsonInt64 `json:"userId"`
+	TenantID *snowflake.JsonInt64 `json:"tenantID"`
+	MerchantID *snowflake.JsonInt64 `json:"merchantID"`
 	ReviewType *int `json:"reviewType"`
 	IsPassed *int `json:"isPassed"`
 	Status *int `json:"status"`

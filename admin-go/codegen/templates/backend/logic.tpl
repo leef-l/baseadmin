@@ -28,7 +28,7 @@ import (
 {{- end}}
 
 	"gbaseadmin/app/{{.AppName}}/internal/dao"
-{{- if or .HasCreatedBy .HasDeptID}}
+{{- if or .HasCreatedBy .HasDeptID .HasTenantScope}}
 	"gbaseadmin/app/{{.AppName}}/internal/middleware"
 {{- end}}
 	"gbaseadmin/app/{{.AppName}}/internal/model"
@@ -76,6 +76,12 @@ func normalize{{.ModelName}}IDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64
 // Create 创建{{.Comment}}
 func (s *s{{.ModelName}}) Create(ctx context.Context, in *model.{{.ModelName}}CreateInput) error {
 	id := snowflake.Generate()
+{{- if .HasTenantScope}}
+	middleware.ApplyTenantScopeToWrite(ctx, &in.TenantID{{if .HasMerchantID}}, &in.MerchantID{{else}}, nil{{end}})
+	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID{{if .HasMerchantID}}, in.MerchantID{{else}}, 0{{end}}); err != nil {
+		return err
+	}
+{{- end}}
 {{- range .Fields}}
 {{- if .IsPassword}}
 	hashed{{.NameCamel}}, err := bcrypt.GenerateFromPassword([]byte(in.{{.NameCamel}}), bcrypt.DefaultCost)
@@ -112,6 +118,15 @@ func (s *s{{.ModelName}}) Create(ctx context.Context, in *model.{{.ModelName}}Cr
 
 // Update 更新{{.Comment}}
 func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}UpdateInput) error {
+{{- if .HasTenantScope}}
+	middleware.ApplyTenantScopeToWrite(ctx, &in.TenantID{{if .HasMerchantID}}, &in.MerchantID{{else}}, nil{{end}})
+	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID{{if .HasMerchantID}}, in.MerchantID{{else}}, 0{{end}}); err != nil {
+		return err
+	}
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), in.ID, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
+		return err
+	}
+{{- end}}
 	data := do.{{.DaoName}}{
 {{- range .Fields}}
 {{- if and (not .IsID) (not .IsHidden) (not .IsPassword)}}
@@ -167,8 +182,18 @@ func (s *s{{.ModelName}}) Delete(ctx context.Context, id snowflake.JsonInt64) er
 	if len(deleteIDs) == 0 {
 		return nil
 	}
+{{- if .HasTenantScope}}
+	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), deleteIDs, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
+		return err
+	}
+{{- end}}
 	_, err = dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, deleteIDs).Delete()
 {{- else}}
+{{- if .HasTenantScope}}
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), id, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
+		return err
+	}
+{{- end}}
 	_, err := dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().Id, id).Delete()
 {{- end}}
 {{- if .EnableOpLog}}
@@ -189,6 +214,11 @@ func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonI
 	if len(deleteIDs) == 0 {
 		return nil
 	}
+{{- if .HasTenantScope}}
+	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), deleteIDs, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
+		return err
+	}
+{{- end}}
 	_, err = dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, deleteIDs).Delete()
 {{- if .EnableOpLog}}
 	if err == nil {
@@ -264,6 +294,11 @@ func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonI
 	if len(normalizedIDs) == 0 {
 		return nil
 	}
+{{- if .HasTenantScope}}
+	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), normalizedIDs, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
+		return err
+	}
+{{- end}}
 	_, err := dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, normalizedIDs).Delete()
 {{- if .EnableOpLog}}
 	if err == nil {
@@ -276,6 +311,11 @@ func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonI
 
 // Detail 获取{{.Comment}}详情
 func (s *s{{.ModelName}}) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.{{.ModelName}}DetailOutput, err error) {
+{{- if .HasTenantScope}}
+	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), id, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
+		return nil, err
+	}
+{{- end}}
 	out = &model.{{.ModelName}}DetailOutput{}
 	err = dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().Id, id).Where(dao.{{.DaoName}}.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
@@ -305,6 +345,9 @@ func (s *s{{.ModelName}}) Detail(ctx context.Context, id snowflake.JsonInt64) (o
 // applyListFilter 应用列表通用过滤条件
 func (s *s{{.ModelName}}) applyListFilter(ctx context.Context, in *model.{{.ModelName}}ListInput) *gdb.Model {
 	m := dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().DeletedAt, nil)
+{{- if .HasTenantScope}}
+	m = middleware.ApplyTenantScopeToModel(ctx, m, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}})
+{{- end}}
 {{- if .HasKeywordSearch}}
 	if in.Keyword != "" {
 		keywordBuilder := m.Builder()
@@ -484,6 +527,9 @@ func (s *s{{.ModelName}}) Tree(ctx context.Context, in *model.{{.ModelName}}Tree
 		in = &model.{{.ModelName}}TreeInput{}
 	}
 	m := dao.{{.DaoName}}.Ctx(ctx).Where(dao.{{.DaoName}}.Columns().DeletedAt, nil)
+{{- if .HasTenantScope}}
+	m = middleware.ApplyTenantScopeToModel(ctx, m, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}})
+{{- end}}
 {{- if .HasKeywordSearch}}
 	if in.Keyword != "" {
 		keywordBuilder := m.Builder()
@@ -615,7 +661,16 @@ func (s *s{{.ModelName}}) BatchUpdate(ctx context.Context, in *model.{{.ModelNam
 	}
 {{- end}}
 {{- end}}
-	_, err := dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, in.IDs).Data(data).Update()
+	normalizedIDs := normalize{{.ModelName}}IDs(in.IDs)
+	if len(normalizedIDs) == 0 {
+		return nil
+	}
+{{- if .HasTenantScope}}
+	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), normalizedIDs, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
+		return err
+	}
+{{- end}}
+	_, err := dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }
 {{- end}}
@@ -659,11 +714,24 @@ func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (s
 		}
 		idx := 0
 {{- range .Fields}}
-{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField)}}
+{{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField) (or (not $.HasTenantScope) (and (ne .Name "tenant_id") (ne .Name "merchant_id")))}}
 		if idx < len(record) {
 			data.{{.NameDao}} = record[idx]
 		}
 		idx++
+{{- end}}
+{{- end}}
+{{- if .HasTenantScope}}
+		tenantID := snowflake.JsonInt64(0)
+		merchantID := snowflake.JsonInt64(0)
+		middleware.ApplyTenantScopeToWrite(ctx, &tenantID{{if .HasMerchantID}}, &merchantID{{else}}, nil{{end}})
+		if err := middleware.EnsureTenantMerchantAccessible(ctx, tenantID{{if .HasMerchantID}}, merchantID{{else}}, 0{{end}}); err != nil {
+			fail++
+			continue
+		}
+		data.TenantId = tenantID
+{{- if .HasMerchantID}}
+		data.MerchantId = merchantID
 {{- end}}
 {{- end}}
 		if _, insertErr := dao.{{.DaoName}}.Ctx(ctx).Data(data).Insert(); insertErr != nil {

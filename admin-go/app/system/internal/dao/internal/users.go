@@ -21,34 +21,38 @@ type UsersDao struct {
 
 // UsersColumns defines and stores column names for the table system_users.
 type UsersColumns struct {
-	Id        string // 用户ID（Snowflake）
-	Username  string // 登录用户名
-	Password  string // 密码（bcrypt 加密）
-	Nickname  string // 昵称/显示名
-	Email     string // 邮箱地址
-	Avatar    string // 头像图片 URL
-	Status    string // 状态:0=关闭,1=开启
-	CreatedBy string // 创建人ID
-	DeptId    string // 所属部门ID
-	CreatedAt string // 创建时间
-	UpdatedAt string // 更新时间
-	DeletedAt string // 软删除时间，非 NULL 表示已删除
+	Id         string // 用户ID（Snowflake）
+	Username   string // 登录用户名
+	Password   string // 密码（bcrypt 加密）
+	Nickname   string // 昵称/显示名
+	Email      string // 邮箱地址
+	Avatar     string // 头像图片 URL
+	Status     string // 状态:0=关闭,1=开启
+	CreatedBy  string // 创建人ID
+	DeptId     string // 所属部门ID
+	TenantId   string // 租户
+	MerchantId string // 商户
+	CreatedAt  string // 创建时间
+	UpdatedAt  string // 更新时间
+	DeletedAt  string // 软删除时间，非 NULL 表示已删除
 }
 
 // usersColumns holds the columns for the table system_users.
 var usersColumns = UsersColumns{
-	Id:        "id",
-	Username:  "username",
-	Password:  "password",
-	Nickname:  "nickname",
-	Email:     "email",
-	Avatar:    "avatar",
-	Status:    "status",
-	CreatedBy: "created_by",
-	DeptId:    "dept_id",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-	DeletedAt: "deleted_at",
+	Id:         "id",
+	Username:   "username",
+	Password:   "password",
+	Nickname:   "nickname",
+	Email:      "email",
+	Avatar:     "avatar",
+	Status:     "status",
+	CreatedBy:  "created_by",
+	DeptId:     "dept_id",
+	TenantId:   "tenant_id",
+	MerchantId: "merchant_id",
+	CreatedAt:  "created_at",
+	UpdatedAt:  "updated_at",
+	DeletedAt:  "deleted_at",
 }
 
 // NewUsersDao creates and returns a new DAO object for table data access.

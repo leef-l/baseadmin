@@ -21,34 +21,38 @@ type DeptDao struct {
 
 // DeptColumns defines and stores column names for the table system_dept.
 type DeptColumns struct {
-	Id        string // 部门ID（Snowflake）
-	ParentId  string // 上级部门ID，0 表示顶级部门
-	Title     string // 部门名称
-	Username  string // 部门负责人姓名
-	Email     string // 负责人邮箱
-	Sort      string // 排序（升序）
-	Status    string // 状态:0=关闭,1=开启
-	CreatedBy string // 创建人ID
-	DeptId    string // 所属部门ID
-	CreatedAt string // 创建时间
-	UpdatedAt string // 更新时间
-	DeletedAt string // 软删除时间，非 NULL 表示已删除
+	Id         string // 部门ID（Snowflake）
+	ParentId   string // 上级部门ID，0 表示顶级部门
+	Title      string // 部门名称
+	Username   string // 部门负责人姓名
+	Email      string // 负责人邮箱
+	Sort       string // 排序（升序）
+	Status     string // 状态:0=关闭,1=开启
+	CreatedBy  string // 创建人ID
+	DeptId     string // 所属部门ID
+	TenantId   string // 租户
+	MerchantId string // 商户
+	CreatedAt  string // 创建时间
+	UpdatedAt  string // 更新时间
+	DeletedAt  string // 软删除时间，非 NULL 表示已删除
 }
 
 // deptColumns holds the columns for the table system_dept.
 var deptColumns = DeptColumns{
-	Id:        "id",
-	ParentId:  "parent_id",
-	Title:     "title",
-	Username:  "username",
-	Email:     "email",
-	Sort:      "sort",
-	Status:    "status",
-	CreatedBy: "created_by",
-	DeptId:    "dept_id",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-	DeletedAt: "deleted_at",
+	Id:         "id",
+	ParentId:   "parent_id",
+	Title:      "title",
+	Username:   "username",
+	Email:      "email",
+	Sort:       "sort",
+	Status:     "status",
+	CreatedBy:  "created_by",
+	DeptId:     "dept_id",
+	TenantId:   "tenant_id",
+	MerchantId: "merchant_id",
+	CreatedAt:  "created_at",
+	UpdatedAt:  "updated_at",
+	DeletedAt:  "deleted_at",
 }
 
 // NewDeptDao creates and returns a new DAO object for table data access.

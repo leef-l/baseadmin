@@ -36,6 +36,8 @@ type MenuColumns struct {
 	Status     string // 状态:0=关闭,1=开启
 	CreatedBy  string // 创建人ID
 	DeptId     string // 所属部门ID
+	TenantId   string // 租户
+	MerchantId string // 商户
 	CreatedAt  string // 创建时间
 	UpdatedAt  string // 更新时间
 	DeletedAt  string // 软删除时间，非 NULL 表示已删除
@@ -58,6 +60,8 @@ var menuColumns = MenuColumns{
 	Status:     "status",
 	CreatedBy:  "created_by",
 	DeptId:     "dept_id",
+	TenantId:   "tenant_id",
+	MerchantId: "merchant_id",
 	CreatedAt:  "created_at",
 	UpdatedAt:  "updated_at",
 	DeletedAt:  "deleted_at",

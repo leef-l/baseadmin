@@ -21,34 +21,38 @@ type RoleDao struct {
 
 // RoleColumns defines and stores column names for the table system_role.
 type RoleColumns struct {
-	Id        string // 角色ID（Snowflake）
-	ParentId  string // 上级角色ID，0 表示顶级角色
-	Title     string // 角色名称
-	DataScope string // 数据范围:1=全部,2=本部门及以下,3=本部门,4=仅本人,5=自定义
-	Sort      string // 排序（升序）
-	Status    string // 状态:0=关闭,1=开启
-	IsAdmin   string // 是否超级管理员:0=否,1=是
-	CreatedBy string // 创建人ID
-	DeptId    string // 所属部门ID
-	CreatedAt string // 创建时间
-	UpdatedAt string // 更新时间
-	DeletedAt string // 软删除时间，非 NULL 表示已删除
+	Id         string // 角色ID（Snowflake）
+	ParentId   string // 上级角色ID，0 表示顶级角色
+	Title      string // 角色名称
+	DataScope  string // 数据范围:1=全部,2=本部门及以下,3=本部门,4=仅本人,5=自定义
+	IsAdmin    string // 是否超级管理员:0=否,1=是
+	Sort       string // 排序（升序）
+	Status     string // 状态:0=关闭,1=开启
+	CreatedBy  string // 创建人ID
+	DeptId     string // 所属部门ID
+	TenantId   string // 租户
+	MerchantId string // 商户
+	CreatedAt  string // 创建时间
+	UpdatedAt  string // 更新时间
+	DeletedAt  string // 软删除时间，非 NULL 表示已删除
 }
 
 // roleColumns holds the columns for the table system_role.
 var roleColumns = RoleColumns{
-	Id:        "id",
-	ParentId:  "parent_id",
-	Title:     "title",
-	DataScope: "data_scope",
-	Sort:      "sort",
-	Status:    "status",
-	IsAdmin:   "is_admin",
-	CreatedBy: "created_by",
-	DeptId:    "dept_id",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-	DeletedAt: "deleted_at",
+	Id:         "id",
+	ParentId:   "parent_id",
+	Title:      "title",
+	DataScope:  "data_scope",
+	IsAdmin:    "is_admin",
+	Sort:       "sort",
+	Status:     "status",
+	CreatedBy:  "created_by",
+	DeptId:     "dept_id",
+	TenantId:   "tenant_id",
+	MerchantId: "merchant_id",
+	CreatedAt:  "created_at",
+	UpdatedAt:  "updated_at",
+	DeletedAt:  "deleted_at",
 }
 
 // NewRoleDao creates and returns a new DAO object for table data access.

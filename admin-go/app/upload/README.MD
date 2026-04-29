@@ -18,6 +18,13 @@
 | `upload_config` | 上传配置（本地/OSS/COS） |
 | `upload_dir_rule` | 文件目录规则 |
 
+四张上传管理表都必须带 `tenant_id`、`merchant_id`、`created_by`、`dept_id`：
+
+- `tenant_id`、`merchant_id` 用于平台/租户/商户数据隔离。
+- `created_by`、`dept_id` 用于部门数据权限过滤。
+- 新增上传配置、目录、目录规则、文件记录和真实上传落库时，后端会从 JWT 上下文写入这四个字段。
+- 列表、详情、更新、删除、批量删除会按当前账号的数据范围收口，避免跨租户、跨商户或跨部门操作上传数据。
+
 ## API 路由
 
 对外接口分两层：

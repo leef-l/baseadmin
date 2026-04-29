@@ -12,7 +12,8 @@ gfcli:
   gen:
     dao:
       - link: "mysql:sql_baseadmin_easytestdev_online:4365d2c5953988@tcp(127.0.0.1:3306)/sql_baseadmin_easytestdev_online?charset=utf8mb4"
-        tables: "dept,role,role_dept,role_menu,menu,users,user_dept,user_role"
+        tables: "system_daemon,system_dept,system_domain,system_menu,system_merchant,system_role,system_role_dept,system_role_menu,system_tenant,system_user_dept,system_user_role,system_users"
+        removePrefix: "system_"
         descriptionTag: true
         noJsonTag: true
         noModelComment: false

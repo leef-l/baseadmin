@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import type { UploadFile, UploadProps } from 'ant-design-vue';
 
-import { useVbenModal } from '@vben/common-ui';
-import { Button } from 'ant-design-vue';
+import { computed, ref } from 'vue';
 
-import FileManagerModal from '#/components/file-manager/modal.vue';
-import type { FileManagerItem } from '#/components/file-manager/index.vue';
+import { UploadOutlined } from '@ant-design/icons-vue';
+import { Button, message, Upload } from 'ant-design-vue';
+
+import { uploadFile } from '#/api/upload/file';
 import { parseUploadValue } from './shared';
 
 interface Props {
@@ -28,104 +29,118 @@ const emit = defineEmits<{
   'update:value': [val: string];
 }>();
 
-/** 解析 value 为文件列表 */
-const fileItems = computed(() => {
-  return parseUploadValue(props.value).map((url, i) => ({
-    uid: `${i}`,
+type ManagedUploadFile = UploadFile & {
+  savedUrl?: string;
+};
+
+const effectiveMaxCount = computed(() => Math.max(1, Number(props.maxCount) || 1));
+const uploadingFiles = ref<ManagedUploadFile[]>([]);
+const uploading = computed(() => uploadingFiles.value.length > 0);
+
+const selectedFiles = computed<ManagedUploadFile[]>(() =>
+  parseUploadValue(props.value).map((url, i) => ({
+    uid: `saved-${i}-${url}`,
+    name: url.split('/').pop() || url,
+    status: 'done',
     url,
-    name: url.split('/').pop() || '',
-  }));
-});
+    savedUrl: url,
+  })),
+);
 
-/** 文件管理器 Modal */
-const [PickerModal, pickerApi] = useVbenModal({
-  connectedComponent: FileManagerModal,
-});
+const displayFileList = computed<UploadProps['fileList']>(() => [
+  ...selectedFiles.value,
+  ...uploadingFiles.value,
+]);
 
-function openPicker() {
-  if (props.disabled) return;
-  const remaining = props.maxCount - fileItems.value.length;
-  if (remaining <= 0) return;
-  pickerApi.setData({
-    mode: 'all',
-    multiple: remaining > 1,
-    maxCount: remaining,
-    accept: props.accept,
-    maxSize: props.maxSize,
-  });
-  pickerApi.open();
+const remainingCount = computed(() =>
+  Math.max(0, effectiveMaxCount.value - (displayFileList.value?.length ?? 0)),
+);
+
+function emitUrls(urls: string[]) {
+  emit('update:value', parseUploadValue(urls.join(',')).join(','));
 }
 
-function onPickerConfirm(files: FileManagerItem[]) {
-  const currentUrls = parseUploadValue(props.value);
-  const newUrls = [...currentUrls, ...files.map((f) => f.url)];
-  emit('update:value', parseUploadValue(newUrls.join(',')).join(','));
-}
+const beforeUpload: UploadProps['beforeUpload'] = (file, fileList) => {
+  const batchIndex = fileList.findIndex((item) => item.uid === file.uid);
+  if (remainingCount.value <= 0 || batchIndex >= remainingCount.value) {
+    if (batchIndex <= 0) {
+      message.warning(`最多只能选择 ${effectiveMaxCount.value} 个文件`);
+    }
+    return false;
+  }
+  if (props.maxSize && file.size > props.maxSize * 1024 * 1024) {
+    message.error(`文件大小不能超过 ${props.maxSize}MB`);
+    return false;
+  }
+  return true;
+};
 
-function removeFile(index: number) {
-  const urls = parseUploadValue(props.value);
-  urls.splice(index, 1);
-  emit('update:value', urls.join(','));
-}
+const customUpload: UploadProps['customRequest'] = async (options) => {
+  const { file, onError, onSuccess } = options;
+  const f = file as File & { uid?: string };
+  const uid = f.uid || `${Date.now()}-${f.name}`;
+  const uploadingFile: ManagedUploadFile = {
+    uid,
+    name: f.name,
+    status: 'uploading',
+    size: f.size,
+    type: f.type,
+  };
+  uploadingFiles.value = [...uploadingFiles.value, uploadingFile];
+
+  try {
+    const result = await uploadFile(f);
+    emitUrls([...parseUploadValue(props.value), result.url]);
+    message.success('上传成功');
+    onSuccess?.(result as any);
+  } catch (error: any) {
+    message.error('上传失败');
+    onError?.(error);
+  } finally {
+    uploadingFiles.value = uploadingFiles.value.filter((item) => item.uid !== uid);
+  }
+};
+
+const handleRemove: UploadProps['onRemove'] = (file) => {
+  if (props.disabled) {
+    return false;
+  }
+  const managedFile = file as ManagedUploadFile;
+  const savedUrl = managedFile.savedUrl || managedFile.url;
+  if (savedUrl) {
+    emitUrls(parseUploadValue(props.value).filter((url) => url !== savedUrl));
+    return true;
+  }
+  uploadingFiles.value = uploadingFiles.value.filter((item) => item.uid !== managedFile.uid);
+  return true;
+};
+
+const handlePreview: UploadProps['onPreview'] = (file) => {
+  const url = (file as ManagedUploadFile).savedUrl || file.url;
+  if (url) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+};
 </script>
 
 <template>
-  <div class="file-upload">
-    <div v-if="fileItems.length > 0" class="file-upload__list">
-      <div v-for="(file, index) in fileItems" :key="file.uid" class="file-upload__item">
-        <a :href="file.url" target="_blank" class="file-upload__link" :title="file.name">
-          {{ file.name }}
-        </a>
-        <span
-          v-if="!disabled"
-          class="file-upload__remove"
-          @click="removeFile(index)"
-        >
-          ×
-        </span>
-      </div>
-    </div>
+  <Upload
+    :accept="accept || undefined"
+    :before-upload="beforeUpload"
+    :custom-request="customUpload"
+    :disabled="disabled"
+    :file-list="displayFileList"
+    :multiple="effectiveMaxCount > 1"
+    :show-upload-list="{ showRemoveIcon: !disabled }"
+    @preview="handlePreview"
+    @remove="handleRemove"
+  >
     <Button
-      v-if="fileItems.length < maxCount && !disabled"
-      @click="openPicker"
+      v-if="(displayFileList?.length ?? 0) < effectiveMaxCount && !disabled"
+      :loading="uploading"
     >
+      <UploadOutlined />
       选择文件
     </Button>
-    <PickerModal @confirm="onPickerConfirm" />
-  </div>
+  </Upload>
 </template>
-
-<style scoped>
-.file-upload__list {
-  margin-bottom: 8px;
-}
-
-.file-upload__item {
-  display: flex;
-  align-items: center;
-  padding: 4px 8px;
-  border: 1px solid #f0f0f0;
-  border-radius: 4px;
-  margin-bottom: 4px;
-}
-
-.file-upload__link {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #1677ff;
-  font-size: 13px;
-}
-
-.file-upload__remove {
-  margin-left: 8px;
-  cursor: pointer;
-  color: #999;
-  font-size: 14px;
-}
-
-.file-upload__remove:hover {
-  color: #ff4d4f;
-}
-</style>

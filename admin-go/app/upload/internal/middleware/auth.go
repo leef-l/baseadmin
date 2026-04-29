@@ -37,6 +37,8 @@ func Auth(r *ghttp.Request) {
 	r.SetCtxVar("jwt_user_id", claims.UserID)
 	r.SetCtxVar("jwt_username", claims.Username)
 	r.SetCtxVar("jwt_dept_id", claims.DeptID)
+	r.SetCtxVar("jwt_tenant_id", claims.TenantID)
+	r.SetCtxVar("jwt_merchant_id", claims.MerchantID)
 	r.SetCtxVar("jwt_claims", claims)
 
 	if permission := resolveUploadPermission(r.Method, r.URL.Path); permission != "" {

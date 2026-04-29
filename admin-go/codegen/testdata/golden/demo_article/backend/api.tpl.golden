@@ -39,6 +39,8 @@ type ArticleCreateReq struct {
 	ExtraField string `json:"extraField"  dc:"ExtraField"`
 	PublishAt *gtime.Time `json:"publishAt"  dc:"PublishAt"`
 	ExpireAt *gtime.Time `json:"expireAt"  dc:"ExpireAt"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"  dc:"租户"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"  dc:"商户"`
 }
 
 // ArticleCreateRes 创建文章响应
@@ -73,6 +75,8 @@ type ArticleUpdateReq struct {
 	ExtraField string `json:"extraField"  dc:"ExtraField"`
 	PublishAt *gtime.Time `json:"publishAt"  dc:"PublishAt"`
 	ExpireAt *gtime.Time `json:"expireAt"  dc:"ExpireAt"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"  dc:"租户"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"  dc:"商户"`
 }
 
 // ArticleUpdateRes 更新文章响应
@@ -143,6 +147,8 @@ type ArticleListReq struct {
 	Email string `json:"email" dc:"Email"`
 	CategoryID *snowflake.JsonInt64 `json:"categoryId" dc:"CategoryID"`
 	UserID *snowflake.JsonInt64 `json:"userId" dc:"UserID"`
+	TenantID *snowflake.JsonInt64 `json:"tenantID" dc:"租户"`
+	MerchantID *snowflake.JsonInt64 `json:"merchantID" dc:"商户"`
 	Status *int `json:"status" dc:"Status"`
 	Type *int `json:"type" dc:"Type"`
 	IsTop *int `json:"isTop" dc:"IsTop"`
@@ -172,6 +178,8 @@ type ArticleExportReq struct {
 	Email string `json:"email" dc:"Email"`
 	CategoryID *snowflake.JsonInt64 `json:"categoryId" dc:"CategoryID"`
 	UserID *snowflake.JsonInt64 `json:"userId" dc:"UserID"`
+	TenantID *snowflake.JsonInt64 `json:"tenantID" dc:"租户"`
+	MerchantID *snowflake.JsonInt64 `json:"merchantID" dc:"商户"`
 	Status *int `json:"status" dc:"Status"`
 	Type *int `json:"type" dc:"Type"`
 	IsTop *int `json:"isTop" dc:"IsTop"`

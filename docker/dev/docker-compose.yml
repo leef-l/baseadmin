@@ -108,6 +108,39 @@ services:
     networks:
       - gbaseadmin_net
 
+  demo:
+    build:
+      context: ../../admin-go
+      dockerfile: ../docker/build/Dockerfile.demo
+    container_name: gbaseadmin_demo
+    restart: unless-stopped
+    working_dir: /app
+    command: ["/bin/sh", "/docker/dev/start-go-app.sh", "demo"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - GF_GCFG_FILE=config.yaml
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=${MYSQL_USER}
+      - DB_PASS=${MYSQL_PASSWORD}
+      - DB_NAME=${MYSQL_DATABASE}
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASS=${REDIS_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - GF_SERVER_ADDRESS=:10026
+      - DB_MIGRATE_AUTO=0
+      - TZ=Asia/Shanghai
+    ports:
+      - "${DEMO_PORT:-10026}:10026"
+    volumes:
+      - ./start-go-app.sh:/docker/dev/start-go-app.sh:ro
+    networks:
+      - gbaseadmin_net
+
   frontend:
     image: node:22-alpine
     container_name: gbaseadmin_frontend
@@ -128,6 +161,7 @@ services:
       - VITE_GLOB_API_URL=${VITE_GLOB_API_URL:-/api}
       - VITE_PROXY_SYSTEM_TARGET=${VITE_PROXY_SYSTEM_TARGET:-http://system:10022}
       - VITE_PROXY_UPLOAD_TARGET=${VITE_PROXY_UPLOAD_TARGET:-http://upload:10023}
+      - VITE_PROXY_DEMO_TARGET=${VITE_PROXY_DEMO_TARGET:-http://demo:10026}
       - NODE_OPTIONS=--max-old-space-size=${FRONTEND_NODE_MAX_OLD_SPACE_SIZE:-256}
       - FRONTEND_INSTALL_NODE_MAX_OLD_SPACE_SIZE=${FRONTEND_INSTALL_NODE_MAX_OLD_SPACE_SIZE:-256}
       - PNPM_NETWORK_CONCURRENCY=${PNPM_NETWORK_CONCURRENCY:-1}

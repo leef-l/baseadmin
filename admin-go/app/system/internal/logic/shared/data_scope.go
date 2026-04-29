@@ -175,11 +175,18 @@ func loadDeptAndChildrenIDs(ctx context.Context, rootDeptID int64) ([]int64, err
 		return nil, nil
 	}
 	var rows []dataScopeDeptRow
-	if err := g.DB().Ctx(ctx).
+	m := g.DB().Ctx(ctx).
 		Model("system_dept").
 		Fields("id", "parent_id AS parentId").
-		Where("deleted_at", nil).
-		Scan(&rows); err != nil {
+		Where("deleted_at", nil)
+	tenantScope := ResolveTenantAccessScope(ctx)
+	if !tenantScope.All {
+		m = m.Where("tenant_id", tenantScope.TenantID)
+		if tenantScope.MerchantID > 0 {
+			m = m.WhereIn("merchant_id", []int64{0, tenantScope.MerchantID})
+		}
+	}
+	if err := m.Scan(&rows); err != nil {
 		return nil, err
 	}
 	tree := make(map[int64][]int64, len(rows))

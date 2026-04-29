@@ -30,6 +30,13 @@ func LoadUserAssignableRoleIDs(ctx context.Context, userID int64) ([]int64, erro
 		Fields("r.id AS roleId").
 		Where("r.deleted_at", nil).
 		Where("r.status", 1)
+	tenantScope := ResolveTenantAccessScope(ctx)
+	if !tenantScope.All {
+		m = m.Where("r.tenant_id", tenantScope.TenantID)
+		if tenantScope.MerchantID > 0 {
+			m = m.WhereIn("r.merchant_id", []int64{0, tenantScope.MerchantID})
+		}
+	}
 	if !actorHasAdmin {
 		m = m.LeftJoin("system_user_role ur", "ur.role_id = r.id").
 			Where("ur.user_id", userID)

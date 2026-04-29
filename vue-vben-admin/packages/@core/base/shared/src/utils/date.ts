@@ -20,12 +20,15 @@ type Format =
   | (string & {});
 
 export function formatDate(time?: FormatDate, format: Format = 'YYYY-MM-DD') {
+  if (time === undefined || time === null || time === '') {
+    return '';
+  }
   try {
     const date = dayjs.isDayjs(time) ? time : dayjs(time);
     if (!date.isValid()) {
       throw new Error('Invalid date');
     }
-    return date.tz().format(format);
+    return date.tz(currentTimezone).format(format);
   } catch (error) {
     console.error(`Error formatting date: ${error}`);
     return String(time ?? '');
@@ -48,8 +51,18 @@ export function isDayjsObject(value: any): value is dayjs.Dayjs {
  * 获取当前时区
  * @returns 当前时区
  */
+function normalizeTimezone(timezone?: string) {
+  const next = timezone || 'UTC';
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: next });
+    return next;
+  } catch {
+    return 'UTC';
+  }
+}
+
 export const getSystemTimezone = () => {
-  return dayjs.tz.guess();
+  return normalizeTimezone(dayjs.tz.guess());
 };
 
 /**
@@ -62,7 +75,7 @@ let currentTimezone = getSystemTimezone();
  * @param timezone
  */
 export const setCurrentTimezone = (timezone?: string) => {
-  currentTimezone = timezone || getSystemTimezone();
+  currentTimezone = normalizeTimezone(timezone || getSystemTimezone());
   dayjs.tz.setDefault(currentTimezone);
 };
 

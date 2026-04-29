@@ -110,11 +110,15 @@ type TableMeta struct {
 	HasPassword            bool   // 有 password 字段
 	HasTooltip             bool   // 有字段需要 Tooltip 提示
 	HasRichText            bool   // 有 RichText 或 JsonEditor 字段（用于弹窗加宽）
+	HasRichTextComponent   bool   // 有 RichText 字段（用于详情页导入富文本组件）
 	HasMoney               bool   // 有金额字段（用于列表格式化）
 	HasSearchable          bool   // 有可搜索的文本字段
 	HasTreeSelect          bool   // 有 TreeSelectSingle/TreeSelectMulti 字段（不含外键 TreeSelect）
-	HasCreatedBy           bool   // 有 created_by 字段（用于数据权限注入）
-	HasDeptID              bool   // 有 dept_id 字段（用于数据权限注入）
+	HasCreatedBy           bool   // 有 created_by 字段（codegen CRUD 必需，用于数据权限注入）
+	HasDeptID              bool   // 有 dept_id 字段（codegen CRUD 必需，用于数据权限注入）
+	HasTenantID            bool   // 有 tenant_id 字段（codegen CRUD 必需，用于租户数据权限）
+	HasMerchantID          bool   // 有 merchant_id 字段（codegen CRUD 必需，用于商户数据权限）
+	HasTenantScope         bool   // 是否需要生成租户数据权限守卫
 	HasDict                bool   // 有字典字段（需要导入字典 API）
 	HasBatchEdit           bool   // 有可批量编辑的枚举字段（status 等）
 	HasImport              bool   // 是否生成导入功能（默认 true，除树形表外）

@@ -8,11 +8,15 @@ import (
 	"github.com/gogf/gf/v2/os/gcmd"
 
 	"gbaseadmin/app/system/internal/controller/auth"
+	"gbaseadmin/app/system/internal/controller/daemon"
 	"gbaseadmin/app/system/internal/controller/dept"
+	"gbaseadmin/app/system/internal/controller/domain"
 	"gbaseadmin/app/system/internal/controller/health"
 	"gbaseadmin/app/system/internal/controller/hello"
 	"gbaseadmin/app/system/internal/controller/menu"
+	"gbaseadmin/app/system/internal/controller/merchant"
 	"gbaseadmin/app/system/internal/controller/role"
+	"gbaseadmin/app/system/internal/controller/tenant"
 	"gbaseadmin/app/system/internal/controller/users"
 	"gbaseadmin/app/system/internal/middleware"
 	"gbaseadmin/utility/httpmeta"
@@ -26,7 +30,7 @@ var (
 		Func: func(ctx context.Context, parser *gcmd.Parser) (err error) {
 			s := g.Server()
 			s.Group("/", func(group *ghttp.RouterGroup) {
-				group.Middleware(httpmeta.RequestIDMiddleware, ghttp.MiddlewareHandlerResponse, httpmeta.AccessLogMiddleware)
+				group.Middleware(httpmeta.RequestIDMiddleware, middleware.DomainContext, ghttp.MiddlewareHandlerResponse, httpmeta.AccessLogMiddleware)
 				group.Bind(
 					health.NewV1(),
 					hello.NewV1(),
@@ -46,7 +50,11 @@ var (
 							auth.Auth.Info,
 							auth.Auth.ChangePassword,
 							auth.Auth.Menus,
+							daemon.Daemon,
 							dept.Dept,
+							domain.Domain,
+							tenant.Tenant,
+							merchant.Merchant,
 							role.Role,
 							menu.Menu,
 							users.Users,

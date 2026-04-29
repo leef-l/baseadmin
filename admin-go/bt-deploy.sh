@@ -18,8 +18,8 @@ DB_HOST="127.0.0.1"
 DB_PORT="3306"
 JWT_SECRET="change_me"
 
-APPS=("system" "upload")
-PORTS=("10022" "10023")
+APPS=("system" "upload" "demo")
+PORTS=("10022" "10023" "10026")
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -218,6 +218,20 @@ server {
     # upload 后端 API
     location /api/upload/ {
         proxy_pass http://127.0.0.1:10023;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # demo 体验应用 API
+    location /api/demo/ {
+        proxy_pass http://127.0.0.1:10026;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
         proxy_set_header Host $host;

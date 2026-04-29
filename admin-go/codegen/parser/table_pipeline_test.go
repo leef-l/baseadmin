@@ -24,6 +24,34 @@ func TestSplitTableIdentity(t *testing.T) {
 	}
 }
 
+func TestValidateRequiredScopeFields(t *testing.T) {
+	meta := &TableMeta{
+		TableName:     "demo_article",
+		HasTenantID:   true,
+		HasMerchantID: true,
+		HasCreatedBy:  true,
+		HasDeptID:     true,
+	}
+	if err := validateRequiredScopeFields(meta); err != nil {
+		t.Fatalf("validateRequiredScopeFields returned unexpected error: %v", err)
+	}
+}
+
+func TestValidateRequiredScopeFieldsRejectsMissingField(t *testing.T) {
+	meta := &TableMeta{
+		TableName:    "demo_article",
+		HasTenantID:  true,
+		HasCreatedBy: true,
+	}
+	err := validateRequiredScopeFields(meta)
+	if err == nil {
+		t.Fatal("validateRequiredScopeFields should reject missing merchant_id and dept_id")
+	}
+	if !strings.Contains(err.Error(), "merchant_id") || !strings.Contains(err.Error(), "dept_id") {
+		t.Fatalf("error should mention missing merchant_id and dept_id, got: %v", err)
+	}
+}
+
 func TestResolveReferenceFieldsPrefersAppPrefixedTable(t *testing.T) {
 	p := &Parser{
 		tableColumnsCache: map[string]map[string]struct{}{

@@ -33,6 +33,8 @@ type ArticleCreateInput struct {
 	ExtraField string `json:"extraField"`
 	PublishAt *gtime.Time `json:"publishAt"`
 	ExpireAt *gtime.Time `json:"expireAt"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"`
 }
 
 // ArticleUpdateInput 更新文章输入
@@ -61,6 +63,8 @@ type ArticleUpdateInput struct {
 	ExtraField string `json:"extraField"`
 	PublishAt *gtime.Time `json:"publishAt"`
 	ExpireAt *gtime.Time `json:"expireAt"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"`
 }
 
 // ArticleDetailOutput 文章详情输出
@@ -90,6 +94,10 @@ type ArticleDetailOutput struct {
 	ExtraField string `json:"extraField"`
 	PublishAt *gtime.Time `json:"publishAt"`
 	ExpireAt *gtime.Time `json:"expireAt"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"`
+	TenantName string `json:"tenantName"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"`
+	MerchantName string `json:"merchantName"`
 	CreatedAt *gtime.Time `json:"createdAt"`
 	UpdatedAt *gtime.Time `json:"updatedAt"`
 }
@@ -121,6 +129,10 @@ type ArticleListOutput struct {
 	ExtraField string `json:"extraField"`
 	PublishAt *gtime.Time `json:"publishAt"`
 	ExpireAt *gtime.Time `json:"expireAt"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"`
+	TenantName string `json:"tenantName"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"`
+	MerchantName string `json:"merchantName"`
 	CreatedAt *gtime.Time `json:"createdAt"`
 	UpdatedAt *gtime.Time `json:"updatedAt"`
 }
@@ -139,6 +151,8 @@ type ArticleListInput struct {
 	Email string `json:"email"`
 	CategoryID *snowflake.JsonInt64 `json:"categoryId"`
 	UserID *snowflake.JsonInt64 `json:"userId"`
+	TenantID *snowflake.JsonInt64 `json:"tenantID"`
+	MerchantID *snowflake.JsonInt64 `json:"merchantID"`
 	Status *int `json:"status"`
 	Type *int `json:"type"`
 	IsTop *int `json:"isTop"`

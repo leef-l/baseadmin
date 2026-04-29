@@ -11,11 +11,12 @@ func LoadDirNameMap(ctx context.Context, dirIDs []int64) map[int64]string {
 	if len(dirIDs) == 0 {
 		return nil
 	}
-	rows, err := g.DB().Ctx(ctx).Model("upload_dir").
+	m := g.DB().Ctx(ctx).Model("upload_dir").
 		Fields("id", "name").
 		Where("deleted_at", nil).
-		WhereIn("id", dirIDs).
-		All()
+		WhereIn("id", dirIDs)
+	m = ApplyTenantScopeToModel(ctx, m, ColumnTenantID, ColumnMerchantID)
+	rows, err := m.All()
 	if err != nil {
 		return nil
 	}

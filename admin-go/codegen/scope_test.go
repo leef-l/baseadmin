@@ -46,7 +46,7 @@ func TestSupportedComponentsMatchScopeContract(t *testing.T) {
 
 func TestValidateMetaScopeRejectsUnexpectedApp(t *testing.T) {
 	cfg := &Config{AllowedApps: defaultAllowedApps()}
-	meta := &parser.TableMeta{AppName: "demo"}
+	meta := &parser.TableMeta{AppName: "mall"}
 	err := validateMetaScope(cfg, meta)
 	if err == nil || !strings.Contains(err.Error(), "只允许生成应用") {
 		t.Fatalf("validateMetaScope unexpected error: %v", err)

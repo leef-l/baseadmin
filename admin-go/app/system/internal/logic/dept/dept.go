@@ -40,7 +40,11 @@ func (s *sDept) Create(ctx context.Context, in *model.DeptCreateInput) error {
 	if err := validateDeptFields(in.Title, in.Sort, in.Status); err != nil {
 		return err
 	}
-	if err := s.ensureDeptTitleUnique(ctx, 0, in.ParentID, in.Title); err != nil {
+	tenantID, merchantID, err := s.resolveCreateOwnership(ctx, in.ParentID)
+	if err != nil {
+		return err
+	}
+	if err := s.ensureDeptTitleUnique(ctx, 0, in.ParentID, in.Title, tenantID, merchantID); err != nil {
 		return err
 	}
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
@@ -50,14 +54,16 @@ func (s *sDept) Create(ctx context.Context, in *model.DeptCreateInput) error {
 		return err
 	}
 	id := snowflake.Generate()
-	_, err := dao.Dept.Ctx(ctx).Data(do.Dept{
-		Id:       id,
-		ParentId: in.ParentID,
-		Title:    in.Title,
-		Username: in.Username,
-		Email:    in.Email,
-		Sort:     in.Sort,
-		Status:   in.Status,
+	_, err = dao.Dept.Ctx(ctx).Data(do.Dept{
+		Id:         id,
+		ParentId:   in.ParentID,
+		Title:      in.Title,
+		Username:   in.Username,
+		Email:      in.Email,
+		Sort:       in.Sort,
+		Status:     in.Status,
+		TenantId:   tenantID,
+		MerchantId: merchantID,
 	}).Insert()
 	return err
 }
@@ -77,7 +83,11 @@ func (s *sDept) Update(ctx context.Context, in *model.DeptUpdateInput) error {
 	if err := s.ensureDeptAccessible(ctx, in.ID); err != nil {
 		return err
 	}
-	if err := s.ensureDeptTitleUnique(ctx, in.ID, in.ParentID, in.Title); err != nil {
+	tenantID, merchantID, err := s.resolveUpdateOwnership(ctx, in.ID, in.ParentID)
+	if err != nil {
+		return err
+	}
+	if err := s.ensureDeptTitleUnique(ctx, in.ID, in.ParentID, in.Title, tenantID, merchantID); err != nil {
 		return err
 	}
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
@@ -87,14 +97,16 @@ func (s *sDept) Update(ctx context.Context, in *model.DeptUpdateInput) error {
 		return err
 	}
 	data := do.Dept{
-		ParentId: in.ParentID,
-		Title:    in.Title,
-		Username: in.Username,
-		Email:    in.Email,
-		Sort:     in.Sort,
-		Status:   in.Status,
+		ParentId:   in.ParentID,
+		Title:      in.Title,
+		Username:   in.Username,
+		Email:      in.Email,
+		Sort:       in.Sort,
+		Status:     in.Status,
+		TenantId:   tenantID,
+		MerchantId: merchantID,
 	}
-	_, err := dao.Dept.Ctx(ctx).
+	_, err = dao.Dept.Ctx(ctx).
 		Where(dao.Dept.Columns().Id, in.ID).
 		Where(dao.Dept.Columns().DeletedAt, nil).
 		Data(data).
@@ -187,6 +199,7 @@ func (s *sDept) List(ctx context.Context, in *model.DeptListInput) (list []*mode
 	}
 	normalizeDeptListInput(in)
 	m := dao.Dept.Ctx(ctx).Where(dao.Dept.Columns().DeletedAt, nil)
+	m = shared.ApplyTenantScopeToModel(ctx, m, dao.Dept.Columns().TenantId, dao.Dept.Columns().MerchantId)
 	m, err = shared.ApplyDeptScopeToDeptModel(ctx, m, dao.Dept.Columns().Id)
 	if err != nil {
 		return nil, 0, err
@@ -218,6 +231,7 @@ func (s *sDept) List(ctx context.Context, in *model.DeptListInput) (list []*mode
 func (s *sDept) Tree(ctx context.Context, in *model.DeptTreeInput) (tree []*model.DeptTreeOutput, err error) {
 	var list []*model.DeptTreeOutput
 	m := dao.Dept.Ctx(ctx).Where(dao.Dept.Columns().DeletedAt, nil)
+	m = shared.ApplyTenantScopeToModel(ctx, m, dao.Dept.Columns().TenantId, dao.Dept.Columns().MerchantId)
 	m, err = shared.ApplyDeptScopeToDeptModel(ctx, m, dao.Dept.Columns().Id)
 	if err != nil {
 		return nil, err
@@ -362,6 +376,13 @@ func (s *sDept) ensureDeptExists(ctx context.Context, id snowflake.JsonInt64) er
 }
 
 func (s *sDept) ensureDeptAccessible(ctx context.Context, id snowflake.JsonInt64) error {
+	tenantID, merchantID, err := s.loadDeptOwnership(ctx, id)
+	if err != nil {
+		return err
+	}
+	if !shared.CanAccessTenantMerchant(ctx, tenantID, merchantID) {
+		return gerror.New("部门不存在或已删除")
+	}
 	allowed, err := shared.CanAccessDept(ctx, int64(id))
 	if err != nil {
 		return err
@@ -396,7 +417,7 @@ func (s *sDept) ensureDeptIDsExist(ctx context.Context, ids []snowflake.JsonInt6
 	return nil
 }
 
-func (s *sDept) ensureDeptTitleUnique(ctx context.Context, currentID, parentID snowflake.JsonInt64, title string) error {
+func (s *sDept) ensureDeptTitleUnique(ctx context.Context, currentID, parentID snowflake.JsonInt64, title string, tenantID, merchantID int64) error {
 	title = strings.TrimSpace(title)
 	if title == "" {
 		return nil
@@ -404,6 +425,8 @@ func (s *sDept) ensureDeptTitleUnique(ctx context.Context, currentID, parentID s
 	m := dao.Dept.Ctx(ctx).
 		Where(dao.Dept.Columns().ParentId, parentID).
 		Where(dao.Dept.Columns().Title, title).
+		Where(dao.Dept.Columns().TenantId, tenantID).
+		Where(dao.Dept.Columns().MerchantId, merchantID).
 		Where(dao.Dept.Columns().DeletedAt, nil)
 	if currentID > 0 {
 		m = m.WhereNot(dao.Dept.Columns().Id, currentID)
@@ -416,6 +439,57 @@ func (s *sDept) ensureDeptTitleUnique(ctx context.Context, currentID, parentID s
 		return gerror.New("同级部门名称已存在")
 	}
 	return nil
+}
+
+func (s *sDept) resolveCreateOwnership(ctx context.Context, parentID snowflake.JsonInt64) (int64, int64, error) {
+	if parentID > 0 {
+		return s.loadDeptOwnership(ctx, parentID)
+	}
+	scope := shared.ResolveTenantAccessScope(ctx)
+	if scope.All {
+		return 0, 0, nil
+	}
+	return scope.TenantID, scope.MerchantID, nil
+}
+
+func (s *sDept) resolveUpdateOwnership(ctx context.Context, id, parentID snowflake.JsonInt64) (int64, int64, error) {
+	tenantID, merchantID, err := s.loadDeptOwnership(ctx, id)
+	if err != nil {
+		return 0, 0, err
+	}
+	if parentID == 0 {
+		return tenantID, merchantID, nil
+	}
+	parentTenantID, parentMerchantID, err := s.loadDeptOwnership(ctx, parentID)
+	if err != nil {
+		return 0, 0, err
+	}
+	if parentTenantID != tenantID || parentMerchantID != merchantID {
+		return 0, 0, gerror.New("上级部门必须与当前部门属于同一租户和商户")
+	}
+	return tenantID, merchantID, nil
+}
+
+func (s *sDept) loadDeptOwnership(ctx context.Context, id snowflake.JsonInt64) (int64, int64, error) {
+	var row struct {
+		Id         int64 `json:"id"`
+		TenantId   int64 `json:"tenantId"`
+		MerchantId int64 `json:"merchantId"`
+	}
+	if err := dao.Dept.Ctx(ctx).
+		Fields(dao.Dept.Columns().Id, dao.Dept.Columns().TenantId, dao.Dept.Columns().MerchantId).
+		Where(dao.Dept.Columns().Id, id).
+		Where(dao.Dept.Columns().DeletedAt, nil).
+		Scan(&row); err != nil {
+		return 0, 0, err
+	}
+	if row.Id == 0 {
+		return 0, 0, gerror.New("部门不存在或已删除")
+	}
+	if !shared.CanAccessTenantMerchant(ctx, row.TenantId, row.MerchantId) {
+		return 0, 0, gerror.New("部门不存在或无权操作")
+	}
+	return row.TenantId, row.MerchantId, nil
 }
 
 func (s *sDept) ensureDeptBatchDeletable(ctx context.Context, id snowflake.JsonInt64, deleteIDs []int64) error {

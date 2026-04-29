@@ -49,6 +49,10 @@ type uploadDirRuleCreateData struct {
 	SavePath     string              `orm:"save_path"`
 	KeepName     int                 `orm:"keep_name"`
 	Status       int                 `orm:"status"`
+	TenantId     snowflake.JsonInt64 `orm:"tenant_id"`
+	MerchantId   snowflake.JsonInt64 `orm:"merchant_id"`
+	CreatedBy    snowflake.JsonInt64 `orm:"created_by"`
+	DeptId       snowflake.JsonInt64 `orm:"dept_id"`
 }
 
 // Create 创建文件目录规则
@@ -64,6 +68,8 @@ func (s *sDirRule) Create(ctx context.Context, in *model.DirRuleCreateInput) err
 		return err
 	}
 	id := snowflake.Generate()
+	var tenantID, merchantID, createdBy, deptID snowflake.JsonInt64
+	shared.ApplyWriteScope(ctx, &tenantID, &merchantID, &createdBy, &deptID)
 	_, err := dao.UploadDirRule.Ctx(ctx).Data(uploadDirRuleCreateData{
 		Id:           id,
 		DirId:        in.DirID,
@@ -73,6 +79,10 @@ func (s *sDirRule) Create(ctx context.Context, in *model.DirRuleCreateInput) err
 		SavePath:     in.SavePath,
 		KeepName:     in.KeepName,
 		Status:       in.Status,
+		TenantId:     tenantID,
+		MerchantId:   merchantID,
+		CreatedBy:    createdBy,
+		DeptId:       deptID,
 	}).Insert()
 	return err
 }
@@ -101,11 +111,12 @@ func (s *sDirRule) Update(ctx context.Context, in *model.DirRuleUpdateInput) err
 		KeepName:     in.KeepName,
 		Status:       in.Status,
 	}
-	_, err := dao.UploadDirRule.Ctx(ctx).
+	m := dao.UploadDirRule.Ctx(ctx).
 		Where(dao.UploadDirRule.Columns().Id, in.ID).
 		Where(dao.UploadDirRule.Columns().DeletedAt, nil).
-		Data(data).
-		Update()
+		Data(data)
+	m = shared.ApplyAccessScope(ctx, m)
+	_, err := m.Update()
 	return err
 }
 
@@ -127,10 +138,11 @@ func (s *sDirRule) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) e
 		return gerror.New("请选择要删除的目录规则")
 	}
 	deleteIDs := batchutil.ToInt64s(ids)
-	count, err := dao.UploadDirRule.Ctx(ctx).
+	m := dao.UploadDirRule.Ctx(ctx).
 		WhereIn(dao.UploadDirRule.Columns().Id, deleteIDs).
-		Where(dao.UploadDirRule.Columns().DeletedAt, nil).
-		Count()
+		Where(dao.UploadDirRule.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	count, err := m.Count()
 	if err != nil {
 		return err
 	}
@@ -151,7 +163,9 @@ func (s *sDirRule) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mod
 		return nil, gerror.New("目录规则不存在或已删除")
 	}
 	out = &model.DirRuleDetailOutput{}
-	err = dao.UploadDirRule.Ctx(ctx).Where(dao.UploadDirRule.Columns().Id, id).Where(dao.UploadDirRule.Columns().DeletedAt, nil).Scan(out)
+	m := dao.UploadDirRule.Ctx(ctx).Where(dao.UploadDirRule.Columns().Id, id).Where(dao.UploadDirRule.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	err = m.Scan(out)
 	if err != nil {
 		return nil, err
 	}
@@ -188,6 +202,7 @@ func (s *sDirRule) List(ctx context.Context, in *model.DirRuleListInput) (list [
 
 func (s *sDirRule) buildListModel(ctx context.Context, in *model.DirRuleListInput, includeStorageTypes bool) *gdb.Model {
 	m := dao.UploadDirRule.Ctx(ctx).Where(dao.UploadDirRule.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
 	if in.Keyword != "" {
 		keywordBuilder := m.Builder()
 		keywordBuilder = keywordBuilder.WhereLike(dao.UploadDirRule.Columns().SavePath, "%"+in.Keyword+"%")
@@ -223,10 +238,11 @@ func (s *sDirRule) ensureDirRuleExists(ctx context.Context, id snowflake.JsonInt
 	if id <= 0 {
 		return gerror.New("目录规则不存在或已删除")
 	}
-	count, err := dao.UploadDirRule.Ctx(ctx).
+	m := dao.UploadDirRule.Ctx(ctx).
 		Where(dao.UploadDirRule.Columns().Id, id).
-		Where(dao.UploadDirRule.Columns().DeletedAt, nil).
-		Count()
+		Where(dao.UploadDirRule.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	count, err := m.Count()
 	if err != nil {
 		return err
 	}
@@ -240,10 +256,11 @@ func (s *sDirRule) ensureDirExists(ctx context.Context, dirID snowflake.JsonInt6
 	if dirID == 0 {
 		return nil
 	}
-	count, err := dao.UploadDir.Ctx(ctx).
+	m := dao.UploadDir.Ctx(ctx).
 		Where(dao.UploadDir.Columns().Id, dirID).
-		Where(dao.UploadDir.Columns().DeletedAt, nil).
-		Count()
+		Where(dao.UploadDir.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	count, err := m.Count()
 	if err != nil {
 		return err
 	}

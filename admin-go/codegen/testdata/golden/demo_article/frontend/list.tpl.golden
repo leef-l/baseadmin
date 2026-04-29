@@ -10,10 +10,13 @@ import { Button, message, Modal, Tag, Tooltip } from 'ant-design-vue';
 import { QuestionCircleOutlined } from '@ant-design/icons-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getArticleList, deleteArticle, batchDeleteArticle, exportArticle, importArticle, downloadImportTemplateArticle, batchUpdateArticle } from '#/api/demo/article';
 import { getDictByType } from '#/api/system/dict';
 import { getCategoryTree } from '#/api/demo/category';
 import { getUsersList } from '#/api/system/users';
+import { getTenantList } from '#/api/system/tenant';
+import { getMerchantList } from '#/api/system/merchant';
 import type { ArticleItem } from '#/api/demo/article/types';
 import FormModal from './modules/form.vue';
 import DetailDrawer from './modules/detail-drawer.vue';
@@ -156,6 +159,7 @@ const [DetailDrawerComp, detailDrawerApi] = useVbenModal({
 });
 const { hasAccessByCodes } = useAccess();
 const canBatchDelete = hasAccessByCodes(['demo:article:batch-delete']);
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
 
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
@@ -212,6 +216,32 @@ const formOptions: VbenFormProps = {
       fieldName: 'userId',
       label: 'UserID',
     },
+    ...(isPlatformSuperAdmin.value ? [
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: [],
+        placeholder: '请选择租户',
+        class: 'w-full',
+      },
+      fieldName: 'tenantID',
+      label: '租户',
+    },
+    ] : []),
+    ...(isPlatformSuperAdmin.value ? [
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: [],
+        placeholder: '请选择商户',
+        class: 'w-full',
+      },
+      fieldName: 'merchantID',
+      label: '商户',
+    },
+    ] : []),
     {
       component: 'Select',
       componentProps: {
@@ -316,6 +346,12 @@ const gridOptions: VxeGridProps<ArticleItem> = {
     { field: 'remark', title: 'Remark' },
     { field: 'level', title: 'Level' },
     { field: 'extraField', title: 'ExtraField' },
+    ...(isPlatformSuperAdmin.value ? [
+    { field: 'tenantName', title: '租户' },
+    ] : []),
+    ...(isPlatformSuperAdmin.value ? [
+    { field: 'merchantName', title: '商户' },
+    ] : []),
     { field: 'publishAt', title: 'PublishAt', width: 180, formatter: 'formatDateTime' },
     { field: 'expireAt', title: 'ExpireAt', width: 180, formatter: 'formatDateTime' },
     { field: 'createdAt', title: '创建时间', width: 180, formatter: 'formatDateTime', sortable: true },
@@ -336,6 +372,10 @@ const gridOptions: VxeGridProps<ArticleItem> = {
           params.endTime = params.timeRange[1];
         }
         delete params.timeRange;
+        if (!isPlatformSuperAdmin.value) {
+          delete params.tenantID;
+          delete params.merchantID;
+        }
         if (params.publishAtRange && params.publishAtRange.length === 2) {
           params.publishAtStart = params.publishAtRange[0];
           params.publishAtEnd = params.publishAtRange[1];
@@ -404,6 +444,42 @@ async function initSearchOptions() {
     ]);
   } catch {
     // ignore
+  }
+  if (isPlatformSuperAdmin.value) {
+  try {
+    const tenantIDRes = await getTenantList({ pageNum: 1, pageSize: 1000 });
+    gridApi.formApi.updateSchema([
+      {
+        fieldName: 'tenantID',
+        componentProps: {
+          options: (tenantIDRes?.list ?? []).map((item: any) => ({
+            label: item.name || item.id,
+            value: item.id,
+          })),
+        },
+      },
+    ]);
+  } catch {
+    // ignore
+  }
+  }
+  if (isPlatformSuperAdmin.value) {
+  try {
+    const merchantIDRes = await getMerchantList({ pageNum: 1, pageSize: 1000 });
+    gridApi.formApi.updateSchema([
+      {
+        fieldName: 'merchantID',
+        componentProps: {
+          options: (merchantIDRes?.list ?? []).map((item: any) => ({
+            label: item.name || item.id,
+            value: item.id,
+          })),
+        },
+      },
+    ]);
+  } catch {
+    // ignore
+  }
   }
   try {
     const levelDict = await getDictByType('article_level');
@@ -486,6 +562,10 @@ async function handleExport() {
       params.endTime = params.timeRange[1];
     }
     delete params.timeRange;
+    if (!isPlatformSuperAdmin.value) {
+      delete params.tenantID;
+      delete params.merchantID;
+    }
     if (params.publishAtRange && params.publishAtRange.length === 2) {
       params.publishAtStart = params.publishAtRange[0];
       params.publishAtEnd = params.publishAtRange[1];

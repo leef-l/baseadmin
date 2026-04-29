@@ -15,7 +15,10 @@ CREATE TABLE IF NOT EXISTS upload_dir (
   deleted_at datetime COMMENT '删除时间',
   created_by bigint unsigned COMMENT '创建人',
   dept_id bigint unsigned COMMENT '部门ID',
-  PRIMARY KEY (id)
+  tenant_id bigint unsigned NOT NULL DEFAULT 0 COMMENT '租户',
+  merchant_id bigint unsigned NOT NULL DEFAULT 0 COMMENT '商户',
+  PRIMARY KEY (id),
+  KEY idx_tenant_merchant (tenant_id, merchant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文件目录';
 
 -- 2. 文件记录
@@ -34,8 +37,11 @@ CREATE TABLE IF NOT EXISTS upload_file (
   deleted_at datetime COMMENT '删除时间',
   created_by bigint unsigned COMMENT '创建人',
   dept_id bigint unsigned COMMENT '部门ID',
+  tenant_id bigint unsigned NOT NULL DEFAULT 0 COMMENT '租户',
+  merchant_id bigint unsigned NOT NULL DEFAULT 0 COMMENT '商户',
   PRIMARY KEY (id),
-  KEY idx_dir_id (dir_id)
+  KEY idx_dir_id (dir_id),
+  KEY idx_tenant_merchant (tenant_id, merchant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文件记录';
 
 -- 3. 上传配置
@@ -60,7 +66,10 @@ CREATE TABLE IF NOT EXISTS upload_config (
   deleted_at datetime COMMENT '删除时间',
   created_by bigint unsigned COMMENT '创建人',
   dept_id bigint unsigned COMMENT '部门ID',
-  PRIMARY KEY (id)
+  tenant_id bigint unsigned NOT NULL DEFAULT 0 COMMENT '租户',
+  merchant_id bigint unsigned NOT NULL DEFAULT 0 COMMENT '商户',
+  PRIMARY KEY (id),
+  KEY idx_tenant_merchant (tenant_id, merchant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='上传配置';
 
 -- 4. 文件目录规则
@@ -78,6 +87,9 @@ CREATE TABLE IF NOT EXISTS upload_dir_rule (
   deleted_at datetime COMMENT '删除时间',
   created_by bigint unsigned COMMENT '创建人',
   dept_id bigint unsigned COMMENT '部门ID',
+  tenant_id bigint unsigned NOT NULL DEFAULT 0 COMMENT '租户',
+  merchant_id bigint unsigned NOT NULL DEFAULT 0 COMMENT '商户',
   PRIMARY KEY (id),
-  KEY idx_dir_id (dir_id)
+  KEY idx_dir_id (dir_id),
+  KEY idx_tenant_merchant (tenant_id, merchant_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文件目录规则';

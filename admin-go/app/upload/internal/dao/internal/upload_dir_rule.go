@@ -24,15 +24,18 @@ type UploadDirRuleColumns struct {
 	Id           string // ID
 	DirId        string // 目录ID
 	Category     string // 类别:1=默认,2=类型,3=接口
-	FileType     string // 文件类型，多个用逗号分隔
+	FileType     string // 匹配条件，多个可换行
 	StorageTypes string // 适用存储类型，多个用逗号分隔
 	SavePath     string // 保存目录
+	KeepName     string // 保留原文件名:0=否,1=是
 	Status       string // 状态:0=禁用,1=启用
 	CreatedAt    string // 创建时间
 	UpdatedAt    string // 更新时间
 	DeletedAt    string // 删除时间
 	CreatedBy    string // 创建人
 	DeptId       string // 部门ID
+	TenantId     string // 租户
+	MerchantId   string // 商户
 }
 
 // uploadDirRuleColumns holds the columns for the table upload_dir_rule.
@@ -43,12 +46,15 @@ var uploadDirRuleColumns = UploadDirRuleColumns{
 	FileType:     "file_type",
 	StorageTypes: "storage_types",
 	SavePath:     "save_path",
+	KeepName:     "keep_name",
 	Status:       "status",
 	CreatedAt:    "created_at",
 	UpdatedAt:    "updated_at",
 	DeletedAt:    "deleted_at",
 	CreatedBy:    "created_by",
 	DeptId:       "dept_id",
+	TenantId:     "tenant_id",
+	MerchantId:   "merchant_id",
 }
 
 // NewUploadDirRuleDao creates and returns a new DAO object for table data access.

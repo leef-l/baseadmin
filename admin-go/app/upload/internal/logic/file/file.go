@@ -41,6 +41,22 @@ func New() *sFile {
 
 type sFile struct{}
 
+type uploadFileCreateData struct {
+	Id         snowflake.JsonInt64 `orm:"id"`
+	DirId      snowflake.JsonInt64 `orm:"dir_id"`
+	Name       string              `orm:"name"`
+	Url        string              `orm:"url"`
+	Ext        string              `orm:"ext"`
+	Size       int64               `orm:"size"`
+	Mime       string              `orm:"mime"`
+	Storage    int                 `orm:"storage"`
+	IsImage    int                 `orm:"is_image"`
+	TenantId   snowflake.JsonInt64 `orm:"tenant_id"`
+	MerchantId snowflake.JsonInt64 `orm:"merchant_id"`
+	CreatedBy  snowflake.JsonInt64 `orm:"created_by"`
+	DeptId     snowflake.JsonInt64 `orm:"dept_id"`
+}
+
 type fileDeleteTarget struct {
 	ID      int64  `json:"id"`
 	URL     string `json:"url"`
@@ -66,16 +82,22 @@ func (s *sFile) Create(ctx context.Context, in *model.FileCreateInput) error {
 		return err
 	}
 	id := snowflake.Generate()
-	_, err := dao.UploadFile.Ctx(ctx).Data(do.UploadFile{
-		Id:      id,
-		DirId:   in.DirID,
-		Name:    in.Name,
-		Url:     in.URL,
-		Ext:     in.Ext,
-		Size:    in.Size,
-		Mime:    in.Mime,
-		Storage: in.Storage,
-		IsImage: in.IsImage,
+	var tenantID, merchantID, createdBy, deptID snowflake.JsonInt64
+	shared.ApplyWriteScope(ctx, &tenantID, &merchantID, &createdBy, &deptID)
+	_, err := dao.UploadFile.Ctx(ctx).Data(uploadFileCreateData{
+		Id:         id,
+		DirId:      in.DirID,
+		Name:       in.Name,
+		Url:        in.URL,
+		Ext:        in.Ext,
+		Size:       in.Size,
+		Mime:       in.Mime,
+		Storage:    in.Storage,
+		IsImage:    in.IsImage,
+		TenantId:   tenantID,
+		MerchantId: merchantID,
+		CreatedBy:  createdBy,
+		DeptId:     deptID,
 	}).Insert()
 	return err
 }
@@ -105,11 +127,12 @@ func (s *sFile) Update(ctx context.Context, in *model.FileUpdateInput) error {
 		Storage: in.Storage,
 		IsImage: in.IsImage,
 	}
-	_, err := dao.UploadFile.Ctx(ctx).
+	m := dao.UploadFile.Ctx(ctx).
 		Where(dao.UploadFile.Columns().Id, in.ID).
 		Where(dao.UploadFile.Columns().DeletedAt, nil).
-		Data(data).
-		Update()
+		Data(data)
+	m = shared.ApplyAccessScope(ctx, m)
+	_, err := m.Update()
 	return err
 }
 
@@ -386,11 +409,12 @@ func (s *sFile) loadDeleteTargets(ctx context.Context, ids []snowflake.JsonInt64
 	}
 	dbIDs := batchutil.ToInt64s(ids)
 	var rows []fileDeleteTarget
-	if err := dao.UploadFile.Ctx(ctx).
+	m := dao.UploadFile.Ctx(ctx).
 		Fields(dao.UploadFile.Columns().Id, dao.UploadFile.Columns().Url, dao.UploadFile.Columns().Storage).
 		WhereIn(dao.UploadFile.Columns().Id, dbIDs).
-		Where(dao.UploadFile.Columns().DeletedAt, nil).
-		Scan(&rows); err != nil {
+		Where(dao.UploadFile.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	if err := m.Scan(&rows); err != nil {
 		return nil, err
 	}
 	if len(rows) != len(dbIDs) {
@@ -448,7 +472,9 @@ func (s *sFile) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.
 		return nil, gerror.New("文件记录不存在或已删除")
 	}
 	out = &model.FileDetailOutput{}
-	err = dao.UploadFile.Ctx(ctx).Where(dao.UploadFile.Columns().Id, id).Where(dao.UploadFile.Columns().DeletedAt, nil).Scan(out)
+	m := dao.UploadFile.Ctx(ctx).Where(dao.UploadFile.Columns().Id, id).Where(dao.UploadFile.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	err = m.Scan(out)
 	if err != nil {
 		return nil, err
 	}
@@ -466,6 +492,7 @@ func (s *sFile) List(ctx context.Context, in *model.FileListInput) (list []*mode
 	}
 	normalizeFileListInput(in)
 	m := dao.UploadFile.Ctx(ctx).Where(dao.UploadFile.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
 	if in.Keyword != "" {
 		keywordBuilder := m.Builder().
 			WhereLike(dao.UploadFile.Columns().Name, "%"+in.Keyword+"%").
@@ -563,10 +590,11 @@ func (s *sFile) ensureDirExists(ctx context.Context, dirID snowflake.JsonInt64) 
 	if dirID == 0 {
 		return nil
 	}
-	count, err := dao.UploadDir.Ctx(ctx).
+	m := dao.UploadDir.Ctx(ctx).
 		Where(dao.UploadDir.Columns().Id, dirID).
-		Where(dao.UploadDir.Columns().DeletedAt, nil).
-		Count()
+		Where(dao.UploadDir.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	count, err := m.Count()
 	if err != nil {
 		return err
 	}
@@ -580,10 +608,11 @@ func (s *sFile) ensureFileExists(ctx context.Context, id snowflake.JsonInt64) er
 	if id <= 0 {
 		return gerror.New("文件记录不存在或已删除")
 	}
-	count, err := dao.UploadFile.Ctx(ctx).
+	m := dao.UploadFile.Ctx(ctx).
 		Where(dao.UploadFile.Columns().Id, id).
-		Where(dao.UploadFile.Columns().DeletedAt, nil).
-		Count()
+		Where(dao.UploadFile.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	count, err := m.Count()
 	if err != nil {
 		return err
 	}
@@ -595,11 +624,12 @@ func (s *sFile) ensureFileExists(ctx context.Context, id snowflake.JsonInt64) er
 
 func loadUploadConfigByURL(ctx context.Context, storage int, fileURL string) (*entity.UploadConfig, string, error) {
 	var configs []*entity.UploadConfig
-	if err := dao.UploadConfig.Ctx(ctx).
+	m := dao.UploadConfig.Ctx(ctx).
 		Where(dao.UploadConfig.Columns().Storage, storage).
 		OrderAsc(dao.UploadConfig.Columns().DeletedAt).
-		OrderDesc(dao.UploadConfig.Columns().Id).
-		Scan(&configs); err != nil {
+		OrderDesc(dao.UploadConfig.Columns().Id)
+	m = shared.ApplyTenantScopeToModel(ctx, m, shared.ColumnTenantID, shared.ColumnMerchantID)
+	if err := m.Scan(&configs); err != nil {
 		return nil, "", fmt.Errorf("读取上传配置失败: %w", err)
 	}
 	config, objectKey := matchUploadConfigByURL(configs, storage, fileURL)

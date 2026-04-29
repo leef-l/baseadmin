@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"gbaseadmin/app/upload/internal/dao"
+	"gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model/entity"
 )
 
@@ -31,6 +32,7 @@ func loadUploadStorageConfig(ctx context.Context, configIDs ...int64) (uploadSto
 
 	var record *entity.UploadConfig
 	query := dao.UploadConfig.Ctx(ctx).Where("status", 1)
+	query = shared.ApplyTenantScopeToModel(ctx, query, shared.ColumnTenantID, shared.ColumnMerchantID)
 	if configID > 0 {
 		query = query.Where("id", configID)
 	} else {

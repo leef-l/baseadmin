@@ -7,6 +7,9 @@ export interface BackendAuthInfo {
   email: string;
   avatar: string;
   deptId: string;
+  tenantId?: string;
+  merchantId?: string;
+  isAdmin?: number;
   status: number;
   roles: string[];
   perms: string[];

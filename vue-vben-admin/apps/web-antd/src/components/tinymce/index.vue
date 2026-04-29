@@ -3,10 +3,10 @@ import { ref, watch } from 'vue';
 
 import { uploadFile } from '#/api/upload/file';
 
-// TinyMCE v8 core (theme is built-in, no separate themes/silver)
-import 'tinymce';
+import './tinymce-global';
 import 'tinymce/models/dom';
 import 'tinymce/icons/default';
+import 'tinymce/themes/silver';
 
 // Plugins
 import 'tinymce/plugins/advlist';
@@ -15,6 +15,7 @@ import 'tinymce/plugins/charmap';
 import 'tinymce/plugins/code';
 import 'tinymce/plugins/directionality';
 import 'tinymce/plugins/emoticons';
+import 'tinymce/plugins/emoticons/js/emojis';
 import 'tinymce/plugins/fullscreen';
 import 'tinymce/plugins/image';
 import 'tinymce/plugins/insertdatetime';
@@ -89,6 +90,7 @@ const initOptions = {
   plugins,
   toolbar,
   branding: false,
+  license_key: 'gpl',
   promotion: false,
   menubar: 'file edit view insert format tools table',
   images_upload_handler: imagesUploadHandler,
@@ -101,6 +103,7 @@ const initOptions = {
   <Editor
     :disabled="disabled"
     :init="initOptions"
+    license-key="gpl"
     :model-value="content"
     @update:model-value="handleUpdate"
   />

@@ -19,6 +19,9 @@ import { Button, message, Modal{{if .HasEnum}}, Tag{{end}} } from 'ant-design-vu
 {{- end}}
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+{{- if .HasTenantScope}}
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
+{{- end}}
 {{- if .HasParentID}}
 import { get{{.ModelName}}Tree, delete{{.ModelName}}, batchDelete{{.ModelName}}, export{{.ModelName}}{{if .HasImport}}, import{{.ModelName}}, downloadImportTemplate{{.ModelName}}{{end}}{{if .HasBatchEdit}}, batchUpdate{{.ModelName}}{{end}} } from '#/api/{{.AppName}}/{{.ModuleName}}';
 {{- else}}
@@ -127,6 +130,9 @@ const [DetailDrawerComp, detailDrawerApi] = useVbenModal({
 });
 const { hasAccessByCodes } = useAccess();
 const canBatchDelete = hasAccessByCodes(['{{.AppName}}:{{.ModuleName}}:batch-delete']);
+{{- if .HasTenantScope}}
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
+{{- end}}
 
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
@@ -144,6 +150,10 @@ const formOptions: VbenFormProps = {
     },
 {{- end}}
 {{- range .SearchFields}}
+{{- $isScopeField := or (eq .Name "tenant_id") (eq .Name "merchant_id")}}
+{{- if and $.HasTenantScope $isScopeField}}
+    ...(isPlatformSuperAdmin.value ? [
+{{- end}}
 {{- if .SearchRange}}
     {
       component: 'RangePicker',
@@ -194,6 +204,9 @@ const formOptions: VbenFormProps = {
       label: '{{.ShortLabel}}',
     },
 {{- end}}
+{{- if and $.HasTenantScope $isScopeField}}
+    ] : []),
+{{- end}}
 {{- end}}
     {
       component: 'RangePicker',
@@ -219,6 +232,10 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
 {{- $firstDataCol := true}}
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (not .IsParentID) (not .IsTimeField) (not .IsMultiFK) (not .IsPassword)}}
+{{- $isScopeField := or (eq .Name "tenant_id") (eq .Name "merchant_id")}}
+{{- if and $.HasTenantScope $isScopeField}}
+    ...(isPlatformSuperAdmin.value ? [
+{{- end}}
 {{- if .RefFieldJSON}}
     { field: '{{.RefFieldJSON}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
 {{- else if .IsEnum}}
@@ -235,6 +252,9 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
     { field: '{{.NameLower}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}, width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-'{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
 {{- else}}
     { field: '{{.NameLower}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
+{{- end}}
+{{- if and $.HasTenantScope $isScopeField}}
+    ] : []),
 {{- end}}
 {{- if not (or (eq .Component "RichText") (eq .Component "JsonEditor"))}}
 {{- $firstDataCol = false}}
@@ -265,6 +285,15 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
           params.endTime = params.timeRange[1];
         }
         delete params.timeRange;
+{{- if .HasTenantScope}}
+        if (!isPlatformSuperAdmin.value) {
+{{- range .SearchFields}}
+{{- if or (eq .Name "tenant_id") (eq .Name "merchant_id")}}
+          delete params.{{.SearchFormField}};
+{{- end}}
+{{- end}}
+        }
+{{- end}}
 {{- range .SearchFields}}
 {{- if .SearchRange}}
         if (params.{{.SearchFormField}} && params.{{.SearchFormField}}.length === 2) {
@@ -294,6 +323,15 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
           params.endTime = params.timeRange[1];
         }
         delete params.timeRange;
+{{- if .HasTenantScope}}
+        if (!isPlatformSuperAdmin.value) {
+{{- range .SearchFields}}
+{{- if or (eq .Name "tenant_id") (eq .Name "merchant_id")}}
+          delete params.{{.SearchFormField}};
+{{- end}}
+{{- end}}
+        }
+{{- end}}
 {{- range .SearchFields}}
 {{- if .SearchRange}}
         if (params.{{.SearchFormField}} && params.{{.SearchFormField}}.length === 2) {
@@ -344,6 +382,10 @@ const importInputRef = ref<HTMLInputElement | null>(null);
 async function initSearchOptions() {
 {{- range .SearchFields}}
 {{- if .IsParentID}}
+{{- $isScopeField := or (eq .Name "tenant_id") (eq .Name "merchant_id")}}
+{{- if and $.HasTenantScope $isScopeField}}
+  if (isPlatformSuperAdmin.value) {
+{{- end}}
   try {
     const treeRes = await get{{$.ModelName}}Tree();
     gridApi.formApi.updateSchema([
@@ -359,10 +401,17 @@ async function initSearchOptions() {
   } catch {
     // ignore
   }
+{{- if and $.HasTenantScope $isScopeField}}
+  }
+{{- end}}
 {{- end}}
 {{- end}}
 {{- range .SearchFields}}
 {{- if and .IsForeignKey .RefTable}}
+{{- $isScopeField := or (eq .Name "tenant_id") (eq .Name "merchant_id")}}
+{{- if and $.HasTenantScope $isScopeField}}
+  if (isPlatformSuperAdmin.value) {
+{{- end}}
 {{- if .RefIsTree}}
   try {
     const {{.NameLower}}Tree = await get{{.RefTableCamel}}Tree();
@@ -393,10 +442,17 @@ async function initSearchOptions() {
     // ignore
   }
 {{- end}}
+{{- if and $.HasTenantScope $isScopeField}}
+  }
+{{- end}}
 {{- end}}
 {{- end}}
 {{- range .SearchFields}}
 {{- if .DictType}}
+{{- $isScopeField := or (eq .Name "tenant_id") (eq .Name "merchant_id")}}
+{{- if and $.HasTenantScope $isScopeField}}
+  if (isPlatformSuperAdmin.value) {
+{{- end}}
   try {
     const {{.NameLower}}Dict = await getDictByType('{{.DictType}}');
     gridApi.formApi.updateSchema([
@@ -413,6 +469,9 @@ async function initSearchOptions() {
   } catch {
     // ignore
   }
+{{- if and $.HasTenantScope $isScopeField}}
+  }
+{{- end}}
 {{- end}}
 {{- end}}
 }
@@ -480,6 +539,15 @@ async function handleExport() {
       params.endTime = params.timeRange[1];
     }
     delete params.timeRange;
+{{- if .HasTenantScope}}
+    if (!isPlatformSuperAdmin.value) {
+{{- range .SearchFields}}
+{{- if or (eq .Name "tenant_id") (eq .Name "merchant_id")}}
+      delete params.{{.SearchFormField}};
+{{- end}}
+{{- end}}
+    }
+{{- end}}
 {{- range .SearchFields}}
 {{- if .SearchRange}}
     if (params.{{.SearchFormField}} && params.{{.SearchFormField}}.length === 2) {

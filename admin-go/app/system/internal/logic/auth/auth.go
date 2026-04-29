@@ -12,6 +12,7 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 
 	"gbaseadmin/app/system/internal/dao"
+	"gbaseadmin/app/system/internal/logic/shared"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/model/do"
 	"gbaseadmin/app/system/internal/service"
@@ -40,19 +41,23 @@ type permissionRow struct {
 }
 
 type roleSnapshot struct {
-	ID      int64  `json:"id"`
-	Title   string `json:"title"`
-	IsAdmin int    `json:"isAdmin"`
+	ID         int64  `json:"id"`
+	Title      string `json:"title"`
+	IsAdmin    int    `json:"isAdmin"`
+	TenantID   int64  `json:"tenantId"`
+	MerchantID int64  `json:"merchantId"`
 }
 
 type authUserRecord struct {
-	Id       int64  `json:"id"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Nickname string `json:"nickname"`
-	Avatar   string `json:"avatar"`
-	DeptId   int64  `json:"deptId"`
-	Status   int    `json:"status"`
+	Id         int64  `json:"id"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	Nickname   string `json:"nickname"`
+	Avatar     string `json:"avatar"`
+	DeptId     int64  `json:"deptId"`
+	TenantId   int64  `json:"tenantId"`
+	MerchantId int64  `json:"merchantId"`
+	Status     int    `json:"status"`
 }
 
 const (
@@ -122,6 +127,9 @@ func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model
 	if user.Status == 0 {
 		return nil, gerror.New("账号已被禁用")
 	}
+	if !shared.DomainScopeAllows(ctx, user.TenantId, user.MerchantId) {
+		return nil, gerror.New("当前账号不属于该访问域名")
+	}
 
 	// 校验密码
 	if !password.Verify(user.Password, in.Password) {
@@ -141,17 +149,19 @@ func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model
 	}
 
 	// 生成 Token
-	token, err := jwt.GenerateToken(user.Id, user.Username, user.DeptId)
+	token, err := jwt.GenerateToken(user.Id, user.Username, user.DeptId, user.TenantId, user.MerchantId)
 	if err != nil {
 		return nil, gerror.New("生成Token失败")
 	}
 
 	out = &model.AuthLoginOutput{
-		Token:    token,
-		UserID:   snowflake.JsonInt64(user.Id),
-		Username: user.Username,
-		Nickname: user.Nickname,
-		Avatar:   user.Avatar,
+		Token:      token,
+		UserID:     snowflake.JsonInt64(user.Id),
+		Username:   user.Username,
+		Nickname:   user.Nickname,
+		Avatar:     user.Avatar,
+		TenantID:   snowflake.JsonInt64(user.TenantId),
+		MerchantID: snowflake.JsonInt64(user.MerchantId),
 	}
 	return
 }
@@ -195,17 +205,19 @@ func (s *sAuth) TicketLogin(ctx context.Context, in *model.AuthTicketLoginInput)
 		return nil, gerror.New("账号已被禁用")
 	}
 
-	token, err := jwt.GenerateToken(user.Id, user.Username, user.DeptId)
+	token, err := jwt.GenerateToken(user.Id, user.Username, user.DeptId, user.TenantId, user.MerchantId)
 	if err != nil {
 		return nil, gerror.New("生成Token失败")
 	}
 
 	out = &model.AuthLoginOutput{
-		Token:    token,
-		UserID:   snowflake.JsonInt64(user.Id),
-		Username: user.Username,
-		Nickname: user.Nickname,
-		Avatar:   user.Avatar,
+		Token:      token,
+		UserID:     snowflake.JsonInt64(user.Id),
+		Username:   user.Username,
+		Nickname:   user.Nickname,
+		Avatar:     user.Avatar,
+		TenantID:   snowflake.JsonInt64(user.TenantId),
+		MerchantID: snowflake.JsonInt64(user.MerchantId),
 	}
 	return out, nil
 }
@@ -264,13 +276,15 @@ func (s *sAuth) Info(ctx context.Context, userID snowflake.JsonInt64) (out *mode
 
 func (s *sAuth) loadInfo(ctx context.Context, userID snowflake.JsonInt64) (out *model.AuthInfoOutput, err error) {
 	var user struct {
-		Id       int64  `json:"id"`
-		Username string `json:"username"`
-		Nickname string `json:"nickname"`
-		Email    string `json:"email"`
-		Avatar   string `json:"avatar"`
-		DeptId   int64  `json:"deptId"`
-		Status   int    `json:"status"`
+		Id         int64  `json:"id"`
+		Username   string `json:"username"`
+		Nickname   string `json:"nickname"`
+		Email      string `json:"email"`
+		Avatar     string `json:"avatar"`
+		DeptId     int64  `json:"deptId"`
+		TenantId   int64  `json:"tenantId"`
+		MerchantId int64  `json:"merchantId"`
+		Status     int    `json:"status"`
 	}
 	err = dao.Users.Ctx(ctx).
 		Where(dao.Users.Columns().Id, userID).
@@ -284,15 +298,17 @@ func (s *sAuth) loadInfo(ctx context.Context, userID snowflake.JsonInt64) (out *
 	}
 
 	out = &model.AuthInfoOutput{
-		UserID:   snowflake.JsonInt64(user.Id),
-		Username: user.Username,
-		Nickname: user.Nickname,
-		Email:    user.Email,
-		Avatar:   user.Avatar,
-		DeptID:   snowflake.JsonInt64(user.DeptId),
-		Status:   user.Status,
-		Roles:    make([]string, 0),
-		Perms:    make([]string, 0),
+		UserID:     snowflake.JsonInt64(user.Id),
+		Username:   user.Username,
+		Nickname:   user.Nickname,
+		Email:      user.Email,
+		Avatar:     user.Avatar,
+		DeptID:     snowflake.JsonInt64(user.DeptId),
+		TenantID:   snowflake.JsonInt64(user.TenantId),
+		MerchantID: snowflake.JsonInt64(user.MerchantId),
+		Status:     user.Status,
+		Roles:      make([]string, 0),
+		Perms:      make([]string, 0),
 	}
 
 	roles, err := loadUserRoles(ctx, int64(userID))
@@ -304,7 +320,8 @@ func (s *sAuth) loadInfo(ctx context.Context, userID snowflake.JsonInt64) (out *
 	}
 	roleIDs := collectRoleIDs(roles)
 	out.Roles = collectRoleTitles(roles)
-	if hasAdminRole(roles) {
+	if hasPlatformAdminRole(roles) {
+		out.IsAdmin = 1
 		out.Perms, err = loadActiveMenuPermissions(ctx, nil)
 		return out, err
 	}
@@ -401,7 +418,7 @@ func (s *sAuth) loadMenus(ctx context.Context, userID snowflake.JsonInt64) ([]*m
 	if len(roleIDs) == 0 {
 		return make([]*model.AuthMenuOutput, 0), nil
 	}
-	if hasAdminRole(roles) {
+	if hasPlatformAdminRole(roles) {
 		list, err := loadActiveMenus(ctx, nil)
 		if err != nil {
 			return nil, err
@@ -688,7 +705,7 @@ func loadUserRoles(ctx context.Context, userID int64) ([]roleSnapshot, error) {
 	}
 	var roles []roleSnapshot
 	if err := g.DB().Ctx(ctx).Model("system_role").
-		Fields("id,title,is_admin").
+		Fields("id,title,is_admin,tenant_id AS tenantId,merchant_id AS merchantId").
 		Where("id", roleIDs).
 		Where("deleted_at", nil).
 		Where("status", 1).
@@ -717,6 +734,15 @@ func collectRoleTitles(roles []roleSnapshot) []string {
 func hasAdminRole(roles []roleSnapshot) bool {
 	for _, role := range roles {
 		if role.IsAdmin == 1 {
+			return true
+		}
+	}
+	return false
+}
+
+func hasPlatformAdminRole(roles []roleSnapshot) bool {
+	for _, role := range roles {
+		if role.IsAdmin == 1 && role.TenantID == 0 && role.MerchantID == 0 {
 			return true
 		}
 	}

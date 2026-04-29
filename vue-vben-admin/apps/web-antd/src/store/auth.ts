@@ -13,7 +13,6 @@ import { defineStore } from 'pinia';
 import {
   extractAccessCodes,
   getAuthInfoApi,
-  getUserInfoApi,
   loginApi,
   logoutApi,
   ticketLoginApi,
@@ -90,8 +89,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function fetchUserInfo() {
-    const userInfo = await getUserInfoApi();
+    const authInfo = await getAuthInfoApi();
+    const userInfo = mapToUserInfo(authInfo, preferences.app.defaultHomePath);
+    const accessCodes = extractAccessCodes(authInfo);
     userStore.setUserInfo(userInfo);
+    accessStore.setAccessCodes(accessCodes);
     return userInfo;
   }
 

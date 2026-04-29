@@ -9,9 +9,9 @@
 
 当前代码里实际保留的业务模块：
 
-- `system`：`auth`、`dept`、`role`、`menu`、`users`，以及公开探活 `healthz` / `readyz`
+- `system`：`auth`、`dept`、`role`、`menu`、`users`、`tenant`、`merchant`、`domain`、`daemon`，以及公开探活 `healthz` / `readyz`
 - `upload`：`config`、`dir`、`dir_rule`、`file`、`uploader`，以及公开探活 `healthz` / `readyz`
-- `web-antd` 页面：`views/system/{dept,menu,role,users}`、`views/upload/{config,dir,dir_rule,file}`
+- `web-antd` 页面：`views/system/{dept,menu,role,users,tenant,merchant,domain,daemon}`、`views/upload/{config,dir,dir_rule,file}`
 - 上传复用组件：`components/file-manager`、`components/upload`、`components/tinymce`、`components/json-editor`
 
 详细说明统一放在 `docs/` 目录，新人从代码库导读开始读：
@@ -21,7 +21,9 @@
 - [System 应用说明](admin-go/app/system/README.MD)
 - [Upload 应用说明](admin-go/app/upload/README.MD)
 - [代码生成器说明](admin-go/codegen/README.md)
-- [Codegen AI 执行手册](docs/Codegen-AI执行手册.md)
+- [Codegen AI 执行手册](admin-go/codegen/docs/Codegen-AI执行手册.md)
+- [SaaS 多租户与域名说明](docs/SaaS多租户与域名说明.md)
+- [守护进程管理说明](docs/守护进程管理说明.md)
 - [Docker 开发说明](docs/Docker开发说明.md)
 - [生产运维说明](docs/生产运维说明.md)
 - [Git 提交流程铁律](docs/Git提交流程铁律.md)
@@ -61,6 +63,7 @@ env 同步、国内镜像、profile、代理、初始化迁移等完整细节见
 ## Git 提交铁律
 
 - 整体功能完成后必须立即提交并推送到 GitHub，禁止把“本地已完成但未推送”当作结束状态
+- 当前服务器联调、迁移、demo 体验测试、线上冒烟必须使用 `baseadmin.easytestdev.online` 站点库：`127.0.0.1:3306/sql_baseadmin_easytestdev_online`；禁止误连临时库、Docker 开发库或其它项目库
 - 统一使用仓库脚本：
 
 ```bash
@@ -90,9 +93,9 @@ env 同步、国内镜像、profile、代理、初始化迁移等完整细节见
 bash ./scripts/verify-baseadmin-scope.sh
 bash ./scripts/verify-vben-pages.sh
 
-# 后端与 codegen 测试（带负载守卫）
-(cd admin-go && ../scripts/run-go-task-with-limits.sh go test ./...)
-(cd admin-go/codegen && ../../scripts/run-go-task-with-limits.sh go test ./...)
+# codegen 离线模板验证（带负载守卫）
+(cd admin-go/codegen && ../../scripts/run-go-task-with-limits.sh go run verify_codegen.go)
+(cd admin-go/codegen && ../../scripts/run-go-task-with-limits.sh go run . --table system_dept --dry-run --manifest-out /tmp/baseadmin-codegen-manifest.json)
 
 # 前端校验（带负载守卫）
 bash ./scripts/run-node-task-with-limits.sh pnpm -C vue-vben-admin -F @vben/web-antd typecheck
@@ -110,6 +113,6 @@ bash ./scripts/run-node-task-with-limits.sh pnpm -C vue-vben-admin test:web-antd
 更多说明见：
 
 - [代码库导读](docs/代码库导读.md)
-- [Codegen AI 执行手册](docs/Codegen-AI执行手册.md)
+- [Codegen AI 执行手册](admin-go/codegen/docs/Codegen-AI执行手册.md)
 - [Git 提交流程铁律](docs/Git提交流程铁律.md)
 - [Docker 开发说明](docs/Docker开发说明.md)

@@ -12,9 +12,11 @@ import (
 
 // Claims 自定义 JWT 载荷
 type Claims struct {
-	UserID   int64  `json:"userId"`
-	Username string `json:"username"`
-	DeptID   int64  `json:"deptId"`
+	UserID     int64  `json:"userId"`
+	Username   string `json:"username"`
+	DeptID     int64  `json:"deptId"`
+	TenantID   int64  `json:"tenantId"`
+	MerchantID int64  `json:"merchantId"`
 	gojwt.RegisteredClaims
 }
 
@@ -44,12 +46,14 @@ func init() {
 }
 
 // GenerateToken 生成 JWT Token
-func GenerateToken(userID int64, username string, deptID int64) (string, error) {
+func GenerateToken(userID int64, username string, deptID int64, tenantID int64, merchantID int64) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		UserID:   userID,
-		Username: username,
-		DeptID:   deptID,
+		UserID:     userID,
+		Username:   username,
+		DeptID:     deptID,
+		TenantID:   tenantID,
+		MerchantID: merchantID,
 		RegisteredClaims: gojwt.RegisteredClaims{
 			ExpiresAt: gojwt.NewNumericDate(now.Add(expireTime)),
 			IssuedAt:  gojwt.NewNumericDate(now),

@@ -26,6 +26,8 @@ func (c *cUserReview) Create(ctx context.Context, req *v1.UserReviewCreateReq) (
 		IsPassed: req.IsPassed,
 		Sort: req.Sort,
 		Status: req.Status,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 	})
 	return
 }
@@ -41,6 +43,8 @@ func (c *cUserReview) Update(ctx context.Context, req *v1.UserReviewUpdateReq) (
 		IsPassed: req.IsPassed,
 		Sort: req.Sort,
 		Status: req.Status,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 	})
 	return
 }
@@ -86,6 +90,8 @@ func (c *cUserReview) List(ctx context.Context, req *v1.UserReviewListReq) (res 
 		StartTime: req.StartTime,
 		EndTime:   req.EndTime,
 		UserID: req.UserID,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 		ReviewType: req.ReviewType,
 		IsPassed: req.IsPassed,
 		Status: req.Status,
@@ -101,6 +107,8 @@ func (c *cUserReview) Export(ctx context.Context, req *v1.UserReviewExportReq) (
 		StartTime: req.StartTime,
 		EndTime:   req.EndTime,
 		UserID: req.UserID,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 		ReviewType: req.ReviewType,
 		IsPassed: req.IsPassed,
 		Status: req.Status,
@@ -116,7 +124,7 @@ func (c *cUserReview) Export(ctx context.Context, req *v1.UserReviewExportReq) (
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
 	// 表头
-	_ = w.Write([]string{"UserID", "ReviewType", "Content", "Score", "IsPassed", "Sort", "Status", "创建时间"})
+	_ = w.Write([]string{"UserID", "ReviewType", "Content", "Score", "IsPassed", "Sort", "Status", "租户", "商户", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
@@ -127,6 +135,8 @@ func (c *cUserReview) Export(ctx context.Context, req *v1.UserReviewExportReq) (
 			fmt.Sprintf("%v", item.IsPassed),
 			fmt.Sprintf("%v", item.Sort),
 			fmt.Sprintf("%v", item.Status),
+			item.TenantName,
+			item.MerchantName,
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}
@@ -156,7 +166,7 @@ func (c *cUserReview) ImportTemplate(ctx context.Context, req *v1.UserReviewImpo
 	r.Response.Header().Set("Content-Disposition", `attachment; filename="user_review_template.csv"`)
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
-	_ = w.Write([]string{"UserID", "ReviewType", "Content", "Score", "IsPassed", "Sort", "Status"})
+	_ = w.Write([]string{"UserID", "ReviewType", "Content", "Score", "IsPassed", "Sort", "Status", "租户", "商户"})
 	w.Flush()
 	return
 }

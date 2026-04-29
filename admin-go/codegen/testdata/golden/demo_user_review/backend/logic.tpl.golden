@@ -55,6 +55,10 @@ func normalizeUserReviewIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 // Create 创建用户审核
 func (s *sUserReview) Create(ctx context.Context, in *model.UserReviewCreateInput) error {
 	id := snowflake.Generate()
+	middleware.ApplyTenantScopeToWrite(ctx, &in.TenantID, &in.MerchantID)
+	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
+		return err
+	}
 	_, err := dao.DemoUserReview.Ctx(ctx).Data(do.DemoUserReview{
 		Id:        id,
 		UserId: in.UserID,
@@ -64,6 +68,8 @@ func (s *sUserReview) Create(ctx context.Context, in *model.UserReviewCreateInpu
 		IsPassed: in.IsPassed,
 		Sort: in.Sort,
 		Status: in.Status,
+		TenantId: in.TenantID,
+		MerchantId: in.MerchantID,
 		CreatedBy: middleware.GetUserID(ctx),
 		DeptId: middleware.GetDeptID(ctx),
 	}).Insert()
@@ -72,6 +78,13 @@ func (s *sUserReview) Create(ctx context.Context, in *model.UserReviewCreateInpu
 
 // Update 更新用户审核
 func (s *sUserReview) Update(ctx context.Context, in *model.UserReviewUpdateInput) error {
+	middleware.ApplyTenantScopeToWrite(ctx, &in.TenantID, &in.MerchantID)
+	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
+		return err
+	}
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoUserReview.Ctx(ctx), in.ID, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().TenantId, dao.DemoUserReview.Columns().MerchantId, "用户审核"); err != nil {
+		return err
+	}
 	data := do.DemoUserReview{
 		UserId: in.UserID,
 		ReviewType: in.ReviewType,
@@ -80,6 +93,8 @@ func (s *sUserReview) Update(ctx context.Context, in *model.UserReviewUpdateInpu
 		IsPassed: in.IsPassed,
 		Sort: in.Sort,
 		Status: in.Status,
+		TenantId: in.TenantID,
+		MerchantId: in.MerchantID,
 	}
 	_, err := dao.DemoUserReview.Ctx(ctx).Where(dao.DemoUserReview.Columns().Id, in.ID).Data(data).Update()
 	return err
@@ -87,6 +102,9 @@ func (s *sUserReview) Update(ctx context.Context, in *model.UserReviewUpdateInpu
 
 // Delete 软删除用户审核
 func (s *sUserReview) Delete(ctx context.Context, id snowflake.JsonInt64) error {
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoUserReview.Ctx(ctx), id, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().TenantId, dao.DemoUserReview.Columns().MerchantId, "用户审核"); err != nil {
+		return err
+	}
 	_, err := dao.DemoUserReview.Ctx(ctx).Where(dao.DemoUserReview.Columns().Id, id).Delete()
 	return err
 }
@@ -97,12 +115,18 @@ func (s *sUserReview) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64
 	if len(normalizedIDs) == 0 {
 		return nil
 	}
+	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoUserReview.Ctx(ctx), normalizedIDs, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().TenantId, dao.DemoUserReview.Columns().MerchantId, "用户审核"); err != nil {
+		return err
+	}
 	_, err := dao.DemoUserReview.Ctx(ctx).WhereIn(dao.DemoUserReview.Columns().Id, normalizedIDs).Delete()
 	return err
 }
 
 // Detail 获取用户审核详情
 func (s *sUserReview) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.UserReviewDetailOutput, err error) {
+	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoUserReview.Ctx(ctx), id, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().TenantId, dao.DemoUserReview.Columns().MerchantId, "用户审核"); err != nil {
+		return nil, err
+	}
 	out = &model.UserReviewDetailOutput{}
 	err = dao.DemoUserReview.Ctx(ctx).Where(dao.DemoUserReview.Columns().Id, id).Where(dao.DemoUserReview.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
@@ -120,14 +144,37 @@ func (s *sUserReview) Detail(ctx context.Context, id snowflake.JsonInt64) (out *
 			out.UsersUsername = val.String()
 		}
 	}
+	// 查询租户关联显示
+	if out.TenantID != 0 {
+		refQuery := g.DB().Ctx(ctx).Model("system_tenant").Where("id", out.TenantID)
+		val, err := refQuery.Value("name")
+		if err == nil {
+			out.TenantName = val.String()
+		}
+	}
+	// 查询商户关联显示
+	if out.MerchantID != 0 {
+		refQuery := g.DB().Ctx(ctx).Model("system_merchant").Where("id", out.MerchantID)
+		val, err := refQuery.Value("name")
+		if err == nil {
+			out.MerchantName = val.String()
+		}
+	}
 	return
 }
 
 // applyListFilter 应用列表通用过滤条件
 func (s *sUserReview) applyListFilter(ctx context.Context, in *model.UserReviewListInput) *gdb.Model {
 	m := dao.DemoUserReview.Ctx(ctx).Where(dao.DemoUserReview.Columns().DeletedAt, nil)
+	m = middleware.ApplyTenantScopeToModel(ctx, m, dao.DemoUserReview.Columns().TenantId, dao.DemoUserReview.Columns().MerchantId)
 	if in.UserID != nil {
 		m = m.Where(dao.DemoUserReview.Columns().UserId, *in.UserID)
+	}
+	if in.TenantID != nil {
+		m = m.Where(dao.DemoUserReview.Columns().TenantId, *in.TenantID)
+	}
+	if in.MerchantID != nil {
+		m = m.Where(dao.DemoUserReview.Columns().MerchantId, *in.MerchantID)
 	}
 	if in.ReviewType != nil {
 		m = m.Where(dao.DemoUserReview.Columns().ReviewType, *in.ReviewType)
@@ -178,6 +225,62 @@ func (s *sUserReview) fillRefFields(ctx context.Context, list []*model.UserRevie
 				for _, item := range list {
 					if val, ok := refMap[int64(item.UserID)]; ok {
 						item.UsersUsername = val
+					}
+				}
+			}
+		}
+	}
+	{
+		idSet := make(map[int64]struct{})
+		for _, item := range list {
+			if item.TenantID != 0 {
+				idSet[int64(item.TenantID)] = struct{}{}
+			}
+		}
+		if len(idSet) > 0 {
+			ids := make([]int64, 0, len(idSet))
+			for id := range idSet {
+				ids = append(ids, id)
+			}
+			refQuery := g.DB().Ctx(ctx).Model("system_tenant").
+				Fields("id", "name")
+			rows, err := refQuery.WhereIn("id", ids).All()
+			if err == nil {
+				refMap := make(map[int64]string, len(rows))
+				for _, row := range rows {
+					refMap[row["id"].Int64()] = row["name"].String()
+				}
+				for _, item := range list {
+					if val, ok := refMap[int64(item.TenantID)]; ok {
+						item.TenantName = val
+					}
+				}
+			}
+		}
+	}
+	{
+		idSet := make(map[int64]struct{})
+		for _, item := range list {
+			if item.MerchantID != 0 {
+				idSet[int64(item.MerchantID)] = struct{}{}
+			}
+		}
+		if len(idSet) > 0 {
+			ids := make([]int64, 0, len(idSet))
+			for id := range idSet {
+				ids = append(ids, id)
+			}
+			refQuery := g.DB().Ctx(ctx).Model("system_merchant").
+				Fields("id", "name")
+			rows, err := refQuery.WhereIn("id", ids).All()
+			if err == nil {
+				refMap := make(map[int64]string, len(rows))
+				for _, row := range rows {
+					refMap[row["id"].Int64()] = row["name"].String()
+				}
+				for _, item := range list {
+					if val, ok := refMap[int64(item.MerchantID)]; ok {
+						item.MerchantName = val
 					}
 				}
 			}
@@ -262,7 +365,14 @@ func (s *sUserReview) BatchUpdate(ctx context.Context, in *model.UserReviewBatch
 	if in.Status != nil {
 		data.Status = *in.Status
 	}
-	_, err := dao.DemoUserReview.Ctx(ctx).WhereIn(dao.DemoUserReview.Columns().Id, in.IDs).Data(data).Update()
+	normalizedIDs := normalizeUserReviewIDs(in.IDs)
+	if len(normalizedIDs) == 0 {
+		return nil
+	}
+	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoUserReview.Ctx(ctx), normalizedIDs, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().TenantId, dao.DemoUserReview.Columns().MerchantId, "用户审核"); err != nil {
+		return err
+	}
+	_, err := dao.DemoUserReview.Ctx(ctx).WhereIn(dao.DemoUserReview.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }
 
@@ -327,6 +437,15 @@ func (s *sUserReview) Import(ctx context.Context, file *ghttp.UploadFile) (succe
 			data.Status = record[idx]
 		}
 		idx++
+		tenantID := snowflake.JsonInt64(0)
+		merchantID := snowflake.JsonInt64(0)
+		middleware.ApplyTenantScopeToWrite(ctx, &tenantID, &merchantID)
+		if err := middleware.EnsureTenantMerchantAccessible(ctx, tenantID, merchantID); err != nil {
+			fail++
+			continue
+		}
+		data.TenantId = tenantID
+		data.MerchantId = merchantID
 		if _, insertErr := dao.DemoUserReview.Ctx(ctx).Data(data).Insert(); insertErr != nil {
 			fail++
 		} else {

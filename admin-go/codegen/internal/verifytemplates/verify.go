@@ -347,6 +347,10 @@ func checkOutput(tplFile, output string, meta *parser.TableMeta) []string {
 			if meta.HasParentID {
 				chk(strings.Contains(output, "treeConfig"), "树形表缺少 treeConfig")
 			}
+			if meta.HasTenantScope {
+				chk(strings.Contains(output, "usePlatformSuperAdmin"), "租户表列表缺少平台超级管理员判断")
+				chk(strings.Contains(output, "isPlatformSuperAdmin.value ? ["), "tenant_id/merchant_id 列表与筛选应按平台超级管理员条件渲染")
+			}
 			chk(strings.Contains(output, "checkbox"), "列表应有 checkbox")
 			chk(strings.Contains(output, "handleBatchDelete"), "列表缺少 handleBatchDelete")
 			chk(strings.Contains(output, ":batch-delete"), "列表缺少 batch-delete 权限按钮")
@@ -537,6 +541,8 @@ func buildCategoryMeta() *parser.TableMeta {
 			f.DefaultValue = "1"
 			f.EnumValues = []parser.EnumValue{{Value: "0", Label: "禁用", NameIdent: "Disabled"}, {Value: "1", Label: "启用", NameIdent: "Enabled"}}
 		}),
+		scopeTenantField(),
+		scopeMerchantField(),
 		hiddenField("created_by", "CreatedBy", "CreatedBy", "createdBy", "JsonInt64", "string"),
 		hiddenField("dept_id", "DeptID", "DeptId", "deptID", "JsonInt64", "string"),
 		hiddenTimeField("created_at", "CreatedAt"), hiddenTimeField("updated_at", "UpdatedAt"), hiddenTimeField("deleted_at", "DeletedAt"),
@@ -666,6 +672,8 @@ func buildArticleMeta() *parser.TableMeta {
 		f("extra_field", "ExtraField", "ExtraField", "extraField", "string", "string", func(f *parser.FieldMeta) { f.Component = "Input" }),
 		f("publish_at", "PublishAt", "PublishAt", "publishAt", "*gtime.Time", "string", func(f *parser.FieldMeta) { f.IsTimeField = true; f.Component = "DateTimePicker" }),
 		f("expire_at", "ExpireAt", "ExpireAt", "expireAt", "*gtime.Time", "string", func(f *parser.FieldMeta) { f.IsTimeField = true; f.Component = "DateTimePicker" }),
+		scopeTenantField(),
+		scopeMerchantField(),
 		hiddenField("created_by", "CreatedBy", "CreatedBy", "createdBy", "JsonInt64", "string"),
 		hiddenField("dept_id", "DeptID", "DeptId", "deptID", "JsonInt64", "string"),
 		hiddenTimeField("created_at", "CreatedAt"), hiddenTimeField("updated_at", "UpdatedAt"), hiddenTimeField("deleted_at", "DeletedAt"),
@@ -698,6 +706,8 @@ func buildTagMeta() *parser.TableMeta {
 			f.DefaultValue = "1"
 			f.EnumValues = []parser.EnumValue{{Value: "0", Label: "禁用", NameIdent: "Disabled"}, {Value: "1", Label: "启用", NameIdent: "Enabled"}}
 		}),
+		scopeTenantField(),
+		scopeMerchantField(),
 		hiddenField("created_by", "CreatedBy", "CreatedBy", "createdBy", "JsonInt64", "string"),
 		hiddenField("dept_id", "DeptID", "DeptId", "deptID", "JsonInt64", "string"),
 		hiddenTimeField("created_at", "CreatedAt"), hiddenTimeField("updated_at", "UpdatedAt"), hiddenTimeField("deleted_at", "DeletedAt"),
@@ -762,6 +772,8 @@ func buildUserReviewMeta() *parser.TableMeta {
 			f.DefaultValue = "1"
 			f.EnumValues = []parser.EnumValue{{Value: "0", Label: "禁用", NameIdent: "Disabled"}, {Value: "1", Label: "启用", NameIdent: "Enabled"}}
 		}),
+		scopeTenantField(),
+		scopeMerchantField(),
 		hiddenField("created_by", "CreatedBy", "CreatedBy", "createdBy", "JsonInt64", "string"),
 		hiddenField("dept_id", "DeptID", "DeptId", "deptID", "JsonInt64", "string"),
 		hiddenTimeField("created_at", "CreatedAt"), hiddenTimeField("updated_at", "UpdatedAt"), hiddenTimeField("deleted_at", "DeletedAt"),
@@ -791,6 +803,44 @@ func f(name, camel, dao, lower, goType, tsType string, customize func(*parser.Fi
 
 func hiddenField(name, camel, dao, lower, goType, tsType string) parser.FieldMeta {
 	return f(name, camel, dao, lower, goType, tsType, func(f *parser.FieldMeta) { f.IsHidden = true })
+}
+
+func scopeTenantField() parser.FieldMeta {
+	return f("tenant_id", "TenantID", "TenantId", "tenantID", "JsonInt64", "string", func(f *parser.FieldMeta) {
+		f.Label = "租户"
+		f.ShortLabel = "租户"
+		f.Component = parser.ComponentSelect
+		f.IsForeignKey = true
+		f.RefTable = "tenant"
+		f.RefTableDB = "system_tenant"
+		f.RefTableApp = "system"
+		f.RefTableCamel = "Tenant"
+		f.RefTableLower = "tenant"
+		f.RefDisplayField = "name"
+		f.RefDisplayCamel = "Name"
+		f.RefDisplayLower = "name"
+		f.RefFieldName = "TenantName"
+		f.RefFieldJSON = "tenantName"
+	})
+}
+
+func scopeMerchantField() parser.FieldMeta {
+	return f("merchant_id", "MerchantID", "MerchantId", "merchantID", "JsonInt64", "string", func(f *parser.FieldMeta) {
+		f.Label = "商户"
+		f.ShortLabel = "商户"
+		f.Component = parser.ComponentSelect
+		f.IsForeignKey = true
+		f.RefTable = "merchant"
+		f.RefTableDB = "system_merchant"
+		f.RefTableApp = "system"
+		f.RefTableCamel = "Merchant"
+		f.RefTableLower = "merchant"
+		f.RefDisplayField = "name"
+		f.RefDisplayCamel = "Name"
+		f.RefDisplayLower = "name"
+		f.RefFieldName = "MerchantName"
+		f.RefFieldJSON = "merchantName"
+	})
 }
 
 func hiddenTimeField(name, camel string) parser.FieldMeta {

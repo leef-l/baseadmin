@@ -15,13 +15,16 @@ type UploadDirRule struct {
 	Id           any         // ID
 	DirId        any         // 目录ID
 	Category     any         // 类别:1=默认,2=类型,3=接口
-	FileType     any         // 文件类型，多个用逗号分隔
+	FileType     any         // 匹配条件，多个可换行
 	StorageTypes any         // 适用存储类型，多个用逗号分隔
 	SavePath     any         // 保存目录
+	KeepName     any         // 保留原文件名:0=否,1=是
 	Status       any         // 状态:0=禁用,1=启用
 	CreatedAt    *gtime.Time // 创建时间
 	UpdatedAt    *gtime.Time // 更新时间
 	DeletedAt    *gtime.Time // 删除时间
 	CreatedBy    any         // 创建人
 	DeptId       any         // 部门ID
+	TenantId     any         // 租户
+	MerchantId   any         // 商户
 }

@@ -21,7 +21,6 @@ import (
 	"gbaseadmin/app/upload/internal/dao"
 	"gbaseadmin/app/upload/internal/logic/shared"
 	"gbaseadmin/app/upload/internal/model"
-	"gbaseadmin/app/upload/internal/model/do"
 	"gbaseadmin/app/upload/internal/service"
 	"gbaseadmin/utility/snowflake"
 	"gbaseadmin/utility/uploadticket"
@@ -45,6 +44,22 @@ type uploadPolicy struct {
 	MaxSize             int64
 	AllowedExts         map[string]struct{}
 	AllowedMimePrefixes []string
+}
+
+type uploadFileCreateData struct {
+	Id         snowflake.JsonInt64 `orm:"id"`
+	DirId      int64               `orm:"dir_id"`
+	Name       string              `orm:"name"`
+	Url        string              `orm:"url"`
+	Ext        string              `orm:"ext"`
+	Size       int64               `orm:"size"`
+	Mime       string              `orm:"mime"`
+	Storage    int                 `orm:"storage"`
+	IsImage    int                 `orm:"is_image"`
+	TenantId   snowflake.JsonInt64 `orm:"tenant_id"`
+	MerchantId snowflake.JsonInt64 `orm:"merchant_id"`
+	CreatedBy  snowflake.JsonInt64 `orm:"created_by"`
+	DeptId     snowflake.JsonInt64 `orm:"dept_id"`
 }
 
 const maxInt64AsUint64 = ^uint64(0) >> 1
@@ -140,10 +155,11 @@ func (s *sUploader) upload(ctx context.Context, policy *uploadPolicy) (*model.Up
 	// 获取目录ID
 	dirId := r.Get("dirId").Int64()
 	if dirId > 0 {
-		dirCount, err := dao.UploadDir.Ctx(ctx).
+		m := dao.UploadDir.Ctx(ctx).
 			Where(dao.UploadDir.Columns().Id, dirId).
-			Where(dao.UploadDir.Columns().DeletedAt, nil).
-			Count()
+			Where(dao.UploadDir.Columns().DeletedAt, nil)
+		m = shared.ApplyAccessScope(ctx, m)
+		dirCount, err := m.Count()
 		if err != nil {
 			return nil, err
 		}
@@ -219,16 +235,22 @@ func (s *sUploader) upload(ctx context.Context, policy *uploadPolicy) (*model.Up
 
 	// 生成ID并写入数据库
 	id := snowflake.Generate()
-	_, err = dao.UploadFile.Ctx(ctx).Data(do.UploadFile{
-		Id:      id,
-		DirId:   resolvedDirID,
-		Name:    file.Filename,
-		Url:     storeResult.FileURL,
-		Ext:     fileMeta.Ext,
-		Size:    file.Size,
-		Mime:    fileMeta.Mime,
-		Storage: cfg.StorageType,
-		IsImage: fileMeta.IsImage,
+	var tenantID, merchantID, createdBy, deptID snowflake.JsonInt64
+	shared.ApplyWriteScope(ctx, &tenantID, &merchantID, &createdBy, &deptID)
+	_, err = dao.UploadFile.Ctx(ctx).Data(uploadFileCreateData{
+		Id:         id,
+		DirId:      resolvedDirID,
+		Name:       file.Filename,
+		Url:        storeResult.FileURL,
+		Ext:        fileMeta.Ext,
+		Size:       file.Size,
+		Mime:       fileMeta.Mime,
+		Storage:    cfg.StorageType,
+		IsImage:    fileMeta.IsImage,
+		TenantId:   tenantID,
+		MerchantId: merchantID,
+		CreatedBy:  createdBy,
+		DeptId:     deptID,
 	}).Insert()
 	if err != nil {
 		runCleanupHook(ctx, "rollback", storeResult.OnRollback)

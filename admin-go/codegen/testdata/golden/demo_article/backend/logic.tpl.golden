@@ -56,6 +56,10 @@ func normalizeArticleIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 // Create 创建文章
 func (s *sArticle) Create(ctx context.Context, in *model.ArticleCreateInput) error {
 	id := snowflake.Generate()
+	middleware.ApplyTenantScopeToWrite(ctx, &in.TenantID, &in.MerchantID)
+	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
+		return err
+	}
 	hashedPayPassword, err := bcrypt.GenerateFromPassword([]byte(in.PayPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return err
@@ -85,6 +89,8 @@ func (s *sArticle) Create(ctx context.Context, in *model.ArticleCreateInput) err
 		ExtraField: in.ExtraField,
 		PublishAt: in.PublishAt,
 		ExpireAt: in.ExpireAt,
+		TenantId: in.TenantID,
+		MerchantId: in.MerchantID,
 		CreatedBy: middleware.GetUserID(ctx),
 		DeptId: middleware.GetDeptID(ctx),
 	}).Insert()
@@ -93,6 +99,13 @@ func (s *sArticle) Create(ctx context.Context, in *model.ArticleCreateInput) err
 
 // Update 更新文章
 func (s *sArticle) Update(ctx context.Context, in *model.ArticleUpdateInput) error {
+	middleware.ApplyTenantScopeToWrite(ctx, &in.TenantID, &in.MerchantID)
+	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
+		return err
+	}
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoArticle.Ctx(ctx), in.ID, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().TenantId, dao.DemoArticle.Columns().MerchantId, "文章"); err != nil {
+		return err
+	}
 	data := do.DemoArticle{
 		CategoryId: in.CategoryID,
 		UserId: in.UserID,
@@ -116,6 +129,8 @@ func (s *sArticle) Update(ctx context.Context, in *model.ArticleUpdateInput) err
 		ExtraField: in.ExtraField,
 		PublishAt: in.PublishAt,
 		ExpireAt: in.ExpireAt,
+		TenantId: in.TenantID,
+		MerchantId: in.MerchantID,
 	}
 	if in.PayPassword != "" {
 		hashed, err := bcrypt.GenerateFromPassword([]byte(in.PayPassword), bcrypt.DefaultCost)
@@ -144,6 +159,9 @@ func (s *sArticle) Update(ctx context.Context, in *model.ArticleUpdateInput) err
 
 // Delete 软删除文章
 func (s *sArticle) Delete(ctx context.Context, id snowflake.JsonInt64) error {
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoArticle.Ctx(ctx), id, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().TenantId, dao.DemoArticle.Columns().MerchantId, "文章"); err != nil {
+		return err
+	}
 	_, err := dao.DemoArticle.Ctx(ctx).Where(dao.DemoArticle.Columns().Id, id).Delete()
 	return err
 }
@@ -154,12 +172,18 @@ func (s *sArticle) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) e
 	if len(normalizedIDs) == 0 {
 		return nil
 	}
+	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoArticle.Ctx(ctx), normalizedIDs, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().TenantId, dao.DemoArticle.Columns().MerchantId, "文章"); err != nil {
+		return err
+	}
 	_, err := dao.DemoArticle.Ctx(ctx).WhereIn(dao.DemoArticle.Columns().Id, normalizedIDs).Delete()
 	return err
 }
 
 // Detail 获取文章详情
 func (s *sArticle) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.ArticleDetailOutput, err error) {
+	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoArticle.Ctx(ctx), id, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().TenantId, dao.DemoArticle.Columns().MerchantId, "文章"); err != nil {
+		return nil, err
+	}
 	out = &model.ArticleDetailOutput{}
 	err = dao.DemoArticle.Ctx(ctx).Where(dao.DemoArticle.Columns().Id, id).Where(dao.DemoArticle.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
@@ -186,12 +210,29 @@ func (s *sArticle) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mod
 			out.UsersUsername = val.String()
 		}
 	}
+	// 查询租户关联显示
+	if out.TenantID != 0 {
+		refQuery := g.DB().Ctx(ctx).Model("system_tenant").Where("id", out.TenantID)
+		val, err := refQuery.Value("name")
+		if err == nil {
+			out.TenantName = val.String()
+		}
+	}
+	// 查询商户关联显示
+	if out.MerchantID != 0 {
+		refQuery := g.DB().Ctx(ctx).Model("system_merchant").Where("id", out.MerchantID)
+		val, err := refQuery.Value("name")
+		if err == nil {
+			out.MerchantName = val.String()
+		}
+	}
 	return
 }
 
 // applyListFilter 应用列表通用过滤条件
 func (s *sArticle) applyListFilter(ctx context.Context, in *model.ArticleListInput) *gdb.Model {
 	m := dao.DemoArticle.Ctx(ctx).Where(dao.DemoArticle.Columns().DeletedAt, nil)
+	m = middleware.ApplyTenantScopeToModel(ctx, m, dao.DemoArticle.Columns().TenantId, dao.DemoArticle.Columns().MerchantId)
 	if in.Keyword != "" {
 		keywordBuilder := m.Builder()
 		keywordBuilder = keywordBuilder.WhereLike(dao.DemoArticle.Columns().Title, "%"+in.Keyword+"%")
@@ -215,6 +256,12 @@ func (s *sArticle) applyListFilter(ctx context.Context, in *model.ArticleListInp
 	}
 	if in.UserID != nil {
 		m = m.Where(dao.DemoArticle.Columns().UserId, *in.UserID)
+	}
+	if in.TenantID != nil {
+		m = m.Where(dao.DemoArticle.Columns().TenantId, *in.TenantID)
+	}
+	if in.MerchantID != nil {
+		m = m.Where(dao.DemoArticle.Columns().MerchantId, *in.MerchantID)
 	}
 	if in.Status != nil {
 		m = m.Where(dao.DemoArticle.Columns().Status, *in.Status)
@@ -311,6 +358,62 @@ func (s *sArticle) fillRefFields(ctx context.Context, list []*model.ArticleListO
 			}
 		}
 	}
+	{
+		idSet := make(map[int64]struct{})
+		for _, item := range list {
+			if item.TenantID != 0 {
+				idSet[int64(item.TenantID)] = struct{}{}
+			}
+		}
+		if len(idSet) > 0 {
+			ids := make([]int64, 0, len(idSet))
+			for id := range idSet {
+				ids = append(ids, id)
+			}
+			refQuery := g.DB().Ctx(ctx).Model("system_tenant").
+				Fields("id", "name")
+			rows, err := refQuery.WhereIn("id", ids).All()
+			if err == nil {
+				refMap := make(map[int64]string, len(rows))
+				for _, row := range rows {
+					refMap[row["id"].Int64()] = row["name"].String()
+				}
+				for _, item := range list {
+					if val, ok := refMap[int64(item.TenantID)]; ok {
+						item.TenantName = val
+					}
+				}
+			}
+		}
+	}
+	{
+		idSet := make(map[int64]struct{})
+		for _, item := range list {
+			if item.MerchantID != 0 {
+				idSet[int64(item.MerchantID)] = struct{}{}
+			}
+		}
+		if len(idSet) > 0 {
+			ids := make([]int64, 0, len(idSet))
+			for id := range idSet {
+				ids = append(ids, id)
+			}
+			refQuery := g.DB().Ctx(ctx).Model("system_merchant").
+				Fields("id", "name")
+			rows, err := refQuery.WhereIn("id", ids).All()
+			if err == nil {
+				refMap := make(map[int64]string, len(rows))
+				for _, row := range rows {
+					refMap[row["id"].Int64()] = row["name"].String()
+				}
+				for _, item := range list {
+					if val, ok := refMap[int64(item.MerchantID)]; ok {
+						item.MerchantName = val
+					}
+				}
+			}
+		}
+	}
 }
 
 // List 获取文章列表
@@ -394,7 +497,14 @@ func (s *sArticle) BatchUpdate(ctx context.Context, in *model.ArticleBatchUpdate
 	if in.IsTop != nil {
 		data.IsTop = *in.IsTop
 	}
-	_, err := dao.DemoArticle.Ctx(ctx).WhereIn(dao.DemoArticle.Columns().Id, in.IDs).Data(data).Update()
+	normalizedIDs := normalizeArticleIDs(in.IDs)
+	if len(normalizedIDs) == 0 {
+		return nil
+	}
+	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoArticle.Ctx(ctx), normalizedIDs, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().TenantId, dao.DemoArticle.Columns().MerchantId, "文章"); err != nil {
+		return err
+	}
+	_, err := dao.DemoArticle.Ctx(ctx).WhereIn(dao.DemoArticle.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }
 
@@ -511,6 +621,15 @@ func (s *sArticle) Import(ctx context.Context, file *ghttp.UploadFile) (success 
 			data.ExtraField = record[idx]
 		}
 		idx++
+		tenantID := snowflake.JsonInt64(0)
+		merchantID := snowflake.JsonInt64(0)
+		middleware.ApplyTenantScopeToWrite(ctx, &tenantID, &merchantID)
+		if err := middleware.EnsureTenantMerchantAccessible(ctx, tenantID, merchantID); err != nil {
+			fail++
+			continue
+		}
+		data.TenantId = tenantID
+		data.MerchantId = merchantID
 		if _, insertErr := dao.DemoArticle.Ctx(ctx).Data(data).Insert(); insertErr != nil {
 			fail++
 		} else {

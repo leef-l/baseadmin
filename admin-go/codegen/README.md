@@ -4,9 +4,9 @@
 
 AI/代理处理 codegen 前必须先读：
 
-1. `CLAUDE.md`
-2. `docs/Codegen-AI执行手册.md`
-3. 本文
+1. 本文
+2. `docs/字段备注与生成规则.md`
+3. `docs/Codegen-AI执行手册.md`
 
 服务器上执行 codegen、测试、端到端验证时，必须先跑负载守卫，并通过受限 Go 入口执行：
 
@@ -89,7 +89,7 @@ cd admin-go/codegen
 
 ## 验证方式
 
-推荐至少跑两层：
+当前服务器验证必须走受限 Go 入口，不要裸跑 `go`。当前协作要求下禁止执行 `go test`，因此推荐先跑下面两层：
 
 ```bash
 cd admin-go/codegen
@@ -97,11 +97,8 @@ cd admin-go/codegen
 # 1. 离线模板验证：不依赖真实生成目录
 ../../scripts/run-go-task-with-limits.sh go run verify_codegen.go
 
-# 2. 语法/单测验证
-../../scripts/run-go-task-with-limits.sh go test ./...
-
-# 如模板有预期变更，更新 golden snapshot
-../../scripts/run-go-task-with-limits.sh go test ./... -run TestTemplateGoldenSnapshots -args -update-golden
+# 2. dry-run 预览真实生成计划，manifest 便于人工或脚本审查
+../../scripts/run-go-task-with-limits.sh go run . --table system_dept --dry-run --manifest-out /tmp/baseadmin-codegen-manifest.json
 ```
 
 如果本机有可用 MySQL 且 `admin-go/.env` 已配置完成，还可以继续跑生成级端到端验证：
@@ -121,11 +118,12 @@ cd admin-go/codegen
 说明：
 
 - `verify_codegen.go` 直接渲染模板并检查搜索、外键、字典、树形等关键片段是否生成
-- `go test ./...` 现在包含 `testdata/golden/` 快照比对，模板输出漂移会直接在测试阶段暴露
+- `dry-run --manifest-out` 会输出本次文件计划和菜单计划，不写入目标文件
 - `cmd/verifye2e --stage render` 只做建表、模板渲染和工作区准备
 - `cmd/verifye2e --stage dao` 单独执行 `gf gen dao`
 - `cmd/verifye2e --stage build` 单独执行 `go build`
 - `sql/e2e_verify.sql` 是 `verifye2e` 使用的专用验证表结构
+- 仓库内仍保留 `testdata/golden/` 快照测试；只有在项目策略允许时才跑，并且也必须通过 `../../scripts/run-go-task-with-limits.sh`
 
 ## 失败退出规则
 
@@ -158,6 +156,7 @@ cd admin-go/codegen
 2. 字段元数据构建：列信息转 `FieldMeta`
 3. 关联字段解析：统一补齐外键和 `parent_id` 的显示字段、关联表信息
 4. 模板派生元数据收口：由 `FinalizeTemplateMeta()` 统一计算 `Has*`、`SearchFields`、`KeywordSearchFields`
+5. 权限归属字段硬校验：`tenant_id`、`merchant_id`、`created_by`、`dept_id` 必须同时存在，缺字段直接失败
 
 后续如果继续扩展规则，优先加到对应阶段函数里，不要把新规则继续堆回 `ParseTable()` 主流程。
 
@@ -293,7 +292,7 @@ menu_modules:
 
 - 主键统一使用 `id BIGINT UNSIGNED`（Snowflake ID）
 - 软删除使用 `deleted_at DATETIME`
-- 公共字段：`created_at`、`updated_at`、`deleted_at`、`created_by`、`dept_id`
+- 公共必需字段：`created_at`、`updated_at`、`deleted_at`、`tenant_id`、`merchant_id`、`created_by`、`dept_id`
 - 树形结构使用 `parent_id BIGINT UNSIGNED`
 - 状态字段使用 `status TINYINT(1)`，注释格式：`状态:0=关闭,1=开启`
 - 枚举字段注释格式：`字段说明:值1=标签1,值2=标签2`
@@ -302,11 +301,43 @@ menu_modules:
 
 ## 字段注释与枚举格式
 
-数据库字段的 `COMMENT` 决定了前端表单标签和组件类型。格式：
+数据库字段的 `COMMENT` 决定了前端表单标签、Tooltip、枚举常量、字典、搜索控件、外键关联和部分校验规则。完整细则见 `docs/字段备注与生成规则.md`。
+
+总格式：
 
 ```
-{标签}:{值1}={显示名1},{值2}={显示名2},...
+{字段标签}[（Tooltip 提示）][:枚举定义或 dict:{字典类型}]|{指令1}|{指令2}|...
 ```
+
+当前支持的指令：
+
+| 指令 | 示例 | 说明 |
+|------|------|------|
+| `ref:` | `ref:system_users.username` | 指定外键关联表和显示字段 |
+| `search:` | `search:eq` | 指定搜索控件和匹配方式 |
+| `keyword:` | `keyword:on` | 指定是否进入全局关键词搜索 |
+| `priority:` | `priority:100` | 搜索控件排序，越大越靠前 |
+| `search-priority:` | `search-priority:100` | `priority` 的同义写法 |
+
+常用写法：
+
+```sql
+`order_no` varchar(64) NOT NULL COMMENT '订单号|search:eq|keyword:on|priority:100'
+`title` varchar(100) NOT NULL COMMENT '标题|search:like|keyword:on|priority:95'
+`pay_amount` bigint unsigned NOT NULL DEFAULT 0 COMMENT '支付金额（分）'
+`status` tinyint unsigned NOT NULL DEFAULT 1 COMMENT '状态:0=关闭,1=开启|search:select'
+`gender` tinyint unsigned DEFAULT NULL COMMENT '性别:dict:gender|search:select'
+`user_id` bigint unsigned NOT NULL COMMENT '归属用户|ref:system_users.username|search:select'
+```
+
+写备注时要注意：
+
+- 标签写业务中文名，不要写数据库字段名。
+- 金额、额度、库存等字段要在 Tooltip 里写清单位和业务规则。
+- 枚举字段必须写完整值域，例如 `状态:0=关闭,1=开启`。
+- 动态字典用 `字段:dict:{字典类型}`，不要和静态枚举混用。
+- 跨应用外键必须写 `ref:{表名}.{显示字段}`，避免默认推断到错误应用。
+- 编号类字段建议写 `search:eq`，标题/名称类字段按需写 `keyword:on`。
 
 ### Tooltip 提示（括号语法）
 
@@ -353,6 +384,7 @@ menu_modules:
 - `keyword:off`：不加入全局关键词搜索
 - `keyword:only`：只加入全局关键词搜索，不单独生成控件
 - `priority:90`：指定搜索优先级，值越大越靠前
+- `search-priority:90`：同 `priority:90`
 
 ### 枚举格式
 
@@ -365,6 +397,17 @@ menu_modules:
 | `类型:1=普通,2=VIP,3=管理员` | 标签="类型"，枚举=[{1,"普通"},{2,"VIP"},{3,"管理员"}] |
 
 枚举字段会自动在后端生成 Go 常量（`internal/consts/{module}.go`），前端生成对应的 options 数组。
+
+### 动态字典格式
+
+如果选项来自系统字典，而不是静态枚举，使用 `dict:`：
+
+```sql
+`gender` tinyint unsigned DEFAULT NULL COMMENT '性别:dict:gender|search:select'
+`source` varchar(32) NOT NULL DEFAULT '' COMMENT '来源:dict:user_source|search:select'
+```
+
+字典字段不会再生成静态枚举常量，前端会按字典类型动态加载 options。正常业务仓库应保留 `system/dict` API；只有模板验证仓库明确缺少字典模块时，才使用 `allow_missing_dict_module` 兜底。
 
 ### 外键显式声明
 
@@ -461,7 +504,7 @@ menu_modules:
 | `DateTimePicker` | 日期时间选择器 |
 | `IconPicker` | 图标选择器 |
 
-另外，`go test ./...` 会校验 `templates/frontend/form.tpl` 对这份组件清单的分支覆盖，避免“新增组件常量但模板漏接”的漂移。
+另外，仓库测试里有组件清单覆盖校验，用来避免“新增组件常量但模板漏接”的漂移；当前协作要求下不执行 `go test`，只能在允许测试的环境中通过受限 Go 入口运行。
 
 ## 类型映射
 
@@ -495,6 +538,13 @@ menu_modules:
 
 此外，`codegen.yaml` 中的 `skip_fields` 配置项可自定义额外需要隐藏的字段。
 
+说明：
+
+- `tenant_id`、`merchant_id`、`created_by` 和 `dept_id` 是所有 codegen CRUD 表的必需字段；解析表结构时缺任意一个都会失败。
+- `tenant_id` 和 `merchant_id` 不在通用隐藏字段列表里，但列表列和搜索筛选只对平台超级管理员渲染。
+- 后端会生成租户/商户数据权限守卫；租户/商户账号写入时会由后端覆盖请求中的归属字段。
+- 不要靠前端隐藏实现隔离；即使普通账号伪造查询参数，后端仍必须先套租户/商户数据权限。
+
 ## 智能特性检测
 
 | 特性 | 触发条件 | 生成效果 |
@@ -515,6 +565,44 @@ menu_modules:
 | 详情抽屉 | 所有表 | 只读详情展示，枚举 Tag、图片预览、富文本渲染 |
 | 时间范围筛选 | 所有表 | 前端 RangePicker + 后端 `created_at` 区间查询 |
 | 列表排序 | 所有表 | 前端列头排序 + 后端动态 `OrderBy`/`OrderDir` |
+
+## SaaS 与数据权限生成约定
+
+### 租户 / 商户权限
+
+必需字段：
+
+- 表中必须同时存在 `tenant_id` 和 `merchant_id`
+
+生成后的 CRUD 会调用公共方法，避免只靠前端或请求参数控制数据边界：
+
+| 场景 | 生成调用 |
+|------|----------|
+| 新增 | `ApplyTenantScopeToWrite` + `EnsureTenantMerchantAccessible` |
+| 更新 | `ApplyTenantScopeToWrite` + `EnsureTenantMerchantAccessible` + `EnsureTenantScopedRowAccessible` |
+| 删除 | `EnsureTenantScopedRowAccessible` |
+| 批量删除 | `EnsureTenantScopedRowsAccessible` |
+| 详情 | `EnsureTenantScopedRowAccessible` |
+| 列表 | `ApplyTenantScopeToModel` |
+| 树形 | `ApplyTenantScopeToModel` |
+| 导出 | `ApplyTenantScopeToModel` |
+| 批量更新 | `EnsureTenantScopedRowsAccessible` |
+| 导入 | `ApplyTenantScopeToWrite` + `EnsureTenantMerchantAccessible` |
+
+前端列表页会读取 `auth/info.isAdmin`。只有 `isAdmin=1` 且当前用户 `tenantId=0`、`merchantId=0` 时，才渲染 `tenant_id` / `merchant_id` 的列表列和筛选控件；租户、商户和普通账号不会看到这些字段。
+
+### 部门数据权限
+
+必需字段：
+
+- 表中必须同时存在 `created_by` 和 `dept_id`
+
+生成行为：
+
+- 新增和导入自动写入 `created_by` / `dept_id`
+- 列表、树形和导出调用 `ApplyDataScope`
+- 部门数据权限和租户权限可以同时存在：部门权限负责组织范围，租户权限负责 SaaS 运营主体隔离
+- 生成器会在解析表结构时做硬校验；`tenant_id`、`merchant_id`、`created_by`、`dept_id` 缺任意一个字段都会停止生成，避免漏掉数据权限。
 
 ## 生成的 CRUD 功能清单
 

@@ -14,6 +14,8 @@ import type {
   UserReviewUpdateParams
 } from '#/api/demo/user_review/types';
 import { getUsersList } from '#/api/system/users';
+import { getTenantList } from '#/api/system/tenant';
+import { getMerchantList } from '#/api/system/merchant';
 
 /** ReviewType选项 */
 const reviewTypeOptions = [
@@ -22,6 +24,8 @@ const reviewTypeOptions = [
   { label: '申诉', value: 3 },
 ];
 const userIdOptions = ref<{ label: string; value: string | number }[]>([]);
+const tenantIDOptions = ref<{ label: string; value: string | number }[]>([]);
+const merchantIDOptions = ref<{ label: string; value: string | number }[]>([]);
 /** 渲染带 Tooltip 的表单 label */
 function tooltipLabel(label: string, tip: string) {
   return () => h('span', {}, [
@@ -86,6 +90,18 @@ const [Form, formApi] = useVbenForm({
       componentProps: { checkedValue: 1, unCheckedValue: 0 },
       defaultValue: 1,
     },
+    {
+      component: 'Select',
+      fieldName: 'tenantID',
+      label: '租户',
+      componentProps: { options: [], placeholder: '请选择租户', allowClear: true, class: 'w-full' },
+    },
+    {
+      component: 'Select',
+      fieldName: 'merchantID',
+      label: '商户',
+      componentProps: { options: [], placeholder: '请选择商户', allowClear: true, class: 'w-full' },
+    },
   ],
 });
 
@@ -138,6 +154,44 @@ const [Modal, modalApi] = useVbenModal({
         {
           fieldName: 'userId',
           componentProps: { options: userIdOptions.value },
+        },
+      ]);
+    } catch {
+      // ignore
+    }
+    // 加载租户选项
+    try {
+      const tenantRes = await getTenantList({ pageNum: 1, pageSize: 1000 });
+      if (currentOpenToken !== openToken.value) {
+        return;
+      }
+      tenantIDOptions.value = (tenantRes?.list ?? []).map((item: any) => ({
+        label: item.name || item.id,
+        value: item.id,
+      }));
+      formApi.updateSchema([
+        {
+          fieldName: 'tenantID',
+          componentProps: { options: tenantIDOptions.value },
+        },
+      ]);
+    } catch {
+      // ignore
+    }
+    // 加载商户选项
+    try {
+      const merchantRes = await getMerchantList({ pageNum: 1, pageSize: 1000 });
+      if (currentOpenToken !== openToken.value) {
+        return;
+      }
+      merchantIDOptions.value = (merchantRes?.list ?? []).map((item: any) => ({
+        label: item.name || item.id,
+        value: item.id,
+      }));
+      formApi.updateSchema([
+        {
+          fieldName: 'merchantID',
+          componentProps: { options: merchantIDOptions.value },
         },
       ]);
     } catch {

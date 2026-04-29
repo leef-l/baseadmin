@@ -23,11 +23,13 @@ type AuthIssueTicketInput struct {
 
 // AuthLoginOutput 登录输出
 type AuthLoginOutput struct {
-	Token    string              `json:"token"`
-	UserID   snowflake.JsonInt64 `json:"userId"`
-	Username string              `json:"username"`
-	Nickname string              `json:"nickname"`
-	Avatar   string              `json:"avatar"`
+	Token      string              `json:"token"`
+	UserID     snowflake.JsonInt64 `json:"userId"`
+	Username   string              `json:"username"`
+	Nickname   string              `json:"nickname"`
+	Avatar     string              `json:"avatar"`
+	TenantID   snowflake.JsonInt64 `json:"tenantId"`
+	MerchantID snowflake.JsonInt64 `json:"merchantId"`
 }
 
 // AuthIssueTicketOutput 生成应用间票据输出
@@ -40,15 +42,18 @@ type AuthIssueTicketOutput struct {
 
 // AuthInfoOutput 当前用户信息输出
 type AuthInfoOutput struct {
-	UserID   snowflake.JsonInt64 `json:"userId"`
-	Username string              `json:"username"`
-	Nickname string              `json:"nickname"`
-	Email    string              `json:"email"`
-	Avatar   string              `json:"avatar"`
-	DeptID   snowflake.JsonInt64 `json:"deptId"`
-	Status   int                 `json:"status"`
-	Roles    []string            `json:"roles"`
-	Perms    []string            `json:"perms"`
+	UserID     snowflake.JsonInt64 `json:"userId"`
+	Username   string              `json:"username"`
+	Nickname   string              `json:"nickname"`
+	Email      string              `json:"email"`
+	Avatar     string              `json:"avatar"`
+	DeptID     snowflake.JsonInt64 `json:"deptId"`
+	TenantID   snowflake.JsonInt64 `json:"tenantId"`
+	MerchantID snowflake.JsonInt64 `json:"merchantId"`
+	IsAdmin    int                 `json:"isAdmin"`
+	Status     int                 `json:"status"`
+	Roles      []string            `json:"roles"`
+	Perms      []string            `json:"perms"`
 }
 
 // AuthChangePasswordInput 修改密码输入
@@ -60,18 +65,18 @@ type AuthChangePasswordInput struct {
 
 // AuthMenuOutput 用户菜单输出（Vben Admin 路由格式）
 type AuthMenuOutput struct {
-	ID        snowflake.JsonInt64  `json:"id"`
-	ParentID  snowflake.JsonInt64  `json:"parentId"`
-	Title     string               `json:"title"`
-	Type      int                  `json:"type"`
-	Path      string               `json:"path"`
-	Component string               `json:"component"`
+	ID         snowflake.JsonInt64 `json:"id"`
+	ParentID   snowflake.JsonInt64 `json:"parentId"`
+	Title      string              `json:"title"`
+	Type       int                 `json:"type"`
+	Path       string              `json:"path"`
+	Component  string              `json:"component"`
 	Permission string              `json:"permission"`
-	Icon      string               `json:"icon"`
-	Sort      int                  `json:"sort"`
-	IsShow    int                  `json:"isShow"`
-	IsCache   int                  `json:"isCache"`
-	LinkURL   string               `json:"linkUrl"`
-	Status    int                  `json:"status"`
-	Children  []*AuthMenuOutput    `json:"children"`
+	Icon       string              `json:"icon"`
+	Sort       int                 `json:"sort"`
+	IsShow     int                 `json:"isShow"`
+	IsCache    int                 `json:"isCache"`
+	LinkURL    string              `json:"linkUrl"`
+	Status     int                 `json:"status"`
+	Children   []*AuthMenuOutput   `json:"children"`
 }

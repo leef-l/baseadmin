@@ -32,4 +32,6 @@ type UploadConfig struct {
 	DeletedAt    *gtime.Time // 删除时间
 	CreatedBy    any         // 创建人
 	DeptId       any         // 部门ID
+	TenantId     any         // 租户
+	MerchantId   any         // 商户
 }

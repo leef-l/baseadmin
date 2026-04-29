@@ -16,6 +16,10 @@ import type {
   CategoryItem
 } from '#/api/demo/category/types';
 const treeData = ref<CategoryItem[]>([]);
+import { getTenantList } from '#/api/system/tenant';
+import { getMerchantList } from '#/api/system/merchant';
+const tenantIDOptions = ref<{ label: string; value: string | number }[]>([]);
+const merchantIDOptions = ref<{ label: string; value: string | number }[]>([]);
 /** 渲染带 Tooltip 的表单 label */
 function tooltipLabel(label: string, tip: string) {
   return () => h('span', {}, [
@@ -74,6 +78,18 @@ const [Form, formApi] = useVbenForm({
       componentProps: { checkedValue: 1, unCheckedValue: 0 },
       defaultValue: 1,
     },
+    {
+      component: 'Select',
+      fieldName: 'tenantID',
+      label: '租户',
+      componentProps: { options: [], placeholder: '请选择租户', allowClear: true, class: 'w-full' },
+    },
+    {
+      component: 'Select',
+      fieldName: 'merchantID',
+      label: '商户',
+      componentProps: { options: [], placeholder: '请选择商户', allowClear: true, class: 'w-full' },
+    },
   ],
 });
 
@@ -125,6 +141,44 @@ const [Modal, modalApi] = useVbenModal({
         {
           fieldName: 'parentId',
           componentProps: { treeData: treeData.value },
+        },
+      ]);
+    } catch {
+      // ignore
+    }
+    // 加载租户选项
+    try {
+      const tenantRes = await getTenantList({ pageNum: 1, pageSize: 1000 });
+      if (currentOpenToken !== openToken.value) {
+        return;
+      }
+      tenantIDOptions.value = (tenantRes?.list ?? []).map((item: any) => ({
+        label: item.name || item.id,
+        value: item.id,
+      }));
+      formApi.updateSchema([
+        {
+          fieldName: 'tenantID',
+          componentProps: { options: tenantIDOptions.value },
+        },
+      ]);
+    } catch {
+      // ignore
+    }
+    // 加载商户选项
+    try {
+      const merchantRes = await getMerchantList({ pageNum: 1, pageSize: 1000 });
+      if (currentOpenToken !== openToken.value) {
+        return;
+      }
+      merchantIDOptions.value = (merchantRes?.list ?? []).map((item: any) => ({
+        label: item.name || item.id,
+        value: item.id,
+      }));
+      formApi.updateSchema([
+        {
+          fieldName: 'merchantID',
+          componentProps: { options: merchantIDOptions.value },
         },
       ]);
     } catch {

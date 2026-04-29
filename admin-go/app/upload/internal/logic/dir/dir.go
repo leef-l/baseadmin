@@ -39,13 +39,17 @@ type uploadDirSaveData struct {
 }
 
 type uploadDirCreateData struct {
-	Id       snowflake.JsonInt64 `orm:"id"`
-	ParentId snowflake.JsonInt64 `orm:"parent_id"`
-	Name     string              `orm:"name"`
-	Path     string              `orm:"path"`
-	KeepName int                 `orm:"keep_name"`
-	Sort     int                 `orm:"sort"`
-	Status   int                 `orm:"status"`
+	Id         snowflake.JsonInt64 `orm:"id"`
+	ParentId   snowflake.JsonInt64 `orm:"parent_id"`
+	Name       string              `orm:"name"`
+	Path       string              `orm:"path"`
+	KeepName   int                 `orm:"keep_name"`
+	Sort       int                 `orm:"sort"`
+	Status     int                 `orm:"status"`
+	TenantId   snowflake.JsonInt64 `orm:"tenant_id"`
+	MerchantId snowflake.JsonInt64 `orm:"merchant_id"`
+	CreatedBy  snowflake.JsonInt64 `orm:"created_by"`
+	DeptId     snowflake.JsonInt64 `orm:"dept_id"`
 }
 
 // Create 创建文件目录
@@ -64,14 +68,20 @@ func (s *sDir) Create(ctx context.Context, in *model.DirCreateInput) error {
 		return err
 	}
 	id := snowflake.Generate()
+	var tenantID, merchantID, createdBy, deptID snowflake.JsonInt64
+	shared.ApplyWriteScope(ctx, &tenantID, &merchantID, &createdBy, &deptID)
 	_, err := dao.UploadDir.Ctx(ctx).Data(uploadDirCreateData{
-		Id:       id,
-		ParentId: in.ParentID,
-		Name:     in.Name,
-		Path:     in.Path,
-		KeepName: in.KeepName,
-		Sort:     in.Sort,
-		Status:   in.Status,
+		Id:         id,
+		ParentId:   in.ParentID,
+		Name:       in.Name,
+		Path:       in.Path,
+		KeepName:   in.KeepName,
+		Sort:       in.Sort,
+		Status:     in.Status,
+		TenantId:   tenantID,
+		MerchantId: merchantID,
+		CreatedBy:  createdBy,
+		DeptId:     deptID,
 	}).Insert()
 	return err
 }
@@ -102,11 +112,12 @@ func (s *sDir) Update(ctx context.Context, in *model.DirUpdateInput) error {
 		Sort:     in.Sort,
 		Status:   in.Status,
 	}
-	_, err := dao.UploadDir.Ctx(ctx).
+	m := dao.UploadDir.Ctx(ctx).
 		Where(dao.UploadDir.Columns().Id, in.ID).
 		Where(dao.UploadDir.Columns().DeletedAt, nil).
-		Data(data).
-		Update()
+		Data(data)
+	m = shared.ApplyAccessScope(ctx, m)
+	_, err := m.Update()
 	return err
 }
 
@@ -160,7 +171,9 @@ func (s *sDir) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.D
 		return nil, gerror.New("目录不存在或已删除")
 	}
 	out = &model.DirDetailOutput{}
-	err = dao.UploadDir.Ctx(ctx).Where(dao.UploadDir.Columns().Id, id).Where(dao.UploadDir.Columns().DeletedAt, nil).Scan(out)
+	m := dao.UploadDir.Ctx(ctx).Where(dao.UploadDir.Columns().Id, id).Where(dao.UploadDir.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	err = m.Scan(out)
 	if err != nil {
 		return nil, err
 	}
@@ -178,6 +191,7 @@ func (s *sDir) List(ctx context.Context, in *model.DirListInput) (list []*model.
 	}
 	normalizeDirListInput(in)
 	m := dao.UploadDir.Ctx(ctx).Where(dao.UploadDir.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
 	if in.Keyword != "" {
 		keywordBuilder := m.Builder().
 			WhereLike(dao.UploadDir.Columns().Name, "%"+in.Keyword+"%").
@@ -204,6 +218,7 @@ func (s *sDir) List(ctx context.Context, in *model.DirListInput) (list []*model.
 func (s *sDir) Tree(ctx context.Context, in *model.DirTreeInput) (tree []*model.DirTreeOutput, err error) {
 	var list []*model.DirTreeOutput
 	m := dao.UploadDir.Ctx(ctx).Where(dao.UploadDir.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
 	if in != nil {
 		normalizeDirTreeInput(in)
 		if in.Keyword != "" {
@@ -297,30 +312,33 @@ func (s *sDir) fillParentNames(ctx context.Context, list []*model.DirListOutput)
 }
 
 func (s *sDir) ensureDirDeletable(ctx context.Context, id snowflake.JsonInt64) error {
-	childCount, err := dao.UploadDir.Ctx(ctx).
+	childModel := dao.UploadDir.Ctx(ctx).
 		Where(dao.UploadDir.Columns().ParentId, id).
-		Where(dao.UploadDir.Columns().DeletedAt, nil).
-		Count()
+		Where(dao.UploadDir.Columns().DeletedAt, nil)
+	childModel = shared.ApplyAccessScope(ctx, childModel)
+	childCount, err := childModel.Count()
 	if err != nil {
 		return err
 	}
 	if childCount > 0 {
 		return gerror.New("当前目录下存在子目录，不能直接删除")
 	}
-	fileCount, err := dao.UploadFile.Ctx(ctx).
+	fileModel := dao.UploadFile.Ctx(ctx).
 		Where(dao.UploadFile.Columns().DirId, id).
-		Where(dao.UploadFile.Columns().DeletedAt, nil).
-		Count()
+		Where(dao.UploadFile.Columns().DeletedAt, nil)
+	fileModel = shared.ApplyAccessScope(ctx, fileModel)
+	fileCount, err := fileModel.Count()
 	if err != nil {
 		return err
 	}
 	if fileCount > 0 {
 		return gerror.New("当前目录下仍有关联文件，不能直接删除")
 	}
-	ruleCount, err := dao.UploadDirRule.Ctx(ctx).
+	ruleModel := dao.UploadDirRule.Ctx(ctx).
 		Where(dao.UploadDirRule.Columns().DirId, id).
-		Where(dao.UploadDirRule.Columns().DeletedAt, nil).
-		Count()
+		Where(dao.UploadDirRule.Columns().DeletedAt, nil)
+	ruleModel = shared.ApplyAccessScope(ctx, ruleModel)
+	ruleCount, err := ruleModel.Count()
 	if err != nil {
 		return err
 	}
@@ -334,10 +352,11 @@ func (s *sDir) ensureDirExists(ctx context.Context, id snowflake.JsonInt64) erro
 	if id <= 0 {
 		return gerror.New("目录不存在或已删除")
 	}
-	count, err := dao.UploadDir.Ctx(ctx).
+	m := dao.UploadDir.Ctx(ctx).
 		Where(dao.UploadDir.Columns().Id, id).
-		Where(dao.UploadDir.Columns().DeletedAt, nil).
-		Count()
+		Where(dao.UploadDir.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	count, err := m.Count()
 	if err != nil {
 		return err
 	}
@@ -349,10 +368,11 @@ func (s *sDir) ensureDirExists(ctx context.Context, id snowflake.JsonInt64) erro
 
 func (s *sDir) ensureDirIDsExist(ctx context.Context, ids []snowflake.JsonInt64) error {
 	dbIDs := batchutil.ToInt64s(ids)
-	count, err := dao.UploadDir.Ctx(ctx).
+	m := dao.UploadDir.Ctx(ctx).
 		WhereIn(dao.UploadDir.Columns().Id, dbIDs).
-		Where(dao.UploadDir.Columns().DeletedAt, nil).
-		Count()
+		Where(dao.UploadDir.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	count, err := m.Count()
 	if err != nil {
 		return err
 	}
@@ -370,6 +390,7 @@ func (s *sDir) ensureDirPathUnique(ctx context.Context, currentID snowflake.Json
 	m := dao.UploadDir.Ctx(ctx).
 		Where(dao.UploadDir.Columns().Path, path).
 		Where(dao.UploadDir.Columns().DeletedAt, nil)
+	m = shared.ApplyTenantScopeToModel(ctx, m, shared.ColumnTenantID, shared.ColumnMerchantID)
 	if currentID > 0 {
 		m = m.WhereNot(dao.UploadDir.Columns().Id, currentID)
 	}
@@ -387,6 +408,7 @@ func (s *sDir) ensureDirBatchDeletable(ctx context.Context, id snowflake.JsonInt
 	childModel := dao.UploadDir.Ctx(ctx).
 		Where(dao.UploadDir.Columns().ParentId, id).
 		Where(dao.UploadDir.Columns().DeletedAt, nil)
+	childModel = shared.ApplyAccessScope(ctx, childModel)
 	if len(deleteIDs) > 0 {
 		childModel = childModel.WhereNotIn(dao.UploadDir.Columns().Id, deleteIDs)
 	}
@@ -397,20 +419,22 @@ func (s *sDir) ensureDirBatchDeletable(ctx context.Context, id snowflake.JsonInt
 	if childCount > 0 {
 		return gerror.New("当前目录下存在子目录，不能直接删除")
 	}
-	fileCount, err := dao.UploadFile.Ctx(ctx).
+	fileModel := dao.UploadFile.Ctx(ctx).
 		Where(dao.UploadFile.Columns().DirId, id).
-		Where(dao.UploadFile.Columns().DeletedAt, nil).
-		Count()
+		Where(dao.UploadFile.Columns().DeletedAt, nil)
+	fileModel = shared.ApplyAccessScope(ctx, fileModel)
+	fileCount, err := fileModel.Count()
 	if err != nil {
 		return err
 	}
 	if fileCount > 0 {
 		return gerror.New("当前目录下仍有关联文件，不能直接删除")
 	}
-	ruleCount, err := dao.UploadDirRule.Ctx(ctx).
+	ruleModel := dao.UploadDirRule.Ctx(ctx).
 		Where(dao.UploadDirRule.Columns().DirId, id).
-		Where(dao.UploadDirRule.Columns().DeletedAt, nil).
-		Count()
+		Where(dao.UploadDirRule.Columns().DeletedAt, nil)
+	ruleModel = shared.ApplyAccessScope(ctx, ruleModel)
+	ruleCount, err := ruleModel.Count()
 	if err != nil {
 		return err
 	}
@@ -425,10 +449,11 @@ func (s *sDir) collectBatchDeleteOrder(ctx context.Context, ids []snowflake.Json
 		Id       int64 `json:"id"`
 		ParentId int64 `json:"parentId"`
 	}
-	if err := dao.UploadDir.Ctx(ctx).
+	m := dao.UploadDir.Ctx(ctx).
 		Fields(dao.UploadDir.Columns().Id, dao.UploadDir.Columns().ParentId).
-		Where(dao.UploadDir.Columns().DeletedAt, nil).
-		Scan(&rows); err != nil {
+		Where(dao.UploadDir.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	if err := m.Scan(&rows); err != nil {
 		return nil, err
 	}
 	treeRows := make([]batchutil.TreeRow, 0, len(rows))
@@ -447,11 +472,12 @@ func (s *sDir) ensureParentValid(ctx context.Context, parentID, currentID snowfl
 			Id       int64 `json:"id"`
 			ParentId int64 `json:"parentId"`
 		}
-		if err := dao.UploadDir.Ctx(ctx).
+		m := dao.UploadDir.Ctx(ctx).
 			Fields(dao.UploadDir.Columns().Id, dao.UploadDir.Columns().ParentId).
 			Where(dao.UploadDir.Columns().Id, id).
-			Where(dao.UploadDir.Columns().DeletedAt, nil).
-			Scan(&parent); err != nil {
+			Where(dao.UploadDir.Columns().DeletedAt, nil)
+		m = shared.ApplyAccessScope(ctx, m)
+		if err := m.Scan(&parent); err != nil {
 			return 0, 0, err
 		}
 		return parent.Id, parent.ParentId, nil

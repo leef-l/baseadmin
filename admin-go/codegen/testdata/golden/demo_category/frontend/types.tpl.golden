@@ -9,6 +9,10 @@ export interface CategoryItem {
   icon?: string;
   sort?: number;
   status?: number;
+  tenantID?: string;
+  tenantName?: string;
+  merchantID?: string;
+  merchantName?: string;
   createdAt?: string;
   updatedAt?: string;
   children?: CategoryItem[];
@@ -24,6 +28,8 @@ export interface CategoryListParams {
   endTime?: string;
   name?: string;
   parentId?: string;
+  tenantID?: string;
+  merchantID?: string;
   status?: number;
 }
 /** 分类树形查询参数 */
@@ -32,6 +38,8 @@ export interface CategoryTreeParams {
   endTime?: string;
   name?: string;
   parentId?: string;
+  tenantID?: string;
+  merchantID?: string;
   status?: number;
 }
 
@@ -42,6 +50,8 @@ export interface CategoryCreateParams {
   icon?: string;
   sort?: number;
   status?: number;
+  tenantID?: string;
+  merchantID?: string;
 }
 
 /** 分类更新参数 */
@@ -52,4 +62,6 @@ export interface CategoryUpdateParams {
   icon?: string;
   sort?: number;
   status?: number;
+  tenantID?: string;
+  merchantID?: string;
 }

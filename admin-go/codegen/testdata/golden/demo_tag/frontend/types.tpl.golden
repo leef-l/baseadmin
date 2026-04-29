@@ -7,6 +7,10 @@ export interface TagItem {
   color?: string;
   sort?: number;
   status?: number;
+  tenantID?: string;
+  tenantName?: string;
+  merchantID?: string;
+  merchantName?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -20,6 +24,8 @@ export interface TagListParams {
   startTime?: string;
   endTime?: string;
   name?: string;
+  tenantID?: string;
+  merchantID?: string;
   status?: number;
 }
 
@@ -29,6 +35,8 @@ export interface TagCreateParams {
   color?: string;
   sort?: number;
   status?: number;
+  tenantID?: string;
+  merchantID?: string;
 }
 
 /** 标签更新参数 */
@@ -38,4 +46,6 @@ export interface TagUpdateParams {
   color?: string;
   sort?: number;
   status?: number;
+  tenantID?: string;
+  merchantID?: string;
 }

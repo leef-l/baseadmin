@@ -9,9 +9,9 @@ import (
 	"github.com/gogf/gf/v2/os/gtime"
 )
 
-// Menu is the golang structure of table menu for DAO operations like Where/Data.
+// Menu is the golang structure of table system_menu for DAO operations like Where/Data.
 type Menu struct {
-	g.Meta     `orm:"table:menu, do:true"`
+	g.Meta     `orm:"table:system_menu, do:true"`
 	Id         any         // 菜单ID（Snowflake）
 	ParentId   any         // 上级菜单ID，0 表示顶级菜单
 	Title      any         // 菜单名称
@@ -27,6 +27,8 @@ type Menu struct {
 	Status     any         // 状态:0=关闭,1=开启
 	CreatedBy  any         // 创建人ID
 	DeptId     any         // 所属部门ID
+	TenantId   any         // 租户
+	MerchantId any         // 商户
 	CreatedAt  *gtime.Time // 创建时间
 	UpdatedAt  *gtime.Time // 更新时间
 	DeletedAt  *gtime.Time // 软删除时间，非 NULL 表示已删除

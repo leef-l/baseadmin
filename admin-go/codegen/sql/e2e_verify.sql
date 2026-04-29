@@ -14,6 +14,21 @@ CREATE TABLE IF NOT EXISTS `system_users` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统用户';
 
+CREATE TABLE IF NOT EXISTS `system_tenant` (
+  `id` BIGINT UNSIGNED NOT NULL COMMENT '租户',
+  `name` VARCHAR(80) NOT NULL COMMENT '租户名称',
+  `deleted_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='租户';
+
+CREATE TABLE IF NOT EXISTS `system_merchant` (
+  `id` BIGINT UNSIGNED NOT NULL COMMENT '商户ID',
+  `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '租户',
+  `name` VARCHAR(80) NOT NULL COMMENT '商户名称',
+  `deleted_at` DATETIME DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商户';
+
 CREATE TABLE IF NOT EXISTS `verifydemo_category` (
   `id` BIGINT UNSIGNED NOT NULL COMMENT 'ID',
   `parent_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '父分类',
@@ -21,6 +36,8 @@ CREATE TABLE IF NOT EXISTS `verifydemo_category` (
   `icon` VARCHAR(100) DEFAULT '' COMMENT '图标',
   `sort` INT NOT NULL DEFAULT 0 COMMENT '排序（升序）',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:0=禁用,1=启用',
+  `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '租户',
+  `merchant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '商户',
   `created_by` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `created_at` DATETIME DEFAULT NULL,
@@ -54,6 +71,8 @@ CREATE TABLE IF NOT EXISTS `verifydemo_article` (
   `extra_field` VARCHAR(100) DEFAULT '',
   `publish_at` DATETIME COMMENT '发布时间',
   `expire_at` DATETIME COMMENT '过期时间',
+  `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '租户',
+  `merchant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '商户',
   `created_by` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `created_at` DATETIME DEFAULT NULL,
@@ -68,6 +87,8 @@ CREATE TABLE IF NOT EXISTS `verifydemo_tag` (
   `color` VARCHAR(20) DEFAULT '' COMMENT '颜色',
   `sort` INT NOT NULL DEFAULT 0 COMMENT '排序',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:0=禁用,1=启用',
+  `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '租户',
+  `merchant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '商户',
   `created_by` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `created_at` DATETIME DEFAULT NULL,
@@ -85,6 +106,8 @@ CREATE TABLE IF NOT EXISTS `verifydemo_user_review` (
   `is_passed` TINYINT NOT NULL DEFAULT 0 COMMENT '是否通过:0=否,1=是',
   `sort` INT NOT NULL DEFAULT 0 COMMENT '排序（升序）',
   `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态:0=禁用,1=启用',
+  `tenant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '租户',
+  `merchant_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '商户',
   `created_by` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `dept_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `created_at` DATETIME DEFAULT NULL,

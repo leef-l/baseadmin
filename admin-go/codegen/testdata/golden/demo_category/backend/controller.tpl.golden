@@ -24,6 +24,8 @@ func (c *cCategory) Create(ctx context.Context, req *v1.CategoryCreateReq) (res 
 		Icon: req.Icon,
 		Sort: req.Sort,
 		Status: req.Status,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 	})
 	return
 }
@@ -37,6 +39,8 @@ func (c *cCategory) Update(ctx context.Context, req *v1.CategoryUpdateReq) (res 
 		Icon: req.Icon,
 		Sort: req.Sort,
 		Status: req.Status,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 	})
 	return
 }
@@ -81,6 +85,8 @@ func (c *cCategory) List(ctx context.Context, req *v1.CategoryListReq) (res *v1.
 		EndTime:   req.EndTime,
 		Name: req.Name,
 		ParentID: req.ParentID,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 		Status: req.Status,
 	})
 	return
@@ -94,6 +100,8 @@ func (c *cCategory) Export(ctx context.Context, req *v1.CategoryExportReq) (res 
 		EndTime:   req.EndTime,
 		Name: req.Name,
 		ParentID: req.ParentID,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 		Status: req.Status,
 	})
 	if err != nil {
@@ -106,7 +114,7 @@ func (c *cCategory) Export(ctx context.Context, req *v1.CategoryExportReq) (res 
 	r.Response.Write("\xEF\xBB\xBF") // UTF-8 BOM
 	w := csv.NewWriter(r.Response.Writer)
 	// 表头
-	_ = w.Write([]string{"ParentID", "Name", "Icon", "Sort", "Status", "创建时间"})
+	_ = w.Write([]string{"ParentID", "Name", "Icon", "Sort", "Status", "租户", "商户", "创建时间"})
 	// 数据行
 	for _, item := range list {
 		_ = w.Write([]string{
@@ -115,6 +123,8 @@ func (c *cCategory) Export(ctx context.Context, req *v1.CategoryExportReq) (res 
 			item.Icon,
 			fmt.Sprintf("%v", item.Sort),
 			fmt.Sprintf("%v", item.Status),
+			item.TenantName,
+			item.MerchantName,
 			func() string { if item.CreatedAt != nil { return item.CreatedAt.String() }; return "" }(),
 		})
 	}
@@ -130,6 +140,8 @@ func (c *cCategory) Tree(ctx context.Context, req *v1.CategoryTreeReq) (res *v1.
 		EndTime:   req.EndTime,
 		Name: req.Name,
 		ParentID: req.ParentID,
+		TenantID: req.TenantID,
+		MerchantID: req.MerchantID,
 		Status: req.Status,
 	})
 	return

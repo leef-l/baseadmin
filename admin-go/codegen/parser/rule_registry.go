@@ -15,7 +15,7 @@ type fieldRuleRegistry struct {
 
 var rules = fieldRuleRegistry{
 	displayFieldPriority: []string{
-		"title", "name", "username", "nickname",
+		"title", "sku_no", "name", "username", "nickname",
 		"real_name", "label", "phone", "mobile",
 		"order_no", "code", "no", "email",
 	},

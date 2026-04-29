@@ -134,15 +134,17 @@ done
 for dir in "$VIEWS_DIR"/*; do
   [ -d "$dir" ] || continue
   base="$(basename "$dir")"
-  case "$base" in
-    _core)
-      ;;
-    system|upload)
-      ;;
-    *)
-      fail "unexpected top-level view directory: $base"
-      ;;
-  esac
+  if [ "$base" = "_core" ]; then
+    continue
+  fi
+  found=0
+  for allowed in "${allowed_apps[@]}"; do
+    if [ "$base" = "$allowed" ]; then
+      found=1
+      break
+    fi
+  done
+  [ "$found" -eq 1 ] || fail "unexpected top-level view directory: $base"
 done
 
 echo "[verify-baseadmin-scope] ok"

@@ -4,9 +4,13 @@ import (
 	_ "gbaseadmin/app/system/internal/packed"
 
 	_ "gbaseadmin/app/system/internal/logic/auth"
+	_ "gbaseadmin/app/system/internal/logic/daemon"
 	_ "gbaseadmin/app/system/internal/logic/dept"
+	_ "gbaseadmin/app/system/internal/logic/domain"
 	_ "gbaseadmin/app/system/internal/logic/menu"
+	_ "gbaseadmin/app/system/internal/logic/merchant"
 	_ "gbaseadmin/app/system/internal/logic/role"
+	_ "gbaseadmin/app/system/internal/logic/tenant"
 	_ "gbaseadmin/app/system/internal/logic/users"
 
 	_ "github.com/gogf/gf/contrib/drivers/mysql/v2"

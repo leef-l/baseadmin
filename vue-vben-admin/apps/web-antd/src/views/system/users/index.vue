@@ -13,6 +13,7 @@ import { getDeptTree } from '#/api/system/dept';
 import type { DeptItem } from '#/api/system/dept/types';
 import { batchDeleteUsers, deleteUsers, getUsersList, resetUsersPassword } from '#/api/system/users';
 import type { UsersItem } from '#/api/system/users/types';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getGridSelectedIds } from '#/utils/grid-selection';
 import FormModal from './modules/form.vue';
 
@@ -70,13 +71,20 @@ onMounted(async () => {
 /** 过滤树节点 */
 function filterTreeNode(node: any): boolean {
   if (!searchValue.value) return true;
-  return String(node.title ?? '').toLowerCase().includes(searchValue.value.toLowerCase());
+  return String(node.title ?? '')
+    .toLowerCase()
+    .includes(searchValue.value.toLowerCase());
 }
 
 /** 选择部门节点 */
 function handleDeptSelect(selectedKeys: Array<string | number>) {
   const first = selectedKeys[0];
-  selectedDeptId.value = typeof first === 'string' ? first : first == null ? '' : String(first);
+  selectedDeptId.value =
+    typeof first === 'string'
+      ? first
+      : first === undefined || first === null
+        ? ''
+        : String(first);
   gridApi.reload();
 }
 
@@ -87,6 +95,7 @@ const [FormModalComp, formModalApi] = useVbenModal({
 });
 const { hasAccessByCodes } = useAccess();
 const canBatchDelete = hasAccessByCodes(['system:user:batch-delete']);
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -114,6 +123,28 @@ const formOptions: VbenFormProps = {
       fieldName: 'status',
       label: '状态',
     },
+    ...(isPlatformSuperAdmin.value
+      ? [
+          {
+            component: 'Input',
+            componentProps: {
+              allowClear: true,
+              placeholder: '请输入租户ID',
+            },
+            fieldName: 'tenantId',
+            label: '租户ID',
+          },
+          {
+            component: 'Input',
+            componentProps: {
+              allowClear: true,
+              placeholder: '请输入商户ID',
+            },
+            fieldName: 'merchantId',
+            label: '商户ID',
+          },
+        ]
+      : []),
   ],
 };
 
@@ -131,7 +162,18 @@ const gridOptions: VxeGridProps<UsersItem> = {
     { field: 'username', title: '登录用户名' },
     { field: 'nickname', title: '昵称' },
     { field: 'deptTitle', title: '所属部门' },
-    { field: 'roleTitles', title: '角色', width: 200, slots: { default: 'roleTitles_cell' } },
+    ...(isPlatformSuperAdmin.value
+      ? [
+          { field: 'tenantName', title: '所属租户' },
+          { field: 'merchantName', title: '所属商户' },
+        ]
+      : []),
+    {
+      field: 'roleTitles',
+      slots: { default: 'roleTitles_cell' },
+      title: '角色',
+      width: 200,
+    },
     { field: 'email', title: '邮箱' },
     { field: 'status', title: '状态', width: 120, slots: { default: 'status_cell' } },
     { field: 'createdAt', title: '创建时间', width: 180, formatter: 'formatDateTime' },
@@ -142,10 +184,15 @@ const gridOptions: VxeGridProps<UsersItem> = {
   proxyConfig: {
     ajax: {
       query: async ({ page }, formValues) => {
+        const params: Record<string, any> = { ...formValues };
+        if (!isPlatformSuperAdmin.value) {
+          delete params.tenantId;
+          delete params.merchantId;
+        }
         const res = await getUsersList({
           pageNum: page.currentPage,
           pageSize: page.pageSize,
-          ...formValues,
+          ...params,
           ...(selectedDeptId.value ? { deptId: selectedDeptId.value } : {}),
         });
         return { items: res?.list ?? [], total: res?.total ?? 0 };
@@ -225,7 +272,7 @@ function handleResetPassword(row: UsersItem) {
     async onOk() {
       if (!newPassword) {
         message.warning('请输入新密码');
-        return Promise.reject();
+        return Promise.reject(new Error('请输入新密码'));
       }
       await resetUsersPassword({ id: row.id, password: newPassword });
       message.success('密码重置成功');

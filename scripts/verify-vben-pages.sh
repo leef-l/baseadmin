@@ -73,6 +73,7 @@ first_file_without_match() {
 business_pages=(
   "$VIEWS_DIR/system"
   "$VIEWS_DIR/upload"
+  "$VIEWS_DIR/demo"
 )
 
 for dir in "${business_pages[@]}"; do
@@ -84,15 +85,15 @@ for dir in "${business_pages[@]}"; do
   fi
 done
 
-if first_file_without_match "useVbenVxeGrid" "index.vue" "$VIEWS_DIR/system" "$VIEWS_DIR/upload" >/dev/null; then
+if first_file_without_match "useVbenVxeGrid" "index.vue" "${business_pages[@]}" >/dev/null; then
   fail "存在未使用 useVbenVxeGrid 的业务列表页"
 fi
 
-if first_file_without_match "useVbenForm" "form.vue" "$VIEWS_DIR/system" "$VIEWS_DIR/upload" >/dev/null; then
+if first_file_without_match "useVbenForm" "form.vue" "${business_pages[@]}" >/dev/null; then
   fail "存在未使用 useVbenForm 的业务表单页"
 fi
 
-if first_file_without_match "useVbenModal" "form.vue" "$VIEWS_DIR/system" "$VIEWS_DIR/upload" >/dev/null; then
+if first_file_without_match "useVbenModal" "form.vue" "${business_pages[@]}" >/dev/null; then
   fail "存在未使用 useVbenModal 的业务弹窗表单页"
 fi
 

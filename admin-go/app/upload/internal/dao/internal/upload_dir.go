@@ -21,32 +21,38 @@ type UploadDirDao struct {
 
 // UploadDirColumns defines and stores column names for the table upload_dir.
 type UploadDirColumns struct {
-	Id        string // ID
-	ParentId  string // 上级目录
-	Name      string // 目录名称
-	Path      string // 目录路径
-	Sort      string // 排序
-	Status    string // 状态:0=禁用,1=启用
-	CreatedAt string // 创建时间
-	UpdatedAt string // 更新时间
-	DeletedAt string // 删除时间
-	CreatedBy string // 创建人
-	DeptId    string // 部门ID
+	Id         string // ID
+	ParentId   string // 上级目录
+	Name       string // 目录名称
+	Path       string // 目录路径
+	KeepName   string // 保留原文件名:0=否,1=是
+	Sort       string // 排序
+	Status     string // 状态:0=禁用,1=启用
+	CreatedAt  string // 创建时间
+	UpdatedAt  string // 更新时间
+	DeletedAt  string // 删除时间
+	CreatedBy  string // 创建人
+	DeptId     string // 部门ID
+	TenantId   string // 租户
+	MerchantId string // 商户
 }
 
 // uploadDirColumns holds the columns for the table upload_dir.
 var uploadDirColumns = UploadDirColumns{
-	Id:        "id",
-	ParentId:  "parent_id",
-	Name:      "name",
-	Path:      "path",
-	Sort:      "sort",
-	Status:    "status",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-	DeletedAt: "deleted_at",
-	CreatedBy: "created_by",
-	DeptId:    "dept_id",
+	Id:         "id",
+	ParentId:   "parent_id",
+	Name:       "name",
+	Path:       "path",
+	KeepName:   "keep_name",
+	Sort:       "sort",
+	Status:     "status",
+	CreatedAt:  "created_at",
+	UpdatedAt:  "updated_at",
+	DeletedAt:  "deleted_at",
+	CreatedBy:  "created_by",
+	DeptId:     "dept_id",
+	TenantId:   "tenant_id",
+	MerchantId: "merchant_id",
 }
 
 // NewUploadDirDao creates and returns a new DAO object for table data access.

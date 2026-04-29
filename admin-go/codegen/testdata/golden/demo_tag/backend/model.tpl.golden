@@ -14,6 +14,8 @@ type TagCreateInput struct {
 	Color string `json:"color"`
 	Sort int `json:"sort"`
 	Status int `json:"status"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"`
 }
 
 // TagUpdateInput 更新标签输入
@@ -23,6 +25,8 @@ type TagUpdateInput struct {
 	Color string `json:"color"`
 	Sort int `json:"sort"`
 	Status int `json:"status"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"`
 }
 
 // TagDetailOutput 标签详情输出
@@ -32,6 +36,10 @@ type TagDetailOutput struct {
 	Color string `json:"color"`
 	Sort int `json:"sort"`
 	Status int `json:"status"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"`
+	TenantName string `json:"tenantName"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"`
+	MerchantName string `json:"merchantName"`
 	CreatedAt *gtime.Time `json:"createdAt"`
 	UpdatedAt *gtime.Time `json:"updatedAt"`
 }
@@ -43,6 +51,10 @@ type TagListOutput struct {
 	Color string `json:"color"`
 	Sort int `json:"sort"`
 	Status int `json:"status"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"`
+	TenantName string `json:"tenantName"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"`
+	MerchantName string `json:"merchantName"`
 	CreatedAt *gtime.Time `json:"createdAt"`
 	UpdatedAt *gtime.Time `json:"updatedAt"`
 }
@@ -56,6 +68,8 @@ type TagListInput struct {
 	StartTime string `json:"startTime"`
 	EndTime   string `json:"endTime"`
 	Name string `json:"name"`
+	TenantID *snowflake.JsonInt64 `json:"tenantID"`
+	MerchantID *snowflake.JsonInt64 `json:"merchantID"`
 	Status *int `json:"status"`
 }
 

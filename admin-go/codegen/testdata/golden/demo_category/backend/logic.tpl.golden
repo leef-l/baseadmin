@@ -51,6 +51,10 @@ func normalizeCategoryIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 // Create 创建分类
 func (s *sCategory) Create(ctx context.Context, in *model.CategoryCreateInput) error {
 	id := snowflake.Generate()
+	middleware.ApplyTenantScopeToWrite(ctx, &in.TenantID, &in.MerchantID)
+	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
+		return err
+	}
 	_, err := dao.DemoCategory.Ctx(ctx).Data(do.DemoCategory{
 		Id:        id,
 		ParentId: in.ParentID,
@@ -58,6 +62,8 @@ func (s *sCategory) Create(ctx context.Context, in *model.CategoryCreateInput) e
 		Icon: in.Icon,
 		Sort: in.Sort,
 		Status: in.Status,
+		TenantId: in.TenantID,
+		MerchantId: in.MerchantID,
 		CreatedBy: middleware.GetUserID(ctx),
 		DeptId: middleware.GetDeptID(ctx),
 	}).Insert()
@@ -66,12 +72,21 @@ func (s *sCategory) Create(ctx context.Context, in *model.CategoryCreateInput) e
 
 // Update 更新分类
 func (s *sCategory) Update(ctx context.Context, in *model.CategoryUpdateInput) error {
+	middleware.ApplyTenantScopeToWrite(ctx, &in.TenantID, &in.MerchantID)
+	if err := middleware.EnsureTenantMerchantAccessible(ctx, in.TenantID, in.MerchantID); err != nil {
+		return err
+	}
+	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), in.ID, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "分类"); err != nil {
+		return err
+	}
 	data := do.DemoCategory{
 		ParentId: in.ParentID,
 		Name: in.Name,
 		Icon: in.Icon,
 		Sort: in.Sort,
 		Status: in.Status,
+		TenantId: in.TenantID,
+		MerchantId: in.MerchantID,
 	}
 	_, err := dao.DemoCategory.Ctx(ctx).Where(dao.DemoCategory.Columns().Id, in.ID).Data(data).Update()
 	return err
@@ -86,6 +101,9 @@ func (s *sCategory) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if len(deleteIDs) == 0 {
 		return nil
 	}
+	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), deleteIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "分类"); err != nil {
+		return err
+	}
 	_, err = dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, deleteIDs).Delete()
 	return err
 }
@@ -98,6 +116,9 @@ func (s *sCategory) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) 
 	}
 	if len(deleteIDs) == 0 {
 		return nil
+	}
+	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), deleteIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "分类"); err != nil {
+		return err
 	}
 	_, err = dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, deleteIDs).Delete()
 	return err
@@ -163,6 +184,9 @@ func (s *sCategory) doCollectChildIDs(ctx context.Context, parentID snowflake.Js
 
 // Detail 获取分类详情
 func (s *sCategory) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.CategoryDetailOutput, err error) {
+	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), id, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "分类"); err != nil {
+		return nil, err
+	}
 	out = &model.CategoryDetailOutput{}
 	err = dao.DemoCategory.Ctx(ctx).Where(dao.DemoCategory.Columns().Id, id).Where(dao.DemoCategory.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
@@ -180,17 +204,40 @@ func (s *sCategory) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mo
 			out.CategoryName = val.String()
 		}
 	}
+	// 查询租户关联显示
+	if out.TenantID != 0 {
+		refQuery := g.DB().Ctx(ctx).Model("system_tenant").Where("id", out.TenantID)
+		val, err := refQuery.Value("name")
+		if err == nil {
+			out.TenantName = val.String()
+		}
+	}
+	// 查询商户关联显示
+	if out.MerchantID != 0 {
+		refQuery := g.DB().Ctx(ctx).Model("system_merchant").Where("id", out.MerchantID)
+		val, err := refQuery.Value("name")
+		if err == nil {
+			out.MerchantName = val.String()
+		}
+	}
 	return
 }
 
 // applyListFilter 应用列表通用过滤条件
 func (s *sCategory) applyListFilter(ctx context.Context, in *model.CategoryListInput) *gdb.Model {
 	m := dao.DemoCategory.Ctx(ctx).Where(dao.DemoCategory.Columns().DeletedAt, nil)
+	m = middleware.ApplyTenantScopeToModel(ctx, m, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId)
 	if in.Name != "" {
 		m = m.WhereLike(dao.DemoCategory.Columns().Name, "%"+in.Name+"%")
 	}
 	if in.ParentID != nil {
 		m = m.Where(dao.DemoCategory.Columns().ParentId, *in.ParentID)
+	}
+	if in.TenantID != nil {
+		m = m.Where(dao.DemoCategory.Columns().TenantId, *in.TenantID)
+	}
+	if in.MerchantID != nil {
+		m = m.Where(dao.DemoCategory.Columns().MerchantId, *in.MerchantID)
 	}
 	if in.Status != nil {
 		m = m.Where(dao.DemoCategory.Columns().Status, *in.Status)
@@ -232,6 +279,62 @@ func (s *sCategory) fillRefFields(ctx context.Context, list []*model.CategoryLis
 				for _, item := range list {
 					if val, ok := refMap[int64(item.ParentID)]; ok {
 						item.CategoryName = val
+					}
+				}
+			}
+		}
+	}
+	{
+		idSet := make(map[int64]struct{})
+		for _, item := range list {
+			if item.TenantID != 0 {
+				idSet[int64(item.TenantID)] = struct{}{}
+			}
+		}
+		if len(idSet) > 0 {
+			ids := make([]int64, 0, len(idSet))
+			for id := range idSet {
+				ids = append(ids, id)
+			}
+			refQuery := g.DB().Ctx(ctx).Model("system_tenant").
+				Fields("id", "name")
+			rows, err := refQuery.WhereIn("id", ids).All()
+			if err == nil {
+				refMap := make(map[int64]string, len(rows))
+				for _, row := range rows {
+					refMap[row["id"].Int64()] = row["name"].String()
+				}
+				for _, item := range list {
+					if val, ok := refMap[int64(item.TenantID)]; ok {
+						item.TenantName = val
+					}
+				}
+			}
+		}
+	}
+	{
+		idSet := make(map[int64]struct{})
+		for _, item := range list {
+			if item.MerchantID != 0 {
+				idSet[int64(item.MerchantID)] = struct{}{}
+			}
+		}
+		if len(idSet) > 0 {
+			ids := make([]int64, 0, len(idSet))
+			for id := range idSet {
+				ids = append(ids, id)
+			}
+			refQuery := g.DB().Ctx(ctx).Model("system_merchant").
+				Fields("id", "name")
+			rows, err := refQuery.WhereIn("id", ids).All()
+			if err == nil {
+				refMap := make(map[int64]string, len(rows))
+				for _, row := range rows {
+					refMap[row["id"].Int64()] = row["name"].String()
+				}
+				for _, item := range list {
+					if val, ok := refMap[int64(item.MerchantID)]; ok {
+						item.MerchantName = val
 					}
 				}
 			}
@@ -311,11 +414,18 @@ func (s *sCategory) Tree(ctx context.Context, in *model.CategoryTreeInput) (tree
 		in = &model.CategoryTreeInput{}
 	}
 	m := dao.DemoCategory.Ctx(ctx).Where(dao.DemoCategory.Columns().DeletedAt, nil)
+	m = middleware.ApplyTenantScopeToModel(ctx, m, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId)
 	if in.Name != "" {
 		m = m.WhereLike(dao.DemoCategory.Columns().Name, "%"+in.Name+"%")
 	}
 	if in.ParentID != nil {
 		m = m.Where(dao.DemoCategory.Columns().ParentId, *in.ParentID)
+	}
+	if in.TenantID != nil {
+		m = m.Where(dao.DemoCategory.Columns().TenantId, *in.TenantID)
+	}
+	if in.MerchantID != nil {
+		m = m.Where(dao.DemoCategory.Columns().MerchantId, *in.MerchantID)
 	}
 	if in.Status != nil {
 		m = m.Where(dao.DemoCategory.Columns().Status, *in.Status)
@@ -348,6 +458,92 @@ func (s *sCategory) Tree(ctx context.Context, in *model.CategoryTreeInput) (tree
 			parent.Children = append(parent.Children, item)
 		}
 	}
+	// 批量填充租户关联显示
+	{
+		idSet := make(map[int64]struct{})
+		var collectIDs func(items []*model.CategoryTreeOutput)
+		collectIDs = func(items []*model.CategoryTreeOutput) {
+			for _, item := range items {
+				if item.TenantID != 0 {
+					idSet[int64(item.TenantID)] = struct{}{}
+				}
+				if len(item.Children) > 0 {
+					collectIDs(item.Children)
+				}
+			}
+		}
+		collectIDs(list)
+		if len(idSet) > 0 {
+			ids := make([]int64, 0, len(idSet))
+			for id := range idSet {
+				ids = append(ids, id)
+			}
+			refQuery := g.DB().Ctx(ctx).Model("system_tenant").
+				Fields("id", "name")
+			rows, queryErr := refQuery.WhereIn("id", ids).All()
+			if queryErr == nil {
+				refMap := make(map[int64]string, len(rows))
+				for _, row := range rows {
+					refMap[row["id"].Int64()] = row["name"].String()
+				}
+				var fillRef func(items []*model.CategoryTreeOutput)
+				fillRef = func(items []*model.CategoryTreeOutput) {
+					for _, item := range items {
+						if val, ok := refMap[int64(item.TenantID)]; ok {
+							item.TenantName = val
+						}
+						if len(item.Children) > 0 {
+							fillRef(item.Children)
+						}
+					}
+				}
+				fillRef(list)
+			}
+		}
+	}
+	// 批量填充商户关联显示
+	{
+		idSet := make(map[int64]struct{})
+		var collectIDs func(items []*model.CategoryTreeOutput)
+		collectIDs = func(items []*model.CategoryTreeOutput) {
+			for _, item := range items {
+				if item.MerchantID != 0 {
+					idSet[int64(item.MerchantID)] = struct{}{}
+				}
+				if len(item.Children) > 0 {
+					collectIDs(item.Children)
+				}
+			}
+		}
+		collectIDs(list)
+		if len(idSet) > 0 {
+			ids := make([]int64, 0, len(idSet))
+			for id := range idSet {
+				ids = append(ids, id)
+			}
+			refQuery := g.DB().Ctx(ctx).Model("system_merchant").
+				Fields("id", "name")
+			rows, queryErr := refQuery.WhereIn("id", ids).All()
+			if queryErr == nil {
+				refMap := make(map[int64]string, len(rows))
+				for _, row := range rows {
+					refMap[row["id"].Int64()] = row["name"].String()
+				}
+				var fillRef func(items []*model.CategoryTreeOutput)
+				fillRef = func(items []*model.CategoryTreeOutput) {
+					for _, item := range items {
+						if val, ok := refMap[int64(item.MerchantID)]; ok {
+							item.MerchantName = val
+						}
+						if len(item.Children) > 0 {
+							fillRef(item.Children)
+						}
+					}
+				}
+				fillRef(list)
+			}
+		}
+	}
 	return
 }
 
@@ -357,6 +553,13 @@ func (s *sCategory) BatchUpdate(ctx context.Context, in *model.CategoryBatchUpda
 	if in.Status != nil {
 		data.Status = *in.Status
 	}
-	_, err := dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, in.IDs).Data(data).Update()
+	normalizedIDs := normalizeCategoryIDs(in.IDs)
+	if len(normalizedIDs) == 0 {
+		return nil
+	}
+	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), normalizedIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "分类"); err != nil {
+		return err
+	}
+	_, err := dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }

@@ -9,6 +9,10 @@ export interface UsersItem {
   avatar?: string;
   deptId?: string;
   deptTitle?: string;
+  tenantId?: string;
+  tenantName?: string;
+  merchantId?: string;
+  merchantName?: string;
   roleIds?: string[];
   roleTitles?: string[];
   status?: number;
@@ -25,6 +29,8 @@ export interface UsersListParams {
   nickname?: string;
   email?: string;
   deptId?: string;
+  tenantId?: string;
+  merchantId?: string;
   status?: number;
 }
 
@@ -36,6 +42,8 @@ export interface UsersCreateParams {
   email?: string;
   avatar?: string;
   deptId?: string;
+  tenantId?: string;
+  merchantId?: string;
   roleIds?: string[];
   status?: number;
 }
@@ -49,6 +57,8 @@ export interface UsersUpdateParams {
   email?: string;
   avatar?: string;
   deptId?: string;
+  tenantId?: string;
+  merchantId?: string;
   roleIds?: string[];
   status?: number;
 }

@@ -4,6 +4,9 @@ import { useVbenModal } from '@vben/common-ui';
 import { Descriptions, DescriptionsItem{{if .HasEnum}}, Tag{{end}} } from 'ant-design-vue';
 import { get{{.ModelName}}Detail } from '#/api/{{.AppName}}/{{.ModuleName}}';
 import type { {{.ModelName}}Item } from '#/api/{{.AppName}}/{{.ModuleName}}/types';
+{{- if .HasRichTextComponent}}
+import RichText from '#/components/tinymce/index.vue';
+{{- end}}
 {{- if .HasEnum}}
 
 /** 标签颜色池 */
@@ -79,7 +82,7 @@ const [Modal, modalApi] = useVbenModal({
 </script>
 
 <template>
-  <Modal class="w-[600px]">
+  <Modal class="w-[{{if .HasRichText}}800{{else}}600{{end}}px]">
     <Descriptions v-if="detail" bordered :column="1" size="small">
       <DescriptionsItem label="ID">{{"{{"}} detail.id {{"}}"}}</DescriptionsItem>
 {{- range .Fields}}
@@ -109,7 +112,8 @@ const [Modal, modalApi] = useVbenModal({
       </DescriptionsItem>
 {{- else if eq .Component "RichText"}}
       <DescriptionsItem label="{{.ShortLabel}}">
-        <div v-html="detail.{{.NameLower}}" style="max-height: 300px; overflow: auto;" />
+        <RichText v-if="detail.{{.NameLower}}" :value="detail.{{.NameLower}}" disabled :height="260" />
+        <span v-else>-</span>
       </DescriptionsItem>
 {{- else if eq .Component "JsonEditor"}}
       <DescriptionsItem label="{{.ShortLabel}}">

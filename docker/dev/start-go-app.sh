@@ -6,7 +6,7 @@ cd /app
 app_name="${1:-}"
 
 if [ -z "$app_name" ]; then
-  echo "usage: start-go-app.sh <system|upload>"
+  echo "usage: start-go-app.sh <system|upload|demo>"
   exit 1
 fi
 
@@ -39,6 +39,9 @@ case "$app_name" in
     ;;
   upload)
     exec ./upload
+    ;;
+  demo)
+    exec ./demo
     ;;
   *)
     echo "unsupported app: $app_name"

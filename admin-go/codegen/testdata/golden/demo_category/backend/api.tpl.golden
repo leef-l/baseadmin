@@ -21,6 +21,8 @@ type CategoryCreateReq struct {
 	Icon string `json:"icon"  dc:"Icon"`
 	Sort int `json:"sort"  dc:"Sort"`
 	Status int `json:"status"  dc:"Status"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"  dc:"租户"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"  dc:"商户"`
 }
 
 // CategoryCreateRes 创建分类响应
@@ -37,6 +39,8 @@ type CategoryUpdateReq struct {
 	Icon string `json:"icon"  dc:"Icon"`
 	Sort int `json:"sort"  dc:"Sort"`
 	Status int `json:"status"  dc:"Status"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"  dc:"租户"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"  dc:"商户"`
 }
 
 // CategoryUpdateRes 更新分类响应
@@ -101,6 +105,8 @@ type CategoryListReq struct {
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	Name string `json:"name" dc:"Name"`
 	ParentID *snowflake.JsonInt64 `json:"parentId" dc:"ParentID"`
+	TenantID *snowflake.JsonInt64 `json:"tenantID" dc:"租户"`
+	MerchantID *snowflake.JsonInt64 `json:"merchantID" dc:"商户"`
 	Status *int `json:"status" dc:"Status"`
 }
 
@@ -119,6 +125,8 @@ type CategoryExportReq struct {
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	Name string `json:"name" dc:"Name"`
 	ParentID *snowflake.JsonInt64 `json:"parentId" dc:"ParentID"`
+	TenantID *snowflake.JsonInt64 `json:"tenantID" dc:"租户"`
+	MerchantID *snowflake.JsonInt64 `json:"merchantID" dc:"商户"`
 	Status *int `json:"status" dc:"Status"`
 }
 
@@ -134,6 +142,8 @@ type CategoryTreeReq struct {
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	Name string `json:"name" dc:"Name"`
 	ParentID *snowflake.JsonInt64 `json:"parentId" dc:"ParentID"`
+	TenantID *snowflake.JsonInt64 `json:"tenantID" dc:"租户"`
+	MerchantID *snowflake.JsonInt64 `json:"merchantID" dc:"商户"`
 	Status *int `json:"status" dc:"Status"`
 }
 

@@ -8,9 +8,9 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 )
 
-// RoleDept is the golang structure of table role_dept for DAO operations like Where/Data.
+// RoleDept is the golang structure of table system_role_dept for DAO operations like Where/Data.
 type RoleDept struct {
-	g.Meta `orm:"table:role_dept, do:true"`
+	g.Meta `orm:"table:system_role_dept, do:true"`
 	RoleId any // 角色ID
 	DeptId any // 部门ID
 }

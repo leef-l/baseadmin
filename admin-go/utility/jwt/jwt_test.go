@@ -8,7 +8,7 @@ import (
 )
 
 func TestGenerateAndParseTokenRoundTrip(t *testing.T) {
-	token, err := GenerateToken(123, "admin", 9)
+	token, err := GenerateToken(123, "admin", 9, 7, 5)
 	if err != nil {
 		t.Fatalf("GenerateToken failed: %v", err)
 	}
@@ -17,7 +17,7 @@ func TestGenerateAndParseTokenRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseToken failed: %v", err)
 	}
-	if claims.UserID != 123 || claims.Username != "admin" || claims.DeptID != 9 {
+	if claims.UserID != 123 || claims.Username != "admin" || claims.DeptID != 9 || claims.TenantID != 7 || claims.MerchantID != 5 {
 		t.Fatalf("claims mismatch: %+v", claims)
 	}
 }
@@ -56,7 +56,7 @@ func TestVerifyAnyTokenAcceptsMemberToken(t *testing.T) {
 }
 
 func TestParseTokenTrimsWhitespace(t *testing.T) {
-	token, err := GenerateToken(123, "admin", 9)
+	token, err := GenerateToken(123, "admin", 9, 0, 0)
 	if err != nil {
 		t.Fatalf("GenerateToken failed: %v", err)
 	}

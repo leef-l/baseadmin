@@ -4,7 +4,7 @@
 
 1. [仓库总说明](README.MD)
 2. [代码库导读](docs/代码库导读.md)（首选入口）
-3. [Codegen AI 执行手册](docs/Codegen-AI执行手册.md)（涉及 `admin-go/codegen/`、CRUD 生成、模板或 Vben 生成页时必读）
+3. [Codegen AI 执行手册](admin-go/codegen/docs/Codegen-AI执行手册.md)（涉及 `admin-go/codegen/`、CRUD 生成、模板或 Vben 生成页时必读）
 4. [代码生成器说明](admin-go/codegen/README.md)
 5. [Docker 开发说明](docs/Docker开发说明.md)
 6. [system 服务路由入口](admin-go/app/system/internal/cmd/cmd.go)
@@ -52,7 +52,7 @@ admin-go/app/*/internal/model/entity/
 
 ## 铁律
 
-铁律按主题分为 5 组。**A 组管代码生成器与前端适配，B 组管提交与数据库，C 组管 Docker，D 组管资源保护,E 组管通用约定。** 合计 10 条，任何一条都不可降级。
+铁律按主题分为 5 组。**A 组管代码生成器与前端适配，B 组管提交与数据库，C 组管 Docker，D 组管资源保护,E 组管通用约定。** 合计 11 条，任何一条都不可降级。
 
 ### A. 代码生成器与前端适配
 
@@ -82,18 +82,20 @@ admin-go/app/*/internal/model/entity/
 
 6. **完成即提交，含 DB 变更必先写 migrate**。整体功能完成后必须立即提交并推送，禁止把"本地已完成但未推送"当作结束状态。**若功能包含数据库变更，必须先补齐 `admin-go/database/migrations/` 下的 `golang-migrate` 迁移文件，再执行业务提交**。默认使用仓库脚本 `./scripts/feature-publish.sh "type(scope): summary"` 基于已暂存内容提交并推送；只有明确确认全部改动都属于同一批交付时，才使用 `--all`。
 
+7. **数据库联调只认 baseadmin 站点库**。本仓库在当前服务器做联调、迁移、demo 体验测试、线上冒烟时，必须使用 `baseadmin.easytestdev.online` 对应站点库：`127.0.0.1:3306/sql_baseadmin_easytestdev_online`。数据库连接真源是 `admin-go/app/system/manifest/config/config.yaml`、`admin-go/app/upload/manifest/config/config.yaml`、`admin-go/app/demo/manifest/config/config.yaml` 和 `admin-go/.env`。禁止误连临时库、Docker 开发库、其它项目库或其它域名的数据库；确需隔离验证时，必须先明确说明隔离库名称、用途和清理方式。
+
 ### C. Docker 联动
 
-7. **Docker 三文件联动**。任何 Docker 改动都不能只改一份 compose，必须同步检查并更新 `docker/dev/docker-compose.yml`、`docker/dev/docker-compose.cn.yml`、`docker/prod/docker-compose.yml` 三处；如果某一份必须保持差异，必须在对应改动处写清原因。
+8. **Docker 三文件联动**。任何 Docker 改动都不能只改一份 compose，必须同步检查并更新 `docker/dev/docker-compose.yml`、`docker/dev/docker-compose.cn.yml`、`docker/prod/docker-compose.yml` 三处；如果某一份必须保持差异，必须在对应改动处写清原因。
 
 ### D. 资源保护
 
-8. **负载守卫 + 批量限流**。执行任何命令前先检查服务器负载；**只要 CPU 使用率超过 `80%` 必须立即停止，等待回落到 `50%` 以下才允许继续**。任何批量、循环、构建、迁移、脚本回填、代码生成、压测或高频重复执行任务，**一律分批推进并持续监控负载**，即便只是 `500` 次级别的执行也不得一次性打满服务器。Go / Node 重任务统一走 `scripts/run-go-task-with-limits.sh` 或 `scripts/run-node-task-with-limits.sh`。Node 限流入口默认强制 `1h` 超时、`MemoryMax=1536M`、`CPUQuota=60%`，裸 `npm` / `pnpm` / `npx` / `pnpx` / `yarn` / `corepack` 必须被 `scripts/baseadmin-shell-guard.sh` 阻断。
+9. **负载守卫 + 批量限流**。执行任何命令前先检查服务器负载；**只要 CPU 使用率超过 `80%` 必须立即停止，等待回落到 `50%` 以下才允许继续**。任何批量、循环、构建、迁移、脚本回填、代码生成、压测或高频重复执行任务，**一律分批推进并持续监控负载**，即便只是 `500` 次级别的执行也不得一次性打满服务器。Go / Node 重任务统一走 `scripts/run-go-task-with-limits.sh` 或 `scripts/run-node-task-with-limits.sh`。Node 限流入口默认强制 `1h` 超时、`MemoryMax=1536M`、`CPUQuota=60%`，裸 `npm` / `pnpm` / `npx` / `pnpx` / `yarn` / `corepack` 必须被 `scripts/baseadmin-shell-guard.sh` 阻断。
 
 ### E. 通用约定
 
-9. **文档与路径**。文档统一放 `docs/`，根目录只保留简短说明；长跑巡检的滚动日志放 `docs/流程日志/`。所有引用尽量用 Markdown 相对链接，保证可以直接点击打开。
-10. **变更边界**。菜单三联动：后端接口、前端入口、`system_menu` 必须一起看。本机执行边界：允许 `gf`、`go` 和数据库访问；**禁止在本机裸执行 `npm`、`pnpm` 或 Docker**，所有文档和流程设计必须遵守这条约束。确需执行前端排查时，只能使用 `scripts/run-node-task-with-limits.sh <command> [args...]`，且不得覆盖 `1h` / `1536M` 默认上限；Docker 在本机仍禁止执行。
+10. **文档与路径**。项目级文档统一放 `docs/`，codegen 专用文档放 `admin-go/codegen/docs/`，根目录只保留简短说明；一次性协作提示、临时排障记录和过期巡检日志不要长期保留。所有引用尽量用 Markdown 相对链接，保证可以直接点击打开。
+11. **变更边界**。菜单三联动：后端接口、前端入口、`system_menu` 必须一起看。本机执行边界：允许 `gf`、`go` 和数据库访问；**禁止在本机裸执行 `npm`、`pnpm` 或 Docker**，所有文档和流程设计必须遵守这条约束。确需执行前端排查时，只能使用 `scripts/run-node-task-with-limits.sh <command> [args...]`，且不得覆盖 `1h` / `1536M` 默认上限；Docker 在本机仍禁止执行。
 
 ## 常用命令
 

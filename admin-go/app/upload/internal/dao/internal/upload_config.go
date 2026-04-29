@@ -41,6 +41,8 @@ type UploadConfigColumns struct {
 	DeletedAt    string // 删除时间
 	CreatedBy    string // 创建人
 	DeptId       string // 部门ID
+	TenantId     string // 租户
+	MerchantId   string // 商户
 }
 
 // uploadConfigColumns holds the columns for the table upload_config.
@@ -65,6 +67,8 @@ var uploadConfigColumns = UploadConfigColumns{
 	DeletedAt:    "deleted_at",
 	CreatedBy:    "created_by",
 	DeptId:       "dept_id",
+	TenantId:     "tenant_id",
+	MerchantId:   "merchant_id",
 }
 
 // NewUploadConfigDao creates and returns a new DAO object for table data access.

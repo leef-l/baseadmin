@@ -1,6 +1,6 @@
 # 文档目录
 
-`docs/` 只保留当前仍长期维护的项目说明。一次性协作提示、临时排障记录不再放在这里；长跑巡检的滚动日志集中在 `流程日志/` 子目录。
+`docs/` 只保留当前仍长期维护的项目说明。一次性协作提示、临时排障记录和过期巡检日志不再放在这里。
 
 ## 首选阅读
 
@@ -10,8 +10,10 @@
 
 - [System 应用说明](../admin-go/app/system/README.MD)
 - [Upload 应用说明](../admin-go/app/upload/README.MD)
+- [SaaS 多租户与域名说明](SaaS多租户与域名说明.md)
+- [守护进程管理说明](守护进程管理说明.md)
 - [代码生成器说明](../admin-go/codegen/README.md)
-- [Codegen AI 执行手册](Codegen-AI执行手册.md)
+- [Codegen AI 执行手册](../admin-go/codegen/docs/Codegen-AI执行手册.md)
 
 ## 开发与部署
 
@@ -25,10 +27,5 @@
 
 ## AI 执行入口
 
-- Codegen 任务先读 [Codegen AI 执行手册](Codegen-AI执行手册.md)，再读 [代码生成器说明](../admin-go/codegen/README.md)
-- 执行 codegen、Go 测试、前端校验时必须遵守 [AI 协作铁律](../CLAUDE.md) 的负载守卫和 Node 限流要求
-
-## 流程日志（长跑巡检专用，非日常阅读）
-
-- [持续优化执行说明](流程日志/持续优化执行说明.md)
-- [优化审计记录](流程日志/优化审计记录.md)
+- Codegen 任务先读 [代码生成器说明](../admin-go/codegen/README.md)、[字段备注与生成规则](../admin-go/codegen/docs/字段备注与生成规则.md)，再读 [Codegen AI 执行手册](../admin-go/codegen/docs/Codegen-AI执行手册.md)
+- 执行 codegen、Go 命令、前端校验时必须遵守 [AI 协作铁律](../CLAUDE.md) 的负载守卫和 Node 限流要求；当前协作要求下不要执行 `go test`

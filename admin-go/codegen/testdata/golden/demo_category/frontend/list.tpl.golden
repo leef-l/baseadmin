@@ -10,7 +10,10 @@ import { Button, message, Modal, Tag, Tooltip } from 'ant-design-vue';
 import { QuestionCircleOutlined } from '@ant-design/icons-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getCategoryTree, deleteCategory, batchDeleteCategory, exportCategory, batchUpdateCategory } from '#/api/demo/category';
+import { getTenantList } from '#/api/system/tenant';
+import { getMerchantList } from '#/api/system/merchant';
 import type { CategoryItem } from '#/api/demo/category/types';
 import FormModal from './modules/form.vue';
 import DetailDrawer from './modules/detail-drawer.vue';
@@ -86,6 +89,7 @@ const [DetailDrawerComp, detailDrawerApi] = useVbenModal({
 });
 const { hasAccessByCodes } = useAccess();
 const canBatchDelete = hasAccessByCodes(['demo:category:batch-delete']);
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
 
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
@@ -113,6 +117,32 @@ const formOptions: VbenFormProps = {
       fieldName: 'parentId',
       label: 'ParentID',
     },
+    ...(isPlatformSuperAdmin.value ? [
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: [],
+        placeholder: '请选择租户',
+        class: 'w-full',
+      },
+      fieldName: 'tenantID',
+      label: '租户',
+    },
+    ] : []),
+    ...(isPlatformSuperAdmin.value ? [
+    {
+      component: 'Select',
+      componentProps: {
+        allowClear: true,
+        options: [],
+        placeholder: '请选择商户',
+        class: 'w-full',
+      },
+      fieldName: 'merchantID',
+      label: '商户',
+    },
+    ] : []),
     {
       component: 'Select',
       componentProps: {
@@ -148,6 +178,12 @@ const gridOptions: VxeGridProps<CategoryItem> = {
     { field: 'icon', title: 'Icon' },
     { field: 'sort', title: 'Sort', slots: { header: tooltipHeader('Sort', '升序') } },
     { field: 'status', title: 'Status', width: 120, slots: { default: 'status_cell' } },
+    ...(isPlatformSuperAdmin.value ? [
+    { field: 'tenantName', title: '租户' },
+    ] : []),
+    ...(isPlatformSuperAdmin.value ? [
+    { field: 'merchantName', title: '商户' },
+    ] : []),
     { field: 'createdAt', title: '创建时间', width: 180, formatter: 'formatDateTime', sortable: true },
     { title: '操作', width: 240, fixed: 'right', slots: { default: 'action' } },
   ],
@@ -166,6 +202,10 @@ const gridOptions: VxeGridProps<CategoryItem> = {
           params.endTime = params.timeRange[1];
         }
         delete params.timeRange;
+        if (!isPlatformSuperAdmin.value) {
+          delete params.tenantID;
+          delete params.merchantID;
+        }
         return await getCategoryTree(params as any) ?? [];
       },
     },
@@ -202,6 +242,42 @@ async function initSearchOptions() {
     ]);
   } catch {
     // ignore
+  }
+  if (isPlatformSuperAdmin.value) {
+  try {
+    const tenantIDRes = await getTenantList({ pageNum: 1, pageSize: 1000 });
+    gridApi.formApi.updateSchema([
+      {
+        fieldName: 'tenantID',
+        componentProps: {
+          options: (tenantIDRes?.list ?? []).map((item: any) => ({
+            label: item.name || item.id,
+            value: item.id,
+          })),
+        },
+      },
+    ]);
+  } catch {
+    // ignore
+  }
+  }
+  if (isPlatformSuperAdmin.value) {
+  try {
+    const merchantIDRes = await getMerchantList({ pageNum: 1, pageSize: 1000 });
+    gridApi.formApi.updateSchema([
+      {
+        fieldName: 'merchantID',
+        componentProps: {
+          options: (merchantIDRes?.list ?? []).map((item: any) => ({
+            label: item.name || item.id,
+            value: item.id,
+          })),
+        },
+      },
+    ]);
+  } catch {
+    // ignore
+  }
   }
 }
 
@@ -268,6 +344,10 @@ async function handleExport() {
       params.endTime = params.timeRange[1];
     }
     delete params.timeRange;
+    if (!isPlatformSuperAdmin.value) {
+      delete params.tenantID;
+      delete params.merchantID;
+    }
     if (sorts.length > 0) {
       const sort = sorts[0];
       if (sort?.field && sort?.order) {

@@ -11,6 +11,10 @@ export interface UserReviewItem {
   isPassed?: number;
   sort?: number;
   status?: number;
+  tenantID?: string;
+  tenantName?: string;
+  merchantID?: string;
+  merchantName?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -24,6 +28,8 @@ export interface UserReviewListParams {
   startTime?: string;
   endTime?: string;
   userId?: string;
+  tenantID?: string;
+  merchantID?: string;
   reviewType?: number;
   isPassed?: number;
   status?: number;
@@ -39,6 +45,8 @@ export interface UserReviewCreateParams {
   isPassed?: number;
   sort?: number;
   status?: number;
+  tenantID?: string;
+  merchantID?: string;
 }
 
 /** 用户审核更新参数 */
@@ -51,4 +59,6 @@ export interface UserReviewUpdateParams {
   isPassed?: number;
   sort?: number;
   status?: number;
+  tenantID?: string;
+  merchantID?: string;
 }

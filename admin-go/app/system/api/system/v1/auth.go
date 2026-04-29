@@ -14,11 +14,13 @@ type AuthLoginReq struct {
 }
 
 type AuthLoginRes struct {
-	Token    string              `json:"token"`
-	UserID   snowflake.JsonInt64 `json:"userId"`
-	Username string              `json:"username"`
-	Nickname string              `json:"nickname"`
-	Avatar   string              `json:"avatar"`
+	Token      string              `json:"token"`
+	UserID     snowflake.JsonInt64 `json:"userId"`
+	Username   string              `json:"username"`
+	Nickname   string              `json:"nickname"`
+	Avatar     string              `json:"avatar"`
+	TenantID   snowflake.JsonInt64 `json:"tenantId"`
+	MerchantID snowflake.JsonInt64 `json:"merchantId"`
 }
 
 // 票据登录
@@ -48,15 +50,18 @@ type AuthInfoReq struct {
 }
 
 type AuthInfoRes struct {
-	UserID   snowflake.JsonInt64 `json:"userId"`
-	Username string              `json:"username"`
-	Nickname string              `json:"nickname"`
-	Email    string              `json:"email"`
-	Avatar   string              `json:"avatar"`
-	DeptID   snowflake.JsonInt64 `json:"deptId"`
-	Status   int                 `json:"status"`
-	Roles    []string            `json:"roles"`
-	Perms    []string            `json:"perms"`
+	UserID     snowflake.JsonInt64 `json:"userId"`
+	Username   string              `json:"username"`
+	Nickname   string              `json:"nickname"`
+	Email      string              `json:"email"`
+	Avatar     string              `json:"avatar"`
+	DeptID     snowflake.JsonInt64 `json:"deptId"`
+	TenantID   snowflake.JsonInt64 `json:"tenantId"`
+	MerchantID snowflake.JsonInt64 `json:"merchantId"`
+	IsAdmin    int                 `json:"isAdmin"`
+	Status     int                 `json:"status"`
+	Roles      []string            `json:"roles"`
+	Perms      []string            `json:"perms"`
 }
 
 // 修改密码

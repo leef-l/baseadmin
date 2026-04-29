@@ -21,38 +21,42 @@ type UploadFileDao struct {
 
 // UploadFileColumns defines and stores column names for the table upload_file.
 type UploadFileColumns struct {
-	Id        string // ID
-	DirId     string // 所属目录
-	Name      string // 文件名称
-	Url       string // 文件地址
-	Ext       string // 文件扩展名
-	Size      string // 文件大小
-	Mime      string // MIME类型
-	Storage   string // 存储类型:1=本地,2=阿里云OSS,3=腾讯云COS
-	IsImage   string // 是否图片:0=否,1=是
-	CreatedAt string // 创建时间
-	UpdatedAt string // 更新时间
-	DeletedAt string // 删除时间
-	CreatedBy string // 创建人
-	DeptId    string // 部门ID
+	Id         string // ID
+	DirId      string // 所属目录
+	Name       string // 文件名称
+	Url        string // 文件地址
+	Ext        string // 文件扩展名
+	Size       string // 文件大小
+	Mime       string // MIME类型
+	Storage    string // 存储类型:1=本地,2=阿里云OSS,3=腾讯云COS
+	IsImage    string // 是否图片:0=否,1=是
+	CreatedAt  string // 创建时间
+	UpdatedAt  string // 更新时间
+	DeletedAt  string // 删除时间
+	CreatedBy  string // 创建人
+	DeptId     string // 部门ID
+	TenantId   string // 租户
+	MerchantId string // 商户
 }
 
 // uploadFileColumns holds the columns for the table upload_file.
 var uploadFileColumns = UploadFileColumns{
-	Id:        "id",
-	DirId:     "dir_id",
-	Name:      "name",
-	Url:       "url",
-	Ext:       "ext",
-	Size:      "size",
-	Mime:      "mime",
-	Storage:   "storage",
-	IsImage:   "is_image",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
-	DeletedAt: "deleted_at",
-	CreatedBy: "created_by",
-	DeptId:    "dept_id",
+	Id:         "id",
+	DirId:      "dir_id",
+	Name:       "name",
+	Url:        "url",
+	Ext:        "ext",
+	Size:       "size",
+	Mime:       "mime",
+	Storage:    "storage",
+	IsImage:    "is_image",
+	CreatedAt:  "created_at",
+	UpdatedAt:  "updated_at",
+	DeletedAt:  "deleted_at",
+	CreatedBy:  "created_by",
+	DeptId:     "dept_id",
+	TenantId:   "tenant_id",
+	MerchantId: "merchant_id",
 }
 
 // NewUploadFileDao creates and returns a new DAO object for table data access.

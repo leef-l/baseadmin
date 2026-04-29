@@ -19,8 +19,10 @@ type permissionState struct {
 }
 
 type roleRow struct {
-	RoleID  int64 `json:"roleId"`
-	IsAdmin int   `json:"isAdmin"`
+	RoleID     int64 `json:"roleId"`
+	IsAdmin    int   `json:"isAdmin"`
+	TenantID   int64 `json:"tenantId"`
+	MerchantID int64 `json:"merchantId"`
 }
 
 type permissionRow struct {
@@ -77,7 +79,7 @@ func queryPermissionState(ctx context.Context, userID int64) (permissionState, e
 	err := g.DB().Ctx(ctx).
 		Model("system_user_role ur").
 		LeftJoin("system_role r", "r.id = ur.role_id").
-		Fields("ur.role_id AS roleId", "r.is_admin AS isAdmin").
+		Fields("ur.role_id AS roleId", "r.is_admin AS isAdmin", "r.tenant_id AS tenantId", "r.merchant_id AS merchantId").
 		Where("ur.user_id", userID).
 		Where("r.deleted_at", nil).
 		Where("r.status", 1).
@@ -86,7 +88,7 @@ func queryPermissionState(ctx context.Context, userID int64) (permissionState, e
 		return permissionState{}, err
 	}
 
-	if hasAdminRole(roles) {
+	if hasPlatformAdminRole(roles) {
 		return permissionState{
 			IsAdmin: true,
 			Perms:   nil,
@@ -121,6 +123,15 @@ func queryPermissionState(ctx context.Context, userID int64) (permissionState, e
 func hasAdminRole(rows []roleRow) bool {
 	for _, row := range rows {
 		if row.IsAdmin == 1 {
+			return true
+		}
+	}
+	return false
+}
+
+func hasPlatformAdminRole(rows []roleRow) bool {
+	for _, row := range rows {
+		if row.IsAdmin == 1 && row.TenantID == 0 && row.MerchantID == 0 {
 			return true
 		}
 	}

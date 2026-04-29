@@ -1,0 +1,29 @@
+# https://goframe.org/docs/web/server-config-file-template
+server:
+  address:     ":10026"
+  openapiPath: "/api.json"
+  swaggerPath: "/swagger"
+
+# https://goframe.org/docs/core/glog-config
+logger:
+  level : "all"
+  stdout: true
+
+# https://goframe.org/docs/core/gdb-config-file
+database:
+  default:
+    link: "mysql:sql_baseadmin_easytestdev_online:4365d2c5953988@tcp(127.0.0.1:3306)/sql_baseadmin_easytestdev_online"
+    debug: true
+    charset: "utf8mb4"
+
+# https://goframe.org/docs/components/os-gredis-config
+redis:
+  default:
+    address: "127.0.0.1:6379"
+    pass: "123456"
+    db: 0
+
+# JWT 配置
+jwt:
+  secret: "change_me"
+  expire: 24  # Token 过期时间（小时）

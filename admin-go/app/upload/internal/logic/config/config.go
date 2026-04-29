@@ -30,6 +30,28 @@ func New() *sConfig {
 
 type sConfig struct{}
 
+type uploadConfigCreateData struct {
+	Id           snowflake.JsonInt64 `orm:"id"`
+	Name         string              `orm:"name"`
+	Storage      int                 `orm:"storage"`
+	IsDefault    int                 `orm:"is_default"`
+	LocalPath    string              `orm:"local_path"`
+	OssEndpoint  string              `orm:"oss_endpoint"`
+	OssBucket    string              `orm:"oss_bucket"`
+	OssAccessKey string              `orm:"oss_access_key"`
+	OssSecretKey string              `orm:"oss_secret_key"`
+	CosRegion    string              `orm:"cos_region"`
+	CosBucket    string              `orm:"cos_bucket"`
+	CosSecretId  string              `orm:"cos_secret_id"`
+	CosSecretKey string              `orm:"cos_secret_key"`
+	MaxSize      int                 `orm:"max_size"`
+	Status       int                 `orm:"status"`
+	TenantId     snowflake.JsonInt64 `orm:"tenant_id"`
+	MerchantId   snowflake.JsonInt64 `orm:"merchant_id"`
+	CreatedBy    snowflake.JsonInt64 `orm:"created_by"`
+	DeptId       snowflake.JsonInt64 `orm:"dept_id"`
+}
+
 // Create 创建上传配置
 func (s *sConfig) Create(ctx context.Context, in *model.ConfigCreateInput) error {
 	if err := inpututil.Require(in); err != nil {
@@ -60,18 +82,19 @@ func (s *sConfig) Create(ctx context.Context, in *model.ConfigCreateInput) error
 		return err
 	}
 	id := snowflake.Generate()
+	var tenantID, merchantID, createdBy, deptID snowflake.JsonInt64
+	shared.ApplyWriteScope(ctx, &tenantID, &merchantID, &createdBy, &deptID)
 	return dao.UploadConfig.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if in.IsDefault == 1 {
-			if _, err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).
+			m := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).
 				Where(dao.UploadConfig.Columns().DeletedAt, nil).
-				Data(do.UploadConfig{
-					IsDefault: 0,
-				}).
-				Update(); err != nil {
+				Data(do.UploadConfig{IsDefault: 0})
+			m = shared.ApplyAccessScope(ctx, m)
+			if _, err := m.Update(); err != nil {
 				return err
 			}
 		}
-		_, err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).Data(do.UploadConfig{
+		_, err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).Data(uploadConfigCreateData{
 			Id:           id,
 			Name:         in.Name,
 			Storage:      in.Storage,
@@ -87,6 +110,10 @@ func (s *sConfig) Create(ctx context.Context, in *model.ConfigCreateInput) error
 			CosSecretKey: in.CosSecretKey,
 			MaxSize:      in.MaxSize,
 			Status:       in.Status,
+			TenantId:     tenantID,
+			MerchantId:   merchantID,
+			CreatedBy:    createdBy,
+			DeptId:       deptID,
 		}).Insert()
 		return err
 	})
@@ -116,13 +143,12 @@ func (s *sConfig) Update(ctx context.Context, in *model.ConfigUpdateInput) error
 			return gerror.New("默认上传配置不能直接取消默认，请先设置其他配置为默认")
 		}
 		if in.IsDefault == 1 {
-			if _, err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).
+			m := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).
 				Where(dao.UploadConfig.Columns().DeletedAt, nil).
 				WhereNot(dao.UploadConfig.Columns().Id, in.ID).
-				Data(do.UploadConfig{
-					IsDefault: 0,
-				}).
-				Update(); err != nil {
+				Data(do.UploadConfig{IsDefault: 0})
+			m = shared.ApplyAccessScope(ctx, m)
+			if _, err := m.Update(); err != nil {
 				return err
 			}
 		}
@@ -160,11 +186,12 @@ func (s *sConfig) Update(ctx context.Context, in *model.ConfigUpdateInput) error
 			MaxSize:      in.MaxSize,
 			Status:       in.Status,
 		}
-		_, err := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).
+		m := tx.Model(dao.UploadConfig.Table()).Ctx(ctx).
 			Where(dao.UploadConfig.Columns().Id, in.ID).
 			Where(dao.UploadConfig.Columns().DeletedAt, nil).
-			Data(data).
-			Update()
+			Data(data)
+		m = shared.ApplyAccessScope(ctx, m)
+		_, err := m.Update()
 		return err
 	})
 }
@@ -216,10 +243,11 @@ func (s *sConfig) getConfigByID(ctx context.Context, id snowflake.JsonInt64) (*e
 		return nil, gerror.New("上传配置不存在或已删除")
 	}
 	var cfg *entity.UploadConfig
-	if err := dao.UploadConfig.Ctx(ctx).
+	m := dao.UploadConfig.Ctx(ctx).
 		Where(dao.UploadConfig.Columns().Id, id).
-		Where(dao.UploadConfig.Columns().DeletedAt, nil).
-		Scan(&cfg); err != nil {
+		Where(dao.UploadConfig.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	if err := m.Scan(&cfg); err != nil {
 		return nil, err
 	}
 	if cfg == nil || cfg.Id == 0 {
@@ -233,10 +261,11 @@ func (s *sConfig) listConfigsByIDs(ctx context.Context, ids []int64) ([]*entity.
 		return nil, nil
 	}
 	var configs []*entity.UploadConfig
-	if err := dao.UploadConfig.Ctx(ctx).
+	m := dao.UploadConfig.Ctx(ctx).
 		WhereIn(dao.UploadConfig.Columns().Id, ids).
-		Where(dao.UploadConfig.Columns().DeletedAt, nil).
-		Scan(&configs); err != nil {
+		Where(dao.UploadConfig.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	if err := m.Scan(&configs); err != nil {
 		return nil, err
 	}
 	return configs, nil
@@ -267,6 +296,7 @@ func (s *sConfig) ensureConfigNameUnique(ctx context.Context, currentID snowflak
 	m := dao.UploadConfig.Ctx(ctx).
 		Where(dao.UploadConfig.Columns().Name, name).
 		Where(dao.UploadConfig.Columns().DeletedAt, nil)
+	m = shared.ApplyTenantScopeToModel(ctx, m, shared.ColumnTenantID, shared.ColumnMerchantID)
 	if currentID > 0 {
 		m = m.WhereNot(dao.UploadConfig.Columns().Id, currentID)
 	}
@@ -290,11 +320,12 @@ func (s *sConfig) countActiveFileReferences(ctx context.Context, cfg *entity.Upl
 	var files []struct {
 		Url string `json:"url"`
 	}
-	if err := dao.UploadFile.Ctx(ctx).
+	m := dao.UploadFile.Ctx(ctx).
 		Fields(dao.UploadFile.Columns().Url).
 		Where(dao.UploadFile.Columns().Storage, cfg.Storage).
-		Where(dao.UploadFile.Columns().DeletedAt, nil).
-		Scan(&files); err != nil {
+		Where(dao.UploadFile.Columns().DeletedAt, nil)
+	m = shared.ApplyTenantScopeToModel(ctx, m, shared.ColumnTenantID, shared.ColumnMerchantID)
+	if err := m.Scan(&files); err != nil {
 		return 0, err
 	}
 	refCount := 0
@@ -328,7 +359,9 @@ func (s *sConfig) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mode
 		return nil, gerror.New("上传配置不存在或已删除")
 	}
 	out = &model.ConfigDetailOutput{}
-	err = dao.UploadConfig.Ctx(ctx).Where(dao.UploadConfig.Columns().Id, id).Where(dao.UploadConfig.Columns().DeletedAt, nil).Scan(out)
+	m := dao.UploadConfig.Ctx(ctx).Where(dao.UploadConfig.Columns().Id, id).Where(dao.UploadConfig.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
+	err = m.Scan(out)
 	if err != nil {
 		return nil, err
 	}
@@ -346,6 +379,7 @@ func (s *sConfig) List(ctx context.Context, in *model.ConfigListInput) (list []*
 	}
 	normalizeConfigListInput(in)
 	m := dao.UploadConfig.Ctx(ctx).Where(dao.UploadConfig.Columns().DeletedAt, nil)
+	m = shared.ApplyAccessScope(ctx, m)
 	if in.Keyword != "" {
 		keywordBuilder := m.Builder().
 			WhereLike(dao.UploadConfig.Columns().Name, "%"+in.Keyword+"%").

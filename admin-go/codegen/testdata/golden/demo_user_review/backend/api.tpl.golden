@@ -23,6 +23,8 @@ type UserReviewCreateReq struct {
 	IsPassed int `json:"isPassed"  dc:"IsPassed"`
 	Sort int `json:"sort"  dc:"Sort"`
 	Status int `json:"status"  dc:"Status"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"  dc:"租户"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"  dc:"商户"`
 }
 
 // UserReviewCreateRes 创建用户审核响应
@@ -41,6 +43,8 @@ type UserReviewUpdateReq struct {
 	IsPassed int `json:"isPassed"  dc:"IsPassed"`
 	Sort int `json:"sort"  dc:"Sort"`
 	Status int `json:"status"  dc:"Status"`
+	TenantID snowflake.JsonInt64 `json:"tenantID"  dc:"租户"`
+	MerchantID snowflake.JsonInt64 `json:"merchantID"  dc:"商户"`
 }
 
 // UserReviewUpdateRes 更新用户审核响应
@@ -106,6 +110,8 @@ type UserReviewListReq struct {
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	UserID *snowflake.JsonInt64 `json:"userId" dc:"UserID"`
+	TenantID *snowflake.JsonInt64 `json:"tenantID" dc:"租户"`
+	MerchantID *snowflake.JsonInt64 `json:"merchantID" dc:"商户"`
 	ReviewType *int `json:"reviewType" dc:"ReviewType"`
 	IsPassed *int `json:"isPassed" dc:"IsPassed"`
 	Status *int `json:"status" dc:"Status"`
@@ -126,6 +132,8 @@ type UserReviewExportReq struct {
 	StartTime string `json:"startTime" dc:"开始时间"`
 	EndTime   string `json:"endTime" dc:"结束时间"`
 	UserID *snowflake.JsonInt64 `json:"userId" dc:"UserID"`
+	TenantID *snowflake.JsonInt64 `json:"tenantID" dc:"租户"`
+	MerchantID *snowflake.JsonInt64 `json:"merchantID" dc:"商户"`
 	ReviewType *int `json:"reviewType" dc:"ReviewType"`
 	IsPassed *int `json:"isPassed" dc:"IsPassed"`
 	Status *int `json:"status" dc:"Status"`

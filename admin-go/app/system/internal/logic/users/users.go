@@ -6,7 +6,6 @@ import (
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
-	"github.com/gogf/gf/v2/frame/g"
 
 	"gbaseadmin/app/system/internal/dao"
 	authlogic "gbaseadmin/app/system/internal/logic/auth"
@@ -40,14 +39,24 @@ func (s *sUsers) Create(ctx context.Context, in *model.UsersCreateInput) error {
 	if err := s.ensureUsersUniqueFields(ctx, 0, in.Username, in.Email); err != nil {
 		return err
 	}
+	s.applyActorOwnership(ctx, &in.TenantID, &in.MerchantID)
+	if err := s.ensureOwnershipWritable(ctx, in.TenantID, in.MerchantID); err != nil {
+		return err
+	}
 	if err := s.ensureDeptExists(ctx, in.DeptID); err != nil {
 		return err
 	}
 	if err := s.ensureDeptAccessible(ctx, in.DeptID); err != nil {
 		return err
 	}
+	if err := s.ensureDeptMatchesOwnership(ctx, in.DeptID, in.TenantID, in.MerchantID); err != nil {
+		return err
+	}
 	roleIDs, err := s.normalizeRoleIDs(ctx, in.RoleIDs)
 	if err != nil {
+		return err
+	}
+	if err := s.ensureRolesMatchOwnership(ctx, roleIDs, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
 	if err := s.ensureAdminRoleGrantAllowed(ctx, roleIDs); err != nil {
@@ -66,14 +75,16 @@ func (s *sUsers) Create(ctx context.Context, in *model.UsersCreateInput) error {
 	}
 	return dao.Users.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		_, err = tx.Model(dao.Users.Table()).Ctx(ctx).Data(do.Users{
-			Id:       id,
-			Username: in.Username,
-			Password: hashedPassword,
-			Nickname: in.Nickname,
-			Email:    in.Email,
-			Avatar:   in.Avatar,
-			Status:   in.Status,
-			DeptId:   in.DeptID,
+			Id:         id,
+			Username:   in.Username,
+			Password:   hashedPassword,
+			Nickname:   in.Nickname,
+			Email:      in.Email,
+			Avatar:     in.Avatar,
+			Status:     in.Status,
+			DeptId:     in.DeptID,
+			TenantId:   in.TenantID,
+			MerchantId: in.MerchantID,
 		}).Insert()
 		if err != nil {
 			return err
@@ -81,11 +92,11 @@ func (s *sUsers) Create(ctx context.Context, in *model.UsersCreateInput) error {
 		if len(roleIDs) == 0 {
 			return nil
 		}
-		data := make([]g.Map, 0, len(roleIDs))
+		data := make([]do.UserRole, 0, len(roleIDs))
 		for _, roleID := range roleIDs {
-			data = append(data, g.Map{
-				dao.UserRole.Columns().UserId: id,
-				dao.UserRole.Columns().RoleId: roleID,
+			data = append(data, do.UserRole{
+				UserId: id,
+				RoleId: roleID,
 			})
 		}
 		_, err = tx.Model(dao.UserRole.Table()).Ctx(ctx).Data(data).Insert()
@@ -132,13 +143,23 @@ func (s *sUsers) Update(ctx context.Context, in *model.UsersUpdateInput) error {
 	if isBuiltinAdmin && in.Username != "admin" {
 		return gerror.New("内置管理员账号登录名不能修改")
 	}
+	if isBuiltinAdmin && (in.TenantID != 0 || in.MerchantID != 0) {
+		return gerror.New("内置管理员账号必须保持平台归属")
+	}
 	if err := s.ensureUsersUniqueFields(ctx, in.ID, in.Username, in.Email); err != nil {
+		return err
+	}
+	s.applyActorOwnership(ctx, &in.TenantID, &in.MerchantID)
+	if err := s.ensureOwnershipWritable(ctx, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
 	if err := s.ensureDeptExists(ctx, in.DeptID); err != nil {
 		return err
 	}
 	if err := s.ensureDeptAccessible(ctx, in.DeptID); err != nil {
+		return err
+	}
+	if err := s.ensureDeptMatchesOwnership(ctx, in.DeptID, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
 	var (
@@ -156,6 +177,9 @@ func (s *sUsers) Update(ctx context.Context, in *model.UsersUpdateInput) error {
 		if err := s.ensureRoleIDsAssignable(ctx, roleIDs); err != nil {
 			return err
 		}
+		if err := s.ensureRolesMatchOwnership(ctx, roleIDs, in.TenantID, in.MerchantID); err != nil {
+			return err
+		}
 		if isBuiltinAdmin {
 			if err := s.ensureBuiltinAdminRoleAssignment(ctx, roleIDs); err != nil {
 				return err
@@ -163,12 +187,14 @@ func (s *sUsers) Update(ctx context.Context, in *model.UsersUpdateInput) error {
 		}
 	}
 	data := do.Users{
-		Username: in.Username,
-		Nickname: in.Nickname,
-		Email:    in.Email,
-		Avatar:   in.Avatar,
-		Status:   in.Status,
-		DeptId:   in.DeptID,
+		Username:   in.Username,
+		Nickname:   in.Nickname,
+		Email:      in.Email,
+		Avatar:     in.Avatar,
+		Status:     in.Status,
+		DeptId:     in.DeptID,
+		TenantId:   in.TenantID,
+		MerchantId: in.MerchantID,
 	}
 	if in.Password != "" {
 		if err := password.ValidatePolicy(in.Password); err != nil {
@@ -197,11 +223,11 @@ func (s *sUsers) Update(ctx context.Context, in *model.UsersUpdateInput) error {
 		if len(roleIDs) == 0 {
 			return nil
 		}
-		roleData := make([]g.Map, 0, len(roleIDs))
+		roleData := make([]do.UserRole, 0, len(roleIDs))
 		for _, roleID := range roleIDs {
-			roleData = append(roleData, g.Map{
-				dao.UserRole.Columns().UserId: in.ID,
-				dao.UserRole.Columns().RoleId: roleID,
+			roleData = append(roleData, do.UserRole{
+				UserId: in.ID,
+				RoleId: roleID,
 			})
 		}
 		_, err := tx.Model(dao.UserRole.Table()).Ctx(ctx).Data(roleData).Insert()
@@ -317,12 +343,14 @@ func (s *sUsers) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) err
 	}
 	deleteIDs := batchutil.ToInt64s(ids)
 	var users []struct {
-		Id       int64  `json:"id"`
-		Username string `json:"username"`
-		DeptId   int64  `json:"deptId"`
+		Id         int64  `json:"id"`
+		Username   string `json:"username"`
+		DeptId     int64  `json:"deptId"`
+		TenantId   int64  `json:"tenantId"`
+		MerchantId int64  `json:"merchantId"`
 	}
 	if err := dao.Users.Ctx(ctx).
-		Fields(dao.Users.Columns().Id, dao.Users.Columns().Username, dao.Users.Columns().DeptId).
+		Fields(dao.Users.Columns().Id, dao.Users.Columns().Username, dao.Users.Columns().DeptId, dao.Users.Columns().TenantId, dao.Users.Columns().MerchantId).
 		WhereIn(dao.Users.Columns().Id, deleteIDs).
 		Where(dao.Users.Columns().DeletedAt, nil).
 		Scan(&users); err != nil {
@@ -340,6 +368,9 @@ func (s *sUsers) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) err
 			return err
 		}
 		if !allowed {
+			return gerror.New("包含无权操作的用户")
+		}
+		if !shared.CanAccessTenantMerchant(ctx, item.TenantId, item.MerchantId) {
 			return gerror.New("包含无权操作的用户")
 		}
 		hasAdminRole, err := s.userHasAdminRole(ctx, snowflake.JsonInt64(item.Id))
@@ -398,7 +429,12 @@ func (s *sUsers) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model
 	if !allowed {
 		return nil, gerror.New("用户不存在或已删除")
 	}
+	if !shared.CanAccessTenantMerchant(ctx, int64(out.TenantID), int64(out.MerchantID)) {
+		return nil, gerror.New("用户不存在或已删除")
+	}
 	out.DeptTitle = shared.LookupTitle(ctx, "system_dept", int64(out.DeptID))
+	out.TenantName = s.lookupTenantName(ctx, int64(out.TenantID))
+	out.MerchantName = s.lookupMerchantName(ctx, int64(out.MerchantID))
 	// 查询用户角色ID列表
 	var roles []struct {
 		RoleId int64 `json:"roleId"`
@@ -420,6 +456,7 @@ func (s *sUsers) List(ctx context.Context, in *model.UsersListInput) (list []*mo
 	}
 	normalizeUsersListInput(in)
 	m := dao.Users.Ctx(ctx).Where(dao.Users.Columns().DeletedAt, nil)
+	m = shared.ApplyTenantScopeToModel(ctx, m, dao.Users.Columns().TenantId, dao.Users.Columns().MerchantId)
 	m, err = shared.ApplyDeptScopeToUserModel(ctx, m, dao.Users.Columns().Id, dao.Users.Columns().DeptId)
 	if err != nil {
 		return nil, 0, err
@@ -446,6 +483,12 @@ func (s *sUsers) List(ctx context.Context, in *model.UsersListInput) (list []*mo
 	if in.DeptId > 0 {
 		m = m.Where(dao.Users.Columns().DeptId, in.DeptId)
 	}
+	if in.TenantId > 0 {
+		m = m.Where(dao.Users.Columns().TenantId, in.TenantId)
+	}
+	if in.MerchantId > 0 {
+		m = m.Where(dao.Users.Columns().MerchantId, in.MerchantId)
+	}
 	total, err = m.Count()
 	if err != nil {
 		return
@@ -456,6 +499,7 @@ func (s *sUsers) List(ctx context.Context, in *model.UsersListInput) (list []*mo
 		return
 	}
 	s.fillDeptTitles(ctx, list)
+	s.fillTenantMerchantNames(ctx, list)
 	if err = s.fillRoleTitles(ctx, list); err != nil {
 		return nil, 0, err
 	}
@@ -524,6 +568,25 @@ func (s *sUsers) fillDeptTitles(ctx context.Context, list []*model.UsersListOutp
 	deptMap := shared.LoadTitleMap(ctx, "system_dept", deptIDs)
 	for _, item := range list {
 		item.DeptTitle = deptMap[int64(item.DeptID)]
+	}
+}
+
+func (s *sUsers) fillTenantMerchantNames(ctx context.Context, list []*model.UsersListOutput) {
+	tenantIDs := make([]int64, 0, len(list))
+	merchantIDs := make([]int64, 0, len(list))
+	for _, item := range list {
+		if item.TenantID > 0 {
+			tenantIDs = append(tenantIDs, int64(item.TenantID))
+		}
+		if item.MerchantID > 0 {
+			merchantIDs = append(merchantIDs, int64(item.MerchantID))
+		}
+	}
+	tenantMap := s.loadTenantNameMap(ctx, tenantIDs)
+	merchantMap := s.loadMerchantNameMap(ctx, merchantIDs)
+	for _, item := range list {
+		item.TenantName = tenantMap[int64(item.TenantID)]
+		item.MerchantName = merchantMap[int64(item.MerchantID)]
 	}
 }
 
@@ -601,11 +664,13 @@ func (s *sUsers) ensureUserAccessible(ctx context.Context, id snowflake.JsonInt6
 		return gerror.New("用户不存在或已删除")
 	}
 	var row struct {
-		Id     int64 `json:"id"`
-		DeptId int64 `json:"deptId"`
+		Id         int64 `json:"id"`
+		DeptId     int64 `json:"deptId"`
+		TenantId   int64 `json:"tenantId"`
+		MerchantId int64 `json:"merchantId"`
 	}
 	if err := dao.Users.Ctx(ctx).
-		Fields(dao.Users.Columns().Id, dao.Users.Columns().DeptId).
+		Fields(dao.Users.Columns().Id, dao.Users.Columns().DeptId, dao.Users.Columns().TenantId, dao.Users.Columns().MerchantId).
 		Where(dao.Users.Columns().Id, id).
 		Where(dao.Users.Columns().DeletedAt, nil).
 		Scan(&row); err != nil {
@@ -619,6 +684,9 @@ func (s *sUsers) ensureUserAccessible(ctx context.Context, id snowflake.JsonInt6
 		return err
 	}
 	if !allowed {
+		return gerror.New("用户不存在或已删除")
+	}
+	if !shared.CanAccessTenantMerchant(ctx, row.TenantId, row.MerchantId) {
 		return gerror.New("用户不存在或已删除")
 	}
 	return nil
@@ -658,6 +726,114 @@ func (s *sUsers) ensureDeptAccessible(ctx context.Context, deptID snowflake.Json
 	}
 	if !allowed {
 		return gerror.New("部门不存在或无权操作")
+	}
+	return nil
+}
+
+func (s *sUsers) applyActorOwnership(ctx context.Context, tenantID, merchantID *snowflake.JsonInt64) {
+	scope := shared.ResolveTenantAccessScope(ctx)
+	if scope.All {
+		return
+	}
+	if tenantID != nil {
+		*tenantID = snowflake.JsonInt64(scope.TenantID)
+	}
+	if merchantID != nil && scope.MerchantID > 0 {
+		*merchantID = snowflake.JsonInt64(scope.MerchantID)
+	}
+}
+
+func (s *sUsers) ensureOwnershipWritable(ctx context.Context, tenantID, merchantID snowflake.JsonInt64) error {
+	if !shared.CanAccessTenantMerchant(ctx, int64(tenantID), int64(merchantID)) {
+		return gerror.New("租户或商户不存在或无权操作")
+	}
+	if tenantID <= 0 {
+		if merchantID > 0 {
+			return gerror.New("商户必须归属于租户")
+		}
+		return nil
+	}
+	count, err := dao.Tenant.Ctx(ctx).
+		Where(dao.Tenant.Columns().Id, tenantID).
+		Where(dao.Tenant.Columns().DeletedAt, nil).
+		Count()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return gerror.New("租户不存在或已删除")
+	}
+	if merchantID <= 0 {
+		return nil
+	}
+	count, err = dao.Merchant.Ctx(ctx).
+		Where(dao.Merchant.Columns().Id, merchantID).
+		Where(dao.Merchant.Columns().TenantId, tenantID).
+		Where(dao.Merchant.Columns().DeletedAt, nil).
+		Count()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return gerror.New("商户不存在或不属于所选租户")
+	}
+	return nil
+}
+
+func (s *sUsers) ensureDeptMatchesOwnership(ctx context.Context, deptID, tenantID, merchantID snowflake.JsonInt64) error {
+	if deptID == 0 {
+		return nil
+	}
+	var dept struct {
+		Id         int64 `json:"id"`
+		TenantId   int64 `json:"tenantId"`
+		MerchantId int64 `json:"merchantId"`
+	}
+	if err := dao.Dept.Ctx(ctx).
+		Fields(dao.Dept.Columns().Id, dao.Dept.Columns().TenantId, dao.Dept.Columns().MerchantId).
+		Where(dao.Dept.Columns().Id, deptID).
+		Where(dao.Dept.Columns().DeletedAt, nil).
+		Scan(&dept); err != nil {
+		return err
+	}
+	if dept.Id == 0 {
+		return gerror.New("所选部门不存在或已删除")
+	}
+	if dept.TenantId != int64(tenantID) {
+		return gerror.New("所选部门不属于用户租户")
+	}
+	if dept.MerchantId != 0 && dept.MerchantId != int64(merchantID) {
+		return gerror.New("所选部门不属于用户商户")
+	}
+	return nil
+}
+
+func (s *sUsers) ensureRolesMatchOwnership(ctx context.Context, roleIDs []snowflake.JsonInt64, tenantID, merchantID snowflake.JsonInt64) error {
+	if len(roleIDs) == 0 {
+		return nil
+	}
+	var roles []struct {
+		Id         int64 `json:"id"`
+		TenantId   int64 `json:"tenantId"`
+		MerchantId int64 `json:"merchantId"`
+	}
+	if err := dao.Role.Ctx(ctx).
+		Fields(dao.Role.Columns().Id, dao.Role.Columns().TenantId, dao.Role.Columns().MerchantId).
+		WhereIn(dao.Role.Columns().Id, batchutil.ToInt64s(roleIDs)).
+		Where(dao.Role.Columns().DeletedAt, nil).
+		Scan(&roles); err != nil {
+		return err
+	}
+	if len(roles) != len(roleIDs) {
+		return gerror.New("包含不存在或已删除的角色")
+	}
+	for _, role := range roles {
+		if role.TenantId != int64(tenantID) {
+			return gerror.New("包含不属于用户租户的角色")
+		}
+		if role.MerchantId != 0 && role.MerchantId != int64(merchantID) {
+			return gerror.New("包含不属于用户商户的角色")
+		}
 	}
 	return nil
 }
@@ -843,6 +1019,85 @@ func compactRoleIDs(roleIDs []snowflake.JsonInt64) []snowflake.JsonInt64 {
 		return nil
 	}
 	return normalized
+}
+
+func (s *sUsers) lookupTenantName(ctx context.Context, id int64) string {
+	if id <= 0 {
+		return ""
+	}
+	return s.loadTenantNameMap(ctx, []int64{id})[id]
+}
+
+func (s *sUsers) lookupMerchantName(ctx context.Context, id int64) string {
+	if id <= 0 {
+		return ""
+	}
+	return s.loadMerchantNameMap(ctx, []int64{id})[id]
+}
+
+func (s *sUsers) loadTenantNameMap(ctx context.Context, ids []int64) map[int64]string {
+	ids = compactPositiveInt64s(ids)
+	if len(ids) == 0 {
+		return nil
+	}
+	var rows []struct {
+		Id   int64  `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := dao.Tenant.Ctx(ctx).
+		Fields(dao.Tenant.Columns().Id, dao.Tenant.Columns().Name).
+		WhereIn(dao.Tenant.Columns().Id, ids).
+		Where(dao.Tenant.Columns().DeletedAt, nil).
+		Scan(&rows); err != nil {
+		return nil
+	}
+	out := make(map[int64]string, len(rows))
+	for _, row := range rows {
+		out[row.Id] = row.Name
+	}
+	return out
+}
+
+func (s *sUsers) loadMerchantNameMap(ctx context.Context, ids []int64) map[int64]string {
+	ids = compactPositiveInt64s(ids)
+	if len(ids) == 0 {
+		return nil
+	}
+	var rows []struct {
+		Id   int64  `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := dao.Merchant.Ctx(ctx).
+		Fields(dao.Merchant.Columns().Id, dao.Merchant.Columns().Name).
+		WhereIn(dao.Merchant.Columns().Id, ids).
+		Where(dao.Merchant.Columns().DeletedAt, nil).
+		Scan(&rows); err != nil {
+		return nil
+	}
+	out := make(map[int64]string, len(rows))
+	for _, row := range rows {
+		out[row.Id] = row.Name
+	}
+	return out
+}
+
+func compactPositiveInt64s(values []int64) []int64 {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[int64]struct{}, len(values))
+	ids := make([]int64, 0, len(values))
+	for _, value := range values {
+		if value <= 0 {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		ids = append(ids, value)
+	}
+	return ids
 }
 
 func normalizeUsersWriteInput(in *model.UsersCreateInput) {

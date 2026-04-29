@@ -44,21 +44,27 @@ func (s *sRole) Create(ctx context.Context, in *model.RoleCreateInput) error {
 	if err := s.ensureAdminRoleMutationAllowed(ctx, in.IsAdmin == 1); err != nil {
 		return err
 	}
-	if err := s.ensureRoleTitleUnique(ctx, 0, in.Title); err != nil {
+	tenantID, merchantID, err := s.resolveCreateOwnership(ctx, in.ParentID)
+	if err != nil {
+		return err
+	}
+	if err := s.ensureRoleTitleUnique(ctx, 0, in.Title, tenantID, merchantID); err != nil {
 		return err
 	}
 	if err := s.ensureParentValid(ctx, in.ParentID, 0); err != nil {
 		return err
 	}
 	id := snowflake.Generate()
-	_, err := dao.Role.Ctx(ctx).Data(do.Role{
-		Id:        id,
-		ParentId:  in.ParentID,
-		Title:     in.Title,
-		DataScope: in.DataScope,
-		Sort:      in.Sort,
-		Status:    in.Status,
-		IsAdmin:   in.IsAdmin,
+	_, err = dao.Role.Ctx(ctx).Data(do.Role{
+		Id:         id,
+		ParentId:   in.ParentID,
+		Title:      in.Title,
+		DataScope:  in.DataScope,
+		Sort:       in.Sort,
+		Status:     in.Status,
+		IsAdmin:    in.IsAdmin,
+		TenantId:   tenantID,
+		MerchantId: merchantID,
 	}).Insert()
 	return err
 }
@@ -75,7 +81,11 @@ func (s *sRole) Update(ctx context.Context, in *model.RoleUpdateInput) error {
 	if err := s.ensureRoleExists(ctx, in.ID); err != nil {
 		return err
 	}
-	if err := s.ensureRoleTitleUnique(ctx, in.ID, in.Title); err != nil {
+	tenantID, merchantID, err := s.resolveUpdateOwnership(ctx, in.ID, in.ParentID)
+	if err != nil {
+		return err
+	}
+	if err := s.ensureRoleTitleUnique(ctx, in.ID, in.Title, tenantID, merchantID); err != nil {
 		return err
 	}
 	if err := s.ensureParentValid(ctx, in.ParentID, in.ID); err != nil {
@@ -101,12 +111,14 @@ func (s *sRole) Update(ctx context.Context, in *model.RoleUpdateInput) error {
 		}
 	}
 	data := do.Role{
-		ParentId:  in.ParentID,
-		Title:     in.Title,
-		DataScope: in.DataScope,
-		Sort:      in.Sort,
-		Status:    in.Status,
-		IsAdmin:   in.IsAdmin,
+		ParentId:   in.ParentID,
+		Title:      in.Title,
+		DataScope:  in.DataScope,
+		Sort:       in.Sort,
+		Status:     in.Status,
+		IsAdmin:    in.IsAdmin,
+		TenantId:   tenantID,
+		MerchantId: merchantID,
 	}
 	err = dao.Role.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		if _, err := tx.Model(dao.Role.Table()).Ctx(ctx).
@@ -259,6 +271,9 @@ func (s *sRole) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.
 	if id <= 0 {
 		return nil, gerror.New("角色不存在或已删除")
 	}
+	if err = s.ensureRoleExists(ctx, id); err != nil {
+		return nil, err
+	}
 	out = &model.RoleDetailOutput{}
 	err = dao.Role.Ctx(ctx).Where(dao.Role.Columns().Id, id).Where(dao.Role.Columns().DeletedAt, nil).Scan(out)
 	if err != nil {
@@ -278,6 +293,7 @@ func (s *sRole) List(ctx context.Context, in *model.RoleListInput) (list []*mode
 	}
 	normalizeRoleListInput(in)
 	m := dao.Role.Ctx(ctx).Where(dao.Role.Columns().DeletedAt, nil)
+	m = shared.ApplyTenantScopeToModel(ctx, m, dao.Role.Columns().TenantId, dao.Role.Columns().MerchantId)
 	if in.Keyword != "" {
 		m = m.WhereLike(dao.Role.Columns().Title, "%"+in.Keyword+"%")
 	}
@@ -304,6 +320,7 @@ func (s *sRole) List(ctx context.Context, in *model.RoleListInput) (list []*mode
 func (s *sRole) Tree(ctx context.Context, in *model.RoleTreeInput) (tree []*model.RoleTreeOutput, err error) {
 	var list []*model.RoleTreeOutput
 	m := dao.Role.Ctx(ctx).Where(dao.Role.Columns().DeletedAt, nil)
+	m = shared.ApplyTenantScopeToModel(ctx, m, dao.Role.Columns().TenantId, dao.Role.Columns().MerchantId)
 	if in != nil {
 		normalizeRoleTreeInput(in)
 		if in.AssignableOnly {
@@ -418,11 +435,11 @@ func (s *sRole) GrantMenu(ctx context.Context, in *model.RoleGrantMenuInput) err
 		if len(menuIDs) == 0 {
 			return nil
 		}
-		data := make([]g.Map, 0, len(menuIDs))
+		data := make([]do.RoleMenu, 0, len(menuIDs))
 		for _, menuID := range menuIDs {
-			data = append(data, g.Map{
-				dao.RoleMenu.Columns().RoleId: in.ID,
-				dao.RoleMenu.Columns().MenuId: menuID,
+			data = append(data, do.RoleMenu{
+				RoleId: in.ID,
+				MenuId: menuID,
 			})
 		}
 		_, err := tx.Model(dao.RoleMenu.Table()).Ctx(ctx).Data(data).Insert()
@@ -503,11 +520,11 @@ func (s *sRole) GrantDept(ctx context.Context, in *model.RoleGrantDeptInput) err
 		if in.DataScope != 5 || len(deptIDs) == 0 {
 			return nil
 		}
-		data := make([]g.Map, 0, len(deptIDs))
+		data := make([]do.RoleDept, 0, len(deptIDs))
 		for _, deptID := range deptIDs {
-			data = append(data, g.Map{
-				dao.RoleDept.Columns().RoleId: in.ID,
-				dao.RoleDept.Columns().DeptId: deptID,
+			data = append(data, do.RoleDept{
+				RoleId: in.ID,
+				DeptId: deptID,
 			})
 		}
 		_, err := tx.Model(dao.RoleDept.Table()).Ctx(ctx).Data(data).Insert()
@@ -563,17 +580,59 @@ func (s *sRole) ensureRoleExists(ctx context.Context, id snowflake.JsonInt64) er
 	if id <= 0 {
 		return gerror.New("角色不存在或已删除")
 	}
-	count, err := dao.Role.Ctx(ctx).
+	_, _, err := s.loadRoleOwnership(ctx, id)
+	return err
+}
+
+func (s *sRole) resolveCreateOwnership(ctx context.Context, parentID snowflake.JsonInt64) (int64, int64, error) {
+	if parentID > 0 {
+		return s.loadRoleOwnership(ctx, parentID)
+	}
+	scope := shared.ResolveTenantAccessScope(ctx)
+	if scope.All {
+		return 0, 0, nil
+	}
+	return scope.TenantID, scope.MerchantID, nil
+}
+
+func (s *sRole) resolveUpdateOwnership(ctx context.Context, id, parentID snowflake.JsonInt64) (int64, int64, error) {
+	tenantID, merchantID, err := s.loadRoleOwnership(ctx, id)
+	if err != nil {
+		return 0, 0, err
+	}
+	if parentID == 0 {
+		return tenantID, merchantID, nil
+	}
+	parentTenantID, parentMerchantID, err := s.loadRoleOwnership(ctx, parentID)
+	if err != nil {
+		return 0, 0, err
+	}
+	if parentTenantID != tenantID || parentMerchantID != merchantID {
+		return 0, 0, gerror.New("上级角色必须与当前角色属于同一租户和商户")
+	}
+	return tenantID, merchantID, nil
+}
+
+func (s *sRole) loadRoleOwnership(ctx context.Context, id snowflake.JsonInt64) (int64, int64, error) {
+	var row struct {
+		Id         int64 `json:"id"`
+		TenantId   int64 `json:"tenantId"`
+		MerchantId int64 `json:"merchantId"`
+	}
+	if err := dao.Role.Ctx(ctx).
+		Fields(dao.Role.Columns().Id, dao.Role.Columns().TenantId, dao.Role.Columns().MerchantId).
 		Where(dao.Role.Columns().Id, id).
 		Where(dao.Role.Columns().DeletedAt, nil).
-		Count()
-	if err != nil {
-		return err
+		Scan(&row); err != nil {
+		return 0, 0, err
 	}
-	if count == 0 {
-		return gerror.New("角色不存在或已删除")
+	if row.Id == 0 {
+		return 0, 0, gerror.New("角色不存在或已删除")
 	}
-	return nil
+	if !shared.CanAccessTenantMerchant(ctx, row.TenantId, row.MerchantId) {
+		return 0, 0, gerror.New("角色不存在或无权操作")
+	}
+	return row.TenantId, row.MerchantId, nil
 }
 
 func (s *sRole) ensureAdminRoleMutationAllowed(ctx context.Context, touchesAdminRole bool) error {
@@ -589,15 +648,26 @@ func (s *sRole) ensureAdminRoleMutationAllowed(ctx context.Context, touchesAdmin
 
 func (s *sRole) ensureRoleIDsExist(ctx context.Context, ids []snowflake.JsonInt64) error {
 	dbIDs := batchutil.ToInt64s(ids)
-	count, err := dao.Role.Ctx(ctx).
+	var rows []struct {
+		Id         int64 `json:"id"`
+		TenantId   int64 `json:"tenantId"`
+		MerchantId int64 `json:"merchantId"`
+	}
+	err := dao.Role.Ctx(ctx).
+		Fields(dao.Role.Columns().Id, dao.Role.Columns().TenantId, dao.Role.Columns().MerchantId).
 		WhereIn(dao.Role.Columns().Id, dbIDs).
 		Where(dao.Role.Columns().DeletedAt, nil).
-		Count()
+		Scan(&rows)
 	if err != nil {
 		return err
 	}
-	if count != len(dbIDs) {
+	if len(rows) != len(dbIDs) {
 		return gerror.New("包含不存在或已删除的角色")
+	}
+	for _, row := range rows {
+		if !shared.CanAccessTenantMerchant(ctx, row.TenantId, row.MerchantId) {
+			return gerror.New("包含无权操作的角色")
+		}
 	}
 	return nil
 }
@@ -713,13 +783,15 @@ func (s *sRole) ensureRoleDeletable(ctx context.Context, id snowflake.JsonInt64)
 	return nil
 }
 
-func (s *sRole) ensureRoleTitleUnique(ctx context.Context, currentID snowflake.JsonInt64, title string) error {
+func (s *sRole) ensureRoleTitleUnique(ctx context.Context, currentID snowflake.JsonInt64, title string, tenantID, merchantID int64) error {
 	title = strings.TrimSpace(title)
 	if title == "" {
 		return nil
 	}
 	m := dao.Role.Ctx(ctx).
 		Where(dao.Role.Columns().Title, title).
+		Where(dao.Role.Columns().TenantId, tenantID).
+		Where(dao.Role.Columns().MerchantId, merchantID).
 		Where(dao.Role.Columns().DeletedAt, nil)
 	if currentID > 0 {
 		m = m.WhereNot(dao.Role.Columns().Id, currentID)

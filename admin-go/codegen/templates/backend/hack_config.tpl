@@ -13,6 +13,9 @@ gfcli:
     dao:
       - link: "{{.DBLink}}"
         tables: "{{.Tables}}"
+{{- if eq .AppName "system"}}
+        removePrefix: "system_"
+{{- end}}
         descriptionTag: true
         noJsonTag: true
         noModelComment: false

@@ -42,7 +42,7 @@ if [ "$table_count" -eq 0 ]; then
   exit 0
 fi
 
-unexpected_tables="$(mysql_exec "SELECT table_name FROM information_schema.tables WHERE table_schema='${MYSQL_DATABASE}' AND table_name NOT LIKE 'system\\_%' AND table_name NOT LIKE 'upload\\_%' AND table_name <> 'schema_migrations' ORDER BY table_name;")"
+unexpected_tables="$(mysql_exec "SELECT table_name FROM information_schema.tables WHERE table_schema='${MYSQL_DATABASE}' AND table_name NOT LIKE 'system\\_%' AND table_name NOT LIKE 'upload\\_%' AND table_name NOT LIKE 'demo\\_%' AND table_name <> 'schema_migrations' ORDER BY table_name;")"
 if [ -n "$unexpected_tables" ]; then
   echo "$unexpected_tables"
   fail "found non-core tables"
@@ -59,7 +59,7 @@ if mysql_exec "SELECT 1 FROM information_schema.tables WHERE table_schema='${MYS
   if [ -n "$top_level_paths" ]; then
     while IFS= read -r path; do
       case "$path" in
-        /system|/upload)
+        /system|/upload|/demo)
           ;;
         *)
           fail "unexpected top-level menu path: $path"

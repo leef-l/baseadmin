@@ -104,6 +104,35 @@ services:
     networks:
       - gbaseadmin_net
 
+  demo:
+    build:
+      context: ../../admin-go
+      dockerfile: ../docker/build/Dockerfile.demo
+    container_name: gbaseadmin_demo
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - GF_GCFG_FILE=config.yaml
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=${MYSQL_USER}
+      - DB_PASS=${MYSQL_PASSWORD}
+      - DB_NAME=${MYSQL_DATABASE}
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASS=${REDIS_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - GF_SERVER_ADDRESS=:10026
+      - DB_MIGRATE_AUTO=0
+      - TZ=Asia/Shanghai
+    ports:
+      - "127.0.0.1:${DEMO_PORT:-10026}:10026"
+    networks:
+      - gbaseadmin_net
+
 volumes:
   mysql_data:
     driver: local

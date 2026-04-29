@@ -37,3 +37,21 @@ func GetDeptID(ctx context.Context) int64 {
 	}
 	return claims.DeptID
 }
+
+// GetTenantID 从 context 中获取当前用户租户 ID
+func GetTenantID(ctx context.Context) int64 {
+	claims := GetClaims(ctx)
+	if claims == nil {
+		return 0
+	}
+	return claims.TenantID
+}
+
+// GetMerchantID 从 context 中获取当前用户商户 ID
+func GetMerchantID(ctx context.Context) int64 {
+	claims := GetClaims(ctx)
+	if claims == nil {
+		return 0
+	}
+	return claims.MerchantID
+}

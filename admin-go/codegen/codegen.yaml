@@ -17,6 +17,7 @@ frontend:
 allowed_apps:
   - system
   - upload
+  - demo
 
 # 跳过生成的公共字段（这些字段在表单中隐藏，不生成前端组件）
 skip_fields:
@@ -36,16 +37,43 @@ menu_apps:
     title: 上传管理
     icon: CloudUploadOutlined
     sort: 20
+  demo:
+    title: Demo体验
+    icon: ExperimentOutlined
+    sort: 90
 
 # 模块级菜单配置（可选，key 格式: 应用名/模块名）
-# menu_modules:
-#   demo/article:
-#     sort: 10
-#     icon: FileTextOutlined
-#     is_show: 1
-#   demo/tag:
-#     sort: 20
-#     icon: TagsOutlined
+menu_modules:
+  demo/category:
+    sort: 10
+    icon: ApartmentOutlined
+  demo/customer:
+    sort: 20
+    icon: UserOutlined
+  demo/product:
+    sort: 30
+    icon: AppstoreOutlined
+  demo/campaign:
+    sort: 40
+    icon: NotificationOutlined
+  demo/order:
+    sort: 50
+    icon: ShoppingCartOutlined
+  demo/work_order:
+    sort: 60
+    icon: ToolOutlined
+  demo/contract:
+    sort: 70
+    icon: FileTextOutlined
+  demo/survey:
+    sort: 80
+    icon: FormOutlined
+  demo/appointment:
+    sort: 90
+    icon: CalendarOutlined
+  demo/audit_log:
+    sort: 100
+    icon: AuditOutlined
 
 # 操作日志开关（生成的 CRUD 方法是否自动记录操作日志）
 operation_log: false

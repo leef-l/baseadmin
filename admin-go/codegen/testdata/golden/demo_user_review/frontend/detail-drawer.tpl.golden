@@ -123,6 +123,8 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="Status">
         <Tag :color="getStatusColor(detail.status)">{{ getEnumLabel(statusMap, detail.status) }}</Tag>
       </DescriptionsItem>
+      <DescriptionsItem label="租户">{{ detail.tenantName || '-' }}</DescriptionsItem>
+      <DescriptionsItem label="商户">{{ detail.merchantName || '-' }}</DescriptionsItem>
       <DescriptionsItem label="创建时间">{{ displayValue(detail.createdAt) }}</DescriptionsItem>
       <DescriptionsItem label="更新时间">{{ displayValue(detail.updatedAt) }}</DescriptionsItem>
     </Descriptions>

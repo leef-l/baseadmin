@@ -1,26 +1,39 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+
 import { useVbenModal } from '@vben/common-ui';
-import { useVbenForm } from '#/adapter/form';
 import { message } from 'ant-design-vue';
+
+import { useVbenForm } from '#/adapter/form';
+import { getDeptTree } from '#/api/system/dept';
+import type { DeptItem } from '#/api/system/dept/types';
+import { getMerchantList } from '#/api/system/merchant';
+import { getRoleTree } from '#/api/system/role';
+import { getTenantList } from '#/api/system/tenant';
 import {
-  getUsersDetail,
   createUsers,
+  getUsersDetail,
   updateUsers,
 } from '#/api/system/users';
-import { getDeptTree } from '#/api/system/dept';
-import { getRoleTree } from '#/api/system/role';
-import type { DeptItem } from '#/api/system/dept/types';
 import type {
   UsersCreateParams,
+  UsersItem,
   UsersUpdateParams,
 } from '#/api/system/users/types';
+
 import { normalizeRoleIds } from './role-ids';
+
+interface SelectOption {
+  label: string;
+  value: string;
+}
 
 const emit = defineEmits<{ success: [] }>();
 const isEdit = ref(false);
 const editId = ref('');
 const deptTreeData = ref<DeptItem[]>([]);
+const tenantOptions = ref<SelectOption[]>([]);
+const merchantOptions = ref<SelectOption[]>([]);
 const openToken = ref(0);
 
 /** 表单配置 */
@@ -56,6 +69,28 @@ const [Form, formApi] = useVbenForm({
       fieldName: 'email',
       label: '邮箱',
       componentProps: { placeholder: '请输入邮箱', maxlength: 100 },
+    },
+    {
+      component: 'Select',
+      fieldName: 'tenantId',
+      label: '所属租户',
+      componentProps: {
+        options: tenantOptions.value,
+        placeholder: '请选择所属租户',
+        allowClear: true,
+        class: 'w-full',
+      },
+    },
+    {
+      component: 'Select',
+      fieldName: 'merchantId',
+      label: '所属商户',
+      componentProps: {
+        options: merchantOptions.value,
+        placeholder: '请选择所属商户',
+        allowClear: true,
+        class: 'w-full',
+      },
     },
     {
       component: 'TreeSelect',
@@ -95,6 +130,80 @@ const [Form, formApi] = useVbenForm({
   ],
 });
 
+function mergeCurrentOwnershipOptions(detail?: UsersItem) {
+  if (detail?.tenantId && detail.tenantName) {
+    const exists = tenantOptions.value.some(
+      (item) => item.value === detail.tenantId,
+    );
+    if (!exists) {
+      tenantOptions.value = [
+        { label: detail.tenantName, value: detail.tenantId },
+        ...tenantOptions.value,
+      ];
+    }
+  }
+  if (detail?.merchantId && detail.merchantName) {
+    const exists = merchantOptions.value.some(
+      (item) => item.value === detail.merchantId,
+    );
+    if (!exists) {
+      merchantOptions.value = [
+        { label: detail.merchantName, value: detail.merchantId },
+        ...merchantOptions.value,
+      ];
+    }
+  }
+}
+
+function updateOwnershipSchemas() {
+  formApi.updateSchema([
+    {
+      fieldName: 'tenantId',
+      componentProps: {
+        allowClear: true,
+        class: 'w-full',
+        options: tenantOptions.value,
+        placeholder: '请选择所属租户',
+      },
+    },
+    {
+      fieldName: 'merchantId',
+      componentProps: {
+        allowClear: true,
+        class: 'w-full',
+        options: merchantOptions.value,
+        placeholder: '请选择所属商户',
+      },
+    },
+  ]);
+}
+
+async function loadOwnershipOptions() {
+  try {
+    const res = await getTenantList({ pageNum: 1, pageSize: 500 });
+    tenantOptions.value = (res?.list ?? []).map((item) => ({
+      label: `${item.name}（${item.code}）`,
+      value: item.id,
+    }));
+  } catch {
+    tenantOptions.value = [];
+  }
+
+  try {
+    const res = await getMerchantList({ pageNum: 1, pageSize: 500 });
+    merchantOptions.value = (res?.list ?? []).map((item) => ({
+      label: item.tenantName
+        ? `${item.name}（${item.tenantName}）`
+        : `${item.name}（${item.code}）`,
+      value: item.id,
+    }));
+  } catch {
+    merchantOptions.value = [];
+  }
+
+  updateOwnershipSchemas();
+}
+
 /** Modal 配置 */
 const [Modal, modalApi] = useVbenModal({
   fullscreenButton: false,
@@ -102,7 +211,7 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.close();
   },
   onConfirm: async () => {
-    const values = await formApi.validateAndSubmitForm() as
+    const values = (await formApi.validateAndSubmitForm()) as
       | UsersCreateParams
       | undefined;
     if (!values) return;
@@ -113,7 +222,10 @@ const [Modal, modalApi] = useVbenModal({
     modalApi.lock();
     try {
       if (isEdit.value) {
-        await updateUsers({ id: editId.value, ...submitValues } as UsersUpdateParams);
+        await updateUsers({
+          id: editId.value,
+          ...submitValues,
+        } as UsersUpdateParams);
         message.success('更新成功');
       } else {
         await createUsers(submitValues);
@@ -134,6 +246,11 @@ const [Modal, modalApi] = useVbenModal({
     const currentOpenToken = ++openToken.value;
     formApi.resetForm();
     const data = modalApi.getData<{ id?: string }>();
+
+    await loadOwnershipOptions();
+    if (currentOpenToken !== openToken.value) {
+      return;
+    }
 
     // 加载部门树
     try {
@@ -179,6 +296,8 @@ const [Modal, modalApi] = useVbenModal({
           return;
         }
         if (detail) {
+          mergeCurrentOwnershipOptions(detail);
+          updateOwnershipSchemas();
           formApi.setValues({
             ...detail,
             roleIds: normalizeRoleIds(detail.roleIds),

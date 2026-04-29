@@ -6,6 +6,7 @@ import (
 
 	"github.com/gogf/gf/v2/net/ghttp"
 
+	"gbaseadmin/app/system/internal/logic/shared"
 	"gbaseadmin/utility/authz"
 	"gbaseadmin/utility/jwt"
 	"gbaseadmin/utility/response"
@@ -39,7 +40,14 @@ func Auth(r *ghttp.Request) {
 	r.SetCtxVar("jwt_user_id", claims.UserID)
 	r.SetCtxVar("jwt_username", claims.Username)
 	r.SetCtxVar("jwt_dept_id", claims.DeptID)
+	r.SetCtxVar("jwt_tenant_id", claims.TenantID)
+	r.SetCtxVar("jwt_merchant_id", claims.MerchantID)
 	r.SetCtxVar("jwt_claims", claims)
+
+	if !shared.DomainScopeAllows(r.Context(), claims.TenantID, claims.MerchantID) {
+		response.Forbidden(r, "当前账号不属于该访问域名")
+		return
+	}
 
 	if permission := resolveSystemPermission(r.Method, r.URL.Path); permission != "" {
 		if permission == denyPermission {
@@ -76,9 +84,27 @@ func resolveSystemPermission(method, path string) string {
 			return "system:user:" + resolved
 		}
 		return denyPermission
-	case "dept", "menu":
+	case "dept", "domain", "menu", "tenant", "merchant", "daemon":
+		if module == "daemon" && action == "detail" {
+			return "system:daemon:view"
+		}
 		if resolved := resolveSystemAction(action); resolved != "" {
 			return "system:" + module + ":" + resolved
+		}
+		if module == "domain" && action == "apply-nginx" {
+			return "system:domain:apply"
+		}
+		if module == "domain" && action == "apply-ssl" {
+			return "system:domain:ssl"
+		}
+		if module == "daemon" && (action == "restart" || action == "batch-restart") {
+			return "system:daemon:restart"
+		}
+		if module == "daemon" && (action == "stop" || action == "batch-stop") {
+			return "system:daemon:stop"
+		}
+		if module == "daemon" && action == "log" {
+			return "system:daemon:view"
 		}
 		return denyPermission
 	case "role":

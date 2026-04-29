@@ -29,6 +29,36 @@ func TestBuildFieldMetaDerivesStableFlags(t *testing.T) {
 	}
 }
 
+func TestBuildFieldMetaAddsSystemScopeRefHints(t *testing.T) {
+	tenant := buildFieldMeta(columnInfo{
+		ColumnName:    "tenant_id",
+		DataType:      "bigint",
+		ColumnType:    "bigint unsigned",
+		IsNullable:    "NO",
+		ColumnComment: "租户ID，0 表示平台",
+	})
+	if tenant.RefTableHint != "system_tenant" || tenant.RefDisplayHint != "name" {
+		t.Fatalf("tenant_id ref hint mismatch: %+v", tenant)
+	}
+	if tenant.Label != "租户" || tenant.ShortLabel != "租户" || tenant.TooltipText != "" {
+		t.Fatalf("tenant_id presentation mismatch: %+v", tenant)
+	}
+
+	merchant := buildFieldMeta(columnInfo{
+		ColumnName:    "merchant_id",
+		DataType:      "bigint",
+		ColumnType:    "bigint unsigned",
+		IsNullable:    "NO",
+		ColumnComment: "商户ID，0 表示租户级/平台级",
+	})
+	if merchant.RefTableHint != "system_merchant" || merchant.RefDisplayHint != "name" {
+		t.Fatalf("merchant_id ref hint mismatch: %+v", merchant)
+	}
+	if merchant.Label != "商户" || merchant.ShortLabel != "商户" || merchant.TooltipText != "" {
+		t.Fatalf("merchant_id presentation mismatch: %+v", merchant)
+	}
+}
+
 func TestMapComponentRecognizesCoreComponentTypes(t *testing.T) {
 	tests := []struct {
 		name  string

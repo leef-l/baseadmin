@@ -23,11 +23,13 @@ func (c *cAuth) Login(ctx context.Context, req *v1.AuthLoginReq) (res *v1.AuthLo
 		return nil, err
 	}
 	res = &v1.AuthLoginRes{
-		Token:    out.Token,
-		UserID:   out.UserID,
-		Username: out.Username,
-		Nickname: out.Nickname,
-		Avatar:   out.Avatar,
+		Token:      out.Token,
+		UserID:     out.UserID,
+		Username:   out.Username,
+		Nickname:   out.Nickname,
+		Avatar:     out.Avatar,
+		TenantID:   out.TenantID,
+		MerchantID: out.MerchantID,
 	}
 	return
 }
@@ -41,11 +43,13 @@ func (c *cAuth) TicketLogin(ctx context.Context, req *v1.AuthTicketLoginReq) (re
 		return nil, err
 	}
 	res = &v1.AuthTicketLoginRes{
-		Token:    out.Token,
-		UserID:   out.UserID,
-		Username: out.Username,
-		Nickname: out.Nickname,
-		Avatar:   out.Avatar,
+		Token:      out.Token,
+		UserID:     out.UserID,
+		Username:   out.Username,
+		Nickname:   out.Nickname,
+		Avatar:     out.Avatar,
+		TenantID:   out.TenantID,
+		MerchantID: out.MerchantID,
 	}
 	return
 }
@@ -83,15 +87,18 @@ func (c *cAuth) Info(ctx context.Context, req *v1.AuthInfoReq) (res *v1.AuthInfo
 		return nil, err
 	}
 	res = &v1.AuthInfoRes{
-		UserID:   out.UserID,
-		Username: out.Username,
-		Nickname: out.Nickname,
-		Email:    out.Email,
-		Avatar:   out.Avatar,
-		DeptID:   out.DeptID,
-		Status:   out.Status,
-		Roles:    out.Roles,
-		Perms:    out.Perms,
+		UserID:     out.UserID,
+		Username:   out.Username,
+		Nickname:   out.Nickname,
+		Email:      out.Email,
+		Avatar:     out.Avatar,
+		DeptID:     out.DeptID,
+		TenantID:   out.TenantID,
+		MerchantID: out.MerchantID,
+		IsAdmin:    out.IsAdmin,
+		Status:     out.Status,
+		Roles:      out.Roles,
+		Perms:      out.Perms,
 	}
 	return
 }
