@@ -66,6 +66,9 @@ func normalize{{.ModelName}}IDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64
 		}
 		seen[value] = struct{}{}
 		normalized = append(normalized, id)
+		if len(normalized) >= 500 {
+			break
+		}
 	}
 	if len(normalized) == 0 {
 		return nil
@@ -124,6 +127,11 @@ func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}Up
 		return err
 	}
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), in.ID, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
+		return err
+	}
+{{- end}}
+{{- if or .HasCreatedBy .HasDeptID}}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), in.ID, dao.{{.DaoName}}.Columns().Id{{if .HasCreatedBy}}, dao.{{.DaoName}}.Columns().CreatedBy{{else}}, ""{{end}}{{if .HasDeptID}}, dao.{{.DaoName}}.Columns().DeptId{{else}}, ""{{end}}); err != nil {
 		return err
 	}
 {{- end}}
@@ -187,10 +195,20 @@ func (s *s{{.ModelName}}) Delete(ctx context.Context, id snowflake.JsonInt64) er
 		return err
 	}
 {{- end}}
+{{- if or .HasCreatedBy .HasDeptID}}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), deleteIDs, dao.{{.DaoName}}.Columns().Id{{if .HasCreatedBy}}, dao.{{.DaoName}}.Columns().CreatedBy{{else}}, ""{{end}}{{if .HasDeptID}}, dao.{{.DaoName}}.Columns().DeptId{{else}}, ""{{end}}); err != nil {
+		return err
+	}
+{{- end}}
 	_, err = dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, deleteIDs).Delete()
 {{- else}}
 {{- if .HasTenantScope}}
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), id, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
+		return err
+	}
+{{- end}}
+{{- if or .HasCreatedBy .HasDeptID}}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), id, dao.{{.DaoName}}.Columns().Id{{if .HasCreatedBy}}, dao.{{.DaoName}}.Columns().CreatedBy{{else}}, ""{{end}}{{if .HasDeptID}}, dao.{{.DaoName}}.Columns().DeptId{{else}}, ""{{end}}); err != nil {
 		return err
 	}
 {{- end}}
@@ -216,6 +234,11 @@ func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonI
 	}
 {{- if .HasTenantScope}}
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), deleteIDs, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
+		return err
+	}
+{{- end}}
+{{- if or .HasCreatedBy .HasDeptID}}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), deleteIDs, dao.{{.DaoName}}.Columns().Id{{if .HasCreatedBy}}, dao.{{.DaoName}}.Columns().CreatedBy{{else}}, ""{{end}}{{if .HasDeptID}}, dao.{{.DaoName}}.Columns().DeptId{{else}}, ""{{end}}); err != nil {
 		return err
 	}
 {{- end}}
@@ -266,10 +289,13 @@ func (s *s{{.ModelName}}) doCollectChildIDs(ctx context.Context, parentID snowfl
 		return nil, nil
 	}
 	var childIDs []snowflake.JsonInt64
-	result, err := dao.{{.DaoName}}.Ctx(ctx).
+	m := dao.{{.DaoName}}.Ctx(ctx).
 		Where(dao.{{.DaoName}}.Columns().ParentId, parentID).
-		Where(dao.{{.DaoName}}.Columns().DeletedAt, nil).
-		Fields(dao.{{.DaoName}}.Columns().Id).
+		Where(dao.{{.DaoName}}.Columns().DeletedAt, nil)
+{{- if .HasTenantScope}}
+	m = middleware.ApplyTenantScopeToModel(ctx, m, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}})
+{{- end}}
+	result, err := m.Fields(dao.{{.DaoName}}.Columns().Id).
 		Array()
 	if err != nil || len(result) == 0 {
 		return childIDs, err
@@ -299,6 +325,11 @@ func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonI
 		return err
 	}
 {{- end}}
+{{- if or .HasCreatedBy .HasDeptID}}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), normalizedIDs, dao.{{.DaoName}}.Columns().Id{{if .HasCreatedBy}}, dao.{{.DaoName}}.Columns().CreatedBy{{else}}, ""{{end}}{{if .HasDeptID}}, dao.{{.DaoName}}.Columns().DeptId{{else}}, ""{{end}}); err != nil {
+		return err
+	}
+{{- end}}
 	_, err := dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, normalizedIDs).Delete()
 {{- if .EnableOpLog}}
 	if err == nil {
@@ -313,6 +344,11 @@ func (s *s{{.ModelName}}) BatchDelete(ctx context.Context, ids []snowflake.JsonI
 func (s *s{{.ModelName}}) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.{{.ModelName}}DetailOutput, err error) {
 {{- if .HasTenantScope}}
 	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), id, dao.{{.DaoName}}.Columns().Id, dao.{{.DaoName}}.Columns().TenantId, {{if .HasMerchantID}}dao.{{.DaoName}}.Columns().MerchantId{{else}}""{{end}}, "{{.Comment}}"); err != nil {
+		return nil, err
+	}
+{{- end}}
+{{- if or .HasCreatedBy .HasDeptID}}
+	if err = middleware.EnsureDataScopedRowAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), id, dao.{{.DaoName}}.Columns().Id{{if .HasCreatedBy}}, dao.{{.DaoName}}.Columns().CreatedBy{{else}}, ""{{end}}{{if .HasDeptID}}, dao.{{.DaoName}}.Columns().DeptId{{else}}, ""{{end}}); err != nil {
 		return nil, err
 	}
 {{- end}}
@@ -670,6 +706,11 @@ func (s *s{{.ModelName}}) BatchUpdate(ctx context.Context, in *model.{{.ModelNam
 		return err
 	}
 {{- end}}
+{{- if or .HasCreatedBy .HasDeptID}}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.{{.DaoName}}.Ctx(ctx), normalizedIDs, dao.{{.DaoName}}.Columns().Id{{if .HasCreatedBy}}, dao.{{.DaoName}}.Columns().CreatedBy{{else}}, ""{{end}}{{if .HasDeptID}}, dao.{{.DaoName}}.Columns().DeptId{{else}}, ""{{end}}); err != nil {
+		return err
+	}
+{{- end}}
 	_, err := dao.{{.DaoName}}.Ctx(ctx).WhereIn(dao.{{.DaoName}}.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }
@@ -678,6 +719,11 @@ func (s *s{{.ModelName}}) BatchUpdate(ctx context.Context, in *model.{{.ModelNam
 
 // Import 导入{{.Comment}}
 func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (success int, fail int, err error) {
+	const maxImportFileSize = 10 << 20 // 10MB
+	const maxImportRows = 5000
+	if file.Size > maxImportFileSize {
+		return 0, 0, fmt.Errorf("文件大小超过限制（最大10MB）")
+	}
 	f, err := file.Open()
 	if err != nil {
 		return 0, 0, err
@@ -690,7 +736,12 @@ func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (s
 		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)
 	}
 
+	rowCount := 0
 	for {
+		if rowCount >= maxImportRows {
+			break
+		}
+		rowCount++
 		record, readErr := reader.Read()
 		if readErr != nil {
 			if readErr == io.EOF {

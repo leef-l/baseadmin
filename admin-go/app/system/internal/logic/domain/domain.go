@@ -132,7 +132,7 @@ func (s *sDomain) Detail(ctx context.Context, id snowflake.JsonInt64) (out *mode
 	if out == nil || out.ID == 0 {
 		return nil, gerror.New("域名不存在或已删除")
 	}
-	s.fillNames(ctx, []*model.DomainListOutput{out})
+	s.fillDetailNames(ctx, out)
 	return out, nil
 }
 
@@ -500,6 +500,16 @@ func (s *sDomain) loadRow(ctx context.Context, id snowflake.JsonInt64) (*domainR
 		return nil, err
 	}
 	return row, nil
+}
+
+func (s *sDomain) fillDetailNames(ctx context.Context, out *model.DomainDetailOutput) {
+	if out == nil {
+		return
+	}
+	nameMap := s.loadTenantNameMap(ctx, []int64{int64(out.TenantID)})
+	out.TenantName = nameMap[int64(out.TenantID)]
+	merchantMap := s.loadMerchantNameMap(ctx, []int64{int64(out.MerchantID)})
+	out.MerchantName = merchantMap[int64(out.MerchantID)]
 }
 
 func (s *sDomain) fillNames(ctx context.Context, list []*model.DomainListOutput) {

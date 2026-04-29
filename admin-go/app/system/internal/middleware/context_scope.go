@@ -56,6 +56,14 @@ func EnsureTenantScopedRowsAccessible(ctx context.Context, m *gdb.Model, ids []s
 	return shared.EnsureTenantScopedRowsAccessible(ctx, m, ids, idColumn, tenantIDColumn, merchantIDColumn, resourceName)
 }
 
+func EnsureDataScopedRowAccessible(ctx context.Context, m *gdb.Model, id interface{}, idColumn, createdByColumn, deptIDColumn string) error {
+	return shared.EnsureDataScopedRowAccessible(ctx, m, id, idColumn, createdByColumn, deptIDColumn)
+}
+
+func EnsureDataScopedRowsAccessible(ctx context.Context, m *gdb.Model, ids interface{}, idColumn, createdByColumn, deptIDColumn string) error {
+	return shared.EnsureDataScopedRowsAccessible(ctx, m, ids, idColumn, createdByColumn, deptIDColumn)
+}
+
 func ApplyDataScope(ctx context.Context, m *gdb.Model, cols ...string) *gdb.Model {
 	if m == nil {
 		return nil

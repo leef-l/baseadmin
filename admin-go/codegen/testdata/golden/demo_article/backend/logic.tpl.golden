@@ -46,6 +46,9 @@ func normalizeArticleIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 		}
 		seen[value] = struct{}{}
 		normalized = append(normalized, id)
+		if len(normalized) >= 500 {
+			break
+		}
 	}
 	if len(normalized) == 0 {
 		return nil
@@ -106,6 +109,9 @@ func (s *sArticle) Update(ctx context.Context, in *model.ArticleUpdateInput) err
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoArticle.Ctx(ctx), in.ID, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().TenantId, dao.DemoArticle.Columns().MerchantId, "文章"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoArticle.Ctx(ctx), in.ID, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().CreatedBy, dao.DemoArticle.Columns().DeptId); err != nil {
+		return err
+	}
 	data := do.DemoArticle{
 		CategoryId: in.CategoryID,
 		UserId: in.UserID,
@@ -162,6 +168,9 @@ func (s *sArticle) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoArticle.Ctx(ctx), id, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().TenantId, dao.DemoArticle.Columns().MerchantId, "文章"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoArticle.Ctx(ctx), id, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().CreatedBy, dao.DemoArticle.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoArticle.Ctx(ctx).Where(dao.DemoArticle.Columns().Id, id).Delete()
 	return err
 }
@@ -175,6 +184,9 @@ func (s *sArticle) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) e
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoArticle.Ctx(ctx), normalizedIDs, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().TenantId, dao.DemoArticle.Columns().MerchantId, "文章"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoArticle.Ctx(ctx), normalizedIDs, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().CreatedBy, dao.DemoArticle.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoArticle.Ctx(ctx).WhereIn(dao.DemoArticle.Columns().Id, normalizedIDs).Delete()
 	return err
 }
@@ -182,6 +194,9 @@ func (s *sArticle) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) e
 // Detail 获取文章详情
 func (s *sArticle) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.ArticleDetailOutput, err error) {
 	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoArticle.Ctx(ctx), id, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().TenantId, dao.DemoArticle.Columns().MerchantId, "文章"); err != nil {
+		return nil, err
+	}
+	if err = middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoArticle.Ctx(ctx), id, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().CreatedBy, dao.DemoArticle.Columns().DeptId); err != nil {
 		return nil, err
 	}
 	out = &model.ArticleDetailOutput{}
@@ -504,12 +519,20 @@ func (s *sArticle) BatchUpdate(ctx context.Context, in *model.ArticleBatchUpdate
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoArticle.Ctx(ctx), normalizedIDs, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().TenantId, dao.DemoArticle.Columns().MerchantId, "文章"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoArticle.Ctx(ctx), normalizedIDs, dao.DemoArticle.Columns().Id, dao.DemoArticle.Columns().CreatedBy, dao.DemoArticle.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoArticle.Ctx(ctx).WhereIn(dao.DemoArticle.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }
 
 // Import 导入文章
 func (s *sArticle) Import(ctx context.Context, file *ghttp.UploadFile) (success int, fail int, err error) {
+	const maxImportFileSize = 10 << 20 // 10MB
+	const maxImportRows = 5000
+	if file.Size > maxImportFileSize {
+		return 0, 0, fmt.Errorf("文件大小超过限制（最大10MB）")
+	}
 	f, err := file.Open()
 	if err != nil {
 		return 0, 0, err
@@ -522,7 +545,12 @@ func (s *sArticle) Import(ctx context.Context, file *ghttp.UploadFile) (success 
 		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)
 	}
 
+	rowCount := 0
 	for {
+		if rowCount >= maxImportRows {
+			break
+		}
+		rowCount++
 		record, readErr := reader.Read()
 		if readErr != nil {
 			if readErr == io.EOF {

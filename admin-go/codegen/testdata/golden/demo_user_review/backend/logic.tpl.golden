@@ -45,6 +45,9 @@ func normalizeUserReviewIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 		}
 		seen[value] = struct{}{}
 		normalized = append(normalized, id)
+		if len(normalized) >= 500 {
+			break
+		}
 	}
 	if len(normalized) == 0 {
 		return nil
@@ -85,6 +88,9 @@ func (s *sUserReview) Update(ctx context.Context, in *model.UserReviewUpdateInpu
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoUserReview.Ctx(ctx), in.ID, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().TenantId, dao.DemoUserReview.Columns().MerchantId, "用户审核"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoUserReview.Ctx(ctx), in.ID, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().CreatedBy, dao.DemoUserReview.Columns().DeptId); err != nil {
+		return err
+	}
 	data := do.DemoUserReview{
 		UserId: in.UserID,
 		ReviewType: in.ReviewType,
@@ -105,6 +111,9 @@ func (s *sUserReview) Delete(ctx context.Context, id snowflake.JsonInt64) error 
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoUserReview.Ctx(ctx), id, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().TenantId, dao.DemoUserReview.Columns().MerchantId, "用户审核"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoUserReview.Ctx(ctx), id, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().CreatedBy, dao.DemoUserReview.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoUserReview.Ctx(ctx).Where(dao.DemoUserReview.Columns().Id, id).Delete()
 	return err
 }
@@ -118,6 +127,9 @@ func (s *sUserReview) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoUserReview.Ctx(ctx), normalizedIDs, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().TenantId, dao.DemoUserReview.Columns().MerchantId, "用户审核"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoUserReview.Ctx(ctx), normalizedIDs, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().CreatedBy, dao.DemoUserReview.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoUserReview.Ctx(ctx).WhereIn(dao.DemoUserReview.Columns().Id, normalizedIDs).Delete()
 	return err
 }
@@ -125,6 +137,9 @@ func (s *sUserReview) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64
 // Detail 获取用户审核详情
 func (s *sUserReview) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.UserReviewDetailOutput, err error) {
 	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoUserReview.Ctx(ctx), id, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().TenantId, dao.DemoUserReview.Columns().MerchantId, "用户审核"); err != nil {
+		return nil, err
+	}
+	if err = middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoUserReview.Ctx(ctx), id, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().CreatedBy, dao.DemoUserReview.Columns().DeptId); err != nil {
 		return nil, err
 	}
 	out = &model.UserReviewDetailOutput{}
@@ -372,12 +387,20 @@ func (s *sUserReview) BatchUpdate(ctx context.Context, in *model.UserReviewBatch
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoUserReview.Ctx(ctx), normalizedIDs, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().TenantId, dao.DemoUserReview.Columns().MerchantId, "用户审核"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoUserReview.Ctx(ctx), normalizedIDs, dao.DemoUserReview.Columns().Id, dao.DemoUserReview.Columns().CreatedBy, dao.DemoUserReview.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoUserReview.Ctx(ctx).WhereIn(dao.DemoUserReview.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }
 
 // Import 导入用户审核
 func (s *sUserReview) Import(ctx context.Context, file *ghttp.UploadFile) (success int, fail int, err error) {
+	const maxImportFileSize = 10 << 20 // 10MB
+	const maxImportRows = 5000
+	if file.Size > maxImportFileSize {
+		return 0, 0, fmt.Errorf("文件大小超过限制（最大10MB）")
+	}
 	f, err := file.Open()
 	if err != nil {
 		return 0, 0, err
@@ -390,7 +413,12 @@ func (s *sUserReview) Import(ctx context.Context, file *ghttp.UploadFile) (succe
 		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)
 	}
 
+	rowCount := 0
 	for {
+		if rowCount >= maxImportRows {
+			break
+		}
+		rowCount++
 		record, readErr := reader.Read()
 		if readErr != nil {
 			if readErr == io.EOF {

@@ -7,7 +7,7 @@ import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
 {{- if .HasTenantScope}}
-import { isPlatformSuperAdminUser } from '@/utils/auth-scope';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 {{- end}}
 {{- if .HasTooltip}}
 import { message, Tooltip } from 'ant-design-vue';
@@ -84,6 +84,9 @@ function tooltipLabel(label: string, tip: string) {
 {{- end}}
 
 const emit = defineEmits<{ success: [] }>();
+{{- if .HasTenantScope}}
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
+{{- end}}
 const isEdit = ref(false);
 const editId = ref('');
 const openToken = ref(0);
@@ -191,7 +194,7 @@ const [Form, formApi] = useVbenForm({
       fieldName: '{{.NameLower}}',
       label: {{if .TooltipText}}tooltipLabel('{{.ShortLabel}}', '{{.TooltipText}}'){{else}}'{{.Label}}'{{end}},
 {{- if and $.HasTenantScope $isScopeField}}
-      ifShow: () => isPlatformSuperAdminUser(),
+      ifShow: () => isPlatformSuperAdmin.value,
 {{- end}}
 {{- if .IsRequired}}
       rules: 'selectRequired',
@@ -410,6 +413,7 @@ const [Modal, modalApi] = useVbenModal({
 {{- end}}
 {{- range .Fields}}
 {{- if and .IsForeignKey (not .IsHidden) .RefTable}}
+{{- $isScopeField := and $.HasTenantScope (or (eq .Name "tenant_id") (eq .Name "merchant_id"))}}
 {{- if .RefIsTree}}
     // 加载{{.Label}}树形数据
     try {
@@ -428,6 +432,9 @@ const [Modal, modalApi] = useVbenModal({
       // ignore
     }
 {{- else}}
+{{- if $isScopeField}}
+    if (isPlatformSuperAdmin.value) {
+{{- end}}
     // 加载{{.Label}}选项
     try {
       const {{.RefTableLower}}Res = await get{{.RefTableCamel}}List({ pageNum: 1, pageSize: 1000 });
@@ -447,6 +454,9 @@ const [Modal, modalApi] = useVbenModal({
     } catch {
       // ignore
     }
+{{- if $isScopeField}}
+    }
+{{- end}}
 {{- end}}
 {{- end}}
 {{- end}}

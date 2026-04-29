@@ -3,6 +3,7 @@ package parser
 import (
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 var enumLabelIdents = map[string]string{
@@ -124,9 +125,11 @@ func ParseCommentMeta(comment string) CommentMeta {
 
 	// 查找冒号分隔符（支持中文冒号和英文冒号）
 	sepIdx := -1
+	sepLen := 0
 	for i, ch := range mainPart {
 		if ch == ':' || ch == '：' {
 			sepIdx = i
+			sepLen = utf8.RuneLen(ch)
 			break
 		}
 	}
@@ -139,7 +142,7 @@ func ParseCommentMeta(comment string) CommentMeta {
 	}
 
 	meta.Label = strings.TrimSpace(mainPart[:sepIdx])
-	enumPart := strings.TrimSpace(mainPart[sepIdx+1:])
+	enumPart := strings.TrimSpace(mainPart[sepIdx+sepLen:])
 	if len(meta.Label) == 0 {
 		meta.Label = mainPart
 		meta.ShortLabel, meta.TooltipText = extractParentheses(meta.Label)

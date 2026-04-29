@@ -2,6 +2,7 @@ package shared
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	"github.com/gogf/gf/v2/database/gdb"
@@ -123,6 +124,85 @@ func ApplyDeptScopeToDeptModel(ctx context.Context, m *gdb.Model, deptIDColumn s
 		return m, nil
 	}
 	return applyScopeDeptFilter(m, deptIDColumn, scope.DeptIDs), nil
+}
+
+func EnsureDataScopedRowAccessible(ctx context.Context, m *gdb.Model, id interface{}, idColumn, createdByColumn, deptIDColumn string) error {
+	scope, err := ResolveDataAccessScope(ctx)
+	if err != nil {
+		return err
+	}
+	if scope.All {
+		return nil
+	}
+	q := m.Where(idColumn, id).Where("deleted_at", nil)
+	var fields []interface{}
+	if createdByColumn != "" {
+		fields = append(fields, createdByColumn)
+	}
+	if deptIDColumn != "" {
+		fields = append(fields, deptIDColumn)
+	}
+	if len(fields) == 0 {
+		return nil
+	}
+	row, err := q.Fields(fields...).One()
+	if err != nil {
+		return err
+	}
+	if row.IsEmpty() {
+		return fmt.Errorf("record not found")
+	}
+	if createdByColumn != "" && scope.IncludeSelf && scope.UserID > 0 {
+		if row[createdByColumn].Int64() == scope.UserID {
+			return nil
+		}
+	}
+	if deptIDColumn != "" && len(scope.DeptIDs) > 0 {
+		if containsInt64(scope.DeptIDs, row[deptIDColumn].Int64()) {
+			return nil
+		}
+	}
+	return fmt.Errorf("no permission to access this record")
+}
+
+func EnsureDataScopedRowsAccessible(ctx context.Context, m *gdb.Model, ids interface{}, idColumn, createdByColumn, deptIDColumn string) error {
+	scope, err := ResolveDataAccessScope(ctx)
+	if err != nil {
+		return err
+	}
+	if scope.All {
+		return nil
+	}
+	q := m.WhereIn(idColumn, ids).Where("deleted_at", nil)
+	var fields []interface{}
+	fields = append(fields, idColumn)
+	if createdByColumn != "" {
+		fields = append(fields, createdByColumn)
+	}
+	if deptIDColumn != "" {
+		fields = append(fields, deptIDColumn)
+	}
+	rows, err := q.Fields(fields...).All()
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		accessible := false
+		if createdByColumn != "" && scope.IncludeSelf && scope.UserID > 0 {
+			if row[createdByColumn].Int64() == scope.UserID {
+				accessible = true
+			}
+		}
+		if !accessible && deptIDColumn != "" && len(scope.DeptIDs) > 0 {
+			if containsInt64(scope.DeptIDs, row[deptIDColumn].Int64()) {
+				accessible = true
+			}
+		}
+		if !accessible {
+			return fmt.Errorf("no permission to access this record")
+		}
+	}
+	return nil
 }
 
 func CanAccessUser(ctx context.Context, userID, deptID int64) (bool, error) {

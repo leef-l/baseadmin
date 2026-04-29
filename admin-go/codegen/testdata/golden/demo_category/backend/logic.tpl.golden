@@ -41,6 +41,9 @@ func normalizeCategoryIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 		}
 		seen[value] = struct{}{}
 		normalized = append(normalized, id)
+		if len(normalized) >= 500 {
+			break
+		}
 	}
 	if len(normalized) == 0 {
 		return nil
@@ -79,6 +82,9 @@ func (s *sCategory) Update(ctx context.Context, in *model.CategoryUpdateInput) e
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), in.ID, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "分类"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), in.ID, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId); err != nil {
+		return err
+	}
 	data := do.DemoCategory{
 		ParentId: in.ParentID,
 		Name: in.Name,
@@ -104,6 +110,9 @@ func (s *sCategory) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), deleteIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "分类"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), deleteIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err = dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, deleteIDs).Delete()
 	return err
 }
@@ -118,6 +127,9 @@ func (s *sCategory) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) 
 		return nil
 	}
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), deleteIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "分类"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), deleteIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId); err != nil {
 		return err
 	}
 	_, err = dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, deleteIDs).Delete()
@@ -162,10 +174,11 @@ func (s *sCategory) doCollectChildIDs(ctx context.Context, parentID snowflake.Js
 		return nil, nil
 	}
 	var childIDs []snowflake.JsonInt64
-	result, err := dao.DemoCategory.Ctx(ctx).
+	m := dao.DemoCategory.Ctx(ctx).
 		Where(dao.DemoCategory.Columns().ParentId, parentID).
-		Where(dao.DemoCategory.Columns().DeletedAt, nil).
-		Fields(dao.DemoCategory.Columns().Id).
+		Where(dao.DemoCategory.Columns().DeletedAt, nil)
+	m = middleware.ApplyTenantScopeToModel(ctx, m, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId)
+	result, err := m.Fields(dao.DemoCategory.Columns().Id).
 		Array()
 	if err != nil || len(result) == 0 {
 		return childIDs, err
@@ -185,6 +198,9 @@ func (s *sCategory) doCollectChildIDs(ctx context.Context, parentID snowflake.Js
 // Detail 获取分类详情
 func (s *sCategory) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.CategoryDetailOutput, err error) {
 	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), id, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "分类"); err != nil {
+		return nil, err
+	}
+	if err = middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoCategory.Ctx(ctx), id, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId); err != nil {
 		return nil, err
 	}
 	out = &model.CategoryDetailOutput{}
@@ -558,6 +574,9 @@ func (s *sCategory) BatchUpdate(ctx context.Context, in *model.CategoryBatchUpda
 		return nil
 	}
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), normalizedIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().TenantId, dao.DemoCategory.Columns().MerchantId, "分类"); err != nil {
+		return err
+	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoCategory.Ctx(ctx), normalizedIDs, dao.DemoCategory.Columns().Id, dao.DemoCategory.Columns().CreatedBy, dao.DemoCategory.Columns().DeptId); err != nil {
 		return err
 	}
 	_, err := dao.DemoCategory.Ctx(ctx).WhereIn(dao.DemoCategory.Columns().Id, normalizedIDs).Data(data).Update()

@@ -45,6 +45,9 @@ func normalizeTagIDs(ids []snowflake.JsonInt64) []snowflake.JsonInt64 {
 		}
 		seen[value] = struct{}{}
 		normalized = append(normalized, id)
+		if len(normalized) >= 500 {
+			break
+		}
 	}
 	if len(normalized) == 0 {
 		return nil
@@ -82,6 +85,9 @@ func (s *sTag) Update(ctx context.Context, in *model.TagUpdateInput) error {
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoTag.Ctx(ctx), in.ID, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().TenantId, dao.DemoTag.Columns().MerchantId, "标签"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoTag.Ctx(ctx), in.ID, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().CreatedBy, dao.DemoTag.Columns().DeptId); err != nil {
+		return err
+	}
 	data := do.DemoTag{
 		Name: in.Name,
 		Color: in.Color,
@@ -99,6 +105,9 @@ func (s *sTag) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if err := middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoTag.Ctx(ctx), id, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().TenantId, dao.DemoTag.Columns().MerchantId, "标签"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoTag.Ctx(ctx), id, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().CreatedBy, dao.DemoTag.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoTag.Ctx(ctx).Where(dao.DemoTag.Columns().Id, id).Delete()
 	return err
 }
@@ -112,6 +121,9 @@ func (s *sTag) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoTag.Ctx(ctx), normalizedIDs, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().TenantId, dao.DemoTag.Columns().MerchantId, "标签"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoTag.Ctx(ctx), normalizedIDs, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().CreatedBy, dao.DemoTag.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoTag.Ctx(ctx).WhereIn(dao.DemoTag.Columns().Id, normalizedIDs).Delete()
 	return err
 }
@@ -119,6 +131,9 @@ func (s *sTag) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error
 // Detail 获取标签详情
 func (s *sTag) Detail(ctx context.Context, id snowflake.JsonInt64) (out *model.TagDetailOutput, err error) {
 	if err = middleware.EnsureTenantScopedRowAccessible(ctx, dao.DemoTag.Ctx(ctx), id, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().TenantId, dao.DemoTag.Columns().MerchantId, "标签"); err != nil {
+		return nil, err
+	}
+	if err = middleware.EnsureDataScopedRowAccessible(ctx, dao.DemoTag.Ctx(ctx), id, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().CreatedBy, dao.DemoTag.Columns().DeptId); err != nil {
 		return nil, err
 	}
 	out = &model.TagDetailOutput{}
@@ -313,12 +328,20 @@ func (s *sTag) BatchUpdate(ctx context.Context, in *model.TagBatchUpdateInput) e
 	if err := middleware.EnsureTenantScopedRowsAccessible(ctx, dao.DemoTag.Ctx(ctx), normalizedIDs, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().TenantId, dao.DemoTag.Columns().MerchantId, "标签"); err != nil {
 		return err
 	}
+	if err := middleware.EnsureDataScopedRowsAccessible(ctx, dao.DemoTag.Ctx(ctx), normalizedIDs, dao.DemoTag.Columns().Id, dao.DemoTag.Columns().CreatedBy, dao.DemoTag.Columns().DeptId); err != nil {
+		return err
+	}
 	_, err := dao.DemoTag.Ctx(ctx).WhereIn(dao.DemoTag.Columns().Id, normalizedIDs).Data(data).Update()
 	return err
 }
 
 // Import 导入标签
 func (s *sTag) Import(ctx context.Context, file *ghttp.UploadFile) (success int, fail int, err error) {
+	const maxImportFileSize = 10 << 20 // 10MB
+	const maxImportRows = 5000
+	if file.Size > maxImportFileSize {
+		return 0, 0, fmt.Errorf("文件大小超过限制（最大10MB）")
+	}
 	f, err := file.Open()
 	if err != nil {
 		return 0, 0, err
@@ -331,7 +354,12 @@ func (s *sTag) Import(ctx context.Context, file *ghttp.UploadFile) (success int,
 		return 0, 0, fmt.Errorf("读取CSV表头失败: %w", err)
 	}
 
+	rowCount := 0
 	for {
+		if rowCount >= maxImportRows {
+			break
+		}
+		rowCount++
 		record, readErr := reader.Read()
 		if readErr != nil {
 			if readErr == io.EOF {

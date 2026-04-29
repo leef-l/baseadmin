@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { useVbenForm } from '#/adapter/form';
-import { isPlatformSuperAdminUser } from '@/utils/auth-scope';
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { message } from 'ant-design-vue';
 import {
   getTagDetail,
@@ -19,6 +19,7 @@ const tenantIDOptions = ref<{ label: string; value: string | number }[]>([]);
 const merchantIDOptions = ref<{ label: string; value: string | number }[]>([]);
 
 const emit = defineEmits<{ success: [] }>();
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
 const isEdit = ref(false);
 const editId = ref('');
 const openToken = ref(0);
@@ -56,15 +57,15 @@ const [Form, formApi] = useVbenForm({
     {
       component: 'Select',
       fieldName: 'tenantID',
-      ifShow: () => isPlatformSuperAdminUser(),
       label: '租户',
+      ifShow: () => isPlatformSuperAdmin.value,
       componentProps: { options: [], placeholder: '请选择租户', allowClear: true, class: 'w-full' },
     },
     {
       component: 'Select',
       fieldName: 'merchantID',
-      ifShow: () => isPlatformSuperAdminUser(),
       label: '商户',
+      ifShow: () => isPlatformSuperAdmin.value,
       componentProps: { options: [], placeholder: '请选择商户', allowClear: true, class: 'w-full' },
     },
   ],
@@ -105,6 +106,7 @@ const [Modal, modalApi] = useVbenModal({
     const currentOpenToken = ++openToken.value;
     formApi.resetForm();
     const data = modalApi.getData<{ id?: string }>();
+    if (isPlatformSuperAdmin.value) {
     // 加载租户选项
     try {
       const tenantRes = await getTenantList({ pageNum: 1, pageSize: 1000 });
@@ -124,6 +126,8 @@ const [Modal, modalApi] = useVbenModal({
     } catch {
       // ignore
     }
+    }
+    if (isPlatformSuperAdmin.value) {
     // 加载商户选项
     try {
       const merchantRes = await getMerchantList({ pageNum: 1, pageSize: 1000 });
@@ -142,6 +146,7 @@ const [Modal, modalApi] = useVbenModal({
       ]);
     } catch {
       // ignore
+    }
     }
     if (currentOpenToken !== openToken.value) {
       return;
