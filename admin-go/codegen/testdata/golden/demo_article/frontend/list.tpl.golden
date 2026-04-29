@@ -661,7 +661,7 @@ function handleBatchUpdateStatus() {
         <Button v-access:code="'demo:article:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
       </template>
       <template #cover_cell="{ row }">
-        <img v-if="row.cover" :src="row.cover" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
+        <img v-if="row.cover && /^https?:\/\//i.test(row.cover)" :src="row.cover" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
         <span v-else>-</span>
       </template>
       <template #attachmentFile_cell="{ row }">

@@ -687,7 +687,7 @@ function handleBatchUpdateStatus() {
       </template>
 {{- else if and (not .IsHidden) (not .IsID) (not .IsParentID) (not .IsTimeField) (not .IsMultiFK) (eq .Component "ImageUpload")}}
       <template #{{.NameLower}}_cell="{ row }">
-        <img v-if="row.{{.NameLower}}" :src="row.{{.NameLower}}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
+        <img v-if="row.{{.NameLower}} && /^https?:\/\//i.test(row.{{.NameLower}})" :src="row.{{.NameLower}}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 4px;" />
         <span v-else>-</span>
       </template>
 {{- else if and (not .IsHidden) (not .IsID) (not .IsParentID) (not .IsTimeField) (not .IsMultiFK) (eq .Component "InputUrl")}}

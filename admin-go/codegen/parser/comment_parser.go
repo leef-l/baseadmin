@@ -29,10 +29,16 @@ var enumLabelIdents = map[string]string{
 	"待发货": "Unshipped", "已发货": "Shipped", "已签收": "Received",
 	"冻结": "Frozen", "解冻": "Unfrozen",
 	"上架": "Online", "下架": "OffShelf",
-	"免费": "Free", "付费": "Paid",
+	"免费": "Free", "付费": "Charged",
 	"公开": "Public", "私密": "Private",
 	"全部": "All", "本部门及以下": "DeptAndBelow", "本部门": "DeptOnly", "仅本人": "SelfOnly", "自定义": "Custom",
 	"内容": "Content", "行为": "Behavior", "申诉": "Appeal",
+	"未知": "Unknown", "匿名": "Anonymous",
+	"官网": "Official", "小程序": "MiniApp", "线下": "Offline", "导入": "Import", "导出": "Export",
+	"低": "Low", "高": "High", "紧急": "Urgent",
+	"电话": "Phone", "微信": "Wechat", "后台": "Backend", "短信": "SMS",
+	"创建": "Create", "修改": "Update", "删除": "Delete",
+	"客户": "Customer", "商品": "Product", "订单": "Order", "工单": "WorkOrder",
 }
 
 type CommentMeta struct {

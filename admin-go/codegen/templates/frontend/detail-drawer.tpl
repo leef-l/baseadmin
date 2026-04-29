@@ -104,7 +104,7 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem {{if $isScopeField}}v-if="isPlatformSuperAdmin" {{end}}label="{{.ShortLabel}}">{{"{{"}} detail.{{.NameLower}} != null ? (detail.{{.NameLower}} / 100).toFixed(2) : '-' {{"}}"}}</DescriptionsItem>
 {{- else if eq .Component "ImageUpload"}}
       <DescriptionsItem {{if $isScopeField}}v-if="isPlatformSuperAdmin" {{end}}label="{{.ShortLabel}}">
-        <img v-if="detail.{{.NameLower}}" :src="detail.{{.NameLower}}" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
+        <img v-if="detail.{{.NameLower}} && /^https?:\/\//i.test(detail.{{.NameLower}})" :src="detail.{{.NameLower}}" style="max-width: 200px; max-height: 200px; object-fit: contain;" />
         <span v-else>-</span>
       </DescriptionsItem>
 {{- else if eq .Component "FileUpload"}}

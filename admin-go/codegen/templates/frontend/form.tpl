@@ -335,7 +335,7 @@ const [Form, formApi] = useVbenForm({
     },
 {{- else if eq .Component "InputUrl"}}
     {
-      component: 'Input',
+      component: 'InputUrl',
       fieldName: '{{.NameLower}}',
       label: {{if .TooltipText}}tooltipLabel('{{.ShortLabel}}', '{{.TooltipText}}'){{else}}'{{.Label}}'{{end}},
 {{- if .IsRequired}}
