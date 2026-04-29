@@ -5,6 +5,9 @@ import (
 	"context"
 	"encoding/csv"
 	"io"
+	"math"
+	"strconv"
+	"strings"
 	"fmt"
 
 	"github.com/gogf/gf/v2/database/gdb"
@@ -136,8 +139,6 @@ func (s *sArticle) Update(ctx context.Context, in *model.ArticleUpdateInput) err
 		ExtraField: in.ExtraField,
 		PublishAt: in.PublishAt,
 		ExpireAt: in.ExpireAt,
-		TenantId: in.TenantID,
-		MerchantId: in.MerchantID,
 	}
 	if in.PayPassword != "" {
 		hashed, err := bcrypt.GenerateFromPassword([]byte(in.PayPassword), bcrypt.DefaultCost)
@@ -628,7 +629,9 @@ func (s *sArticle) Import(ctx context.Context, file *ghttp.UploadFile) (success 
 		}
 		idx++
 		if idx < len(record) {
-			data.Price = record[idx]
+			if v, parseErr := strconv.ParseFloat(strings.TrimSpace(record[idx]), 64); parseErr == nil {
+				data.Price = int64(math.Round(v * 100))
+			}
 		}
 		idx++
 		if idx < len(record) {

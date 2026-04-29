@@ -11,6 +11,11 @@ import (
 {{- if .HasImport}}
 	"encoding/csv"
 	"io"
+{{- if .HasMoney}}
+	"math"
+	"strconv"
+	"strings"
+{{- end}}
 {{- end}}
 {{- if or .EnableOpLog .HasImport}}
 	"fmt"
@@ -138,7 +143,7 @@ func (s *s{{.ModelName}}) Update(ctx context.Context, in *model.{{.ModelName}}Up
 {{- end}}
 	data := do.{{.DaoName}}{
 {{- range .Fields}}
-{{- if and (not .IsID) (not .IsHidden) (not .IsPassword)}}
+{{- if and (not .IsID) (not .IsHidden) (not .IsPassword) (ne .Name "tenant_id") (ne .Name "merchant_id")}}
 		{{.NameDao}}: in.{{.NameCamel}},
 {{- end}}
 {{- end}}
@@ -789,9 +794,17 @@ func (s *s{{.ModelName}}) Import(ctx context.Context, file *ghttp.UploadFile) (s
 		idx := 0
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField) (or (not $.HasTenantScope) (and (ne .Name "tenant_id") (ne .Name "merchant_id")))}}
+{{- if .IsMoney}}
+		if idx < len(record) {
+			if v, parseErr := strconv.ParseFloat(strings.TrimSpace(record[idx]), 64); parseErr == nil {
+				data.{{.NameDao}} = int64(math.Round(v * 100))
+			}
+		}
+{{- else}}
 		if idx < len(record) {
 			data.{{.NameDao}} = record[idx]
 		}
+{{- end}}
 		idx++
 {{- end}}
 {{- end}}

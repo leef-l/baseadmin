@@ -60,7 +60,7 @@ type TagDeleteRes struct {
 // TagBatchDeleteReq 批量删除标签请求
 type TagBatchDeleteReq struct {
 	g.Meta `path:"/tag/batch-delete" method:"delete" tags:"标签" summary:"批量删除标签"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"标签ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"标签ID列表"`
 }
 
 // TagBatchDeleteRes 批量删除标签响应
@@ -71,7 +71,7 @@ type TagBatchDeleteRes struct {
 // TagBatchUpdateReq 批量编辑标签请求
 type TagBatchUpdateReq struct {
 	g.Meta `path:"/tag/batch-update" method:"put" tags:"标签" summary:"批量编辑标签"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"标签ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"标签ID列表"`
 	Status *int `json:"status" dc:"Status"`
 }
 

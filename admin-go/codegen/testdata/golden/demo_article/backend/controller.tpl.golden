@@ -201,7 +201,7 @@ func (c *cArticle) Export(ctx context.Context, req *v1.ArticleExportReq) (res *v
 			fmt.Sprintf("%v", item.Status),
 			fmt.Sprintf("%v", item.Type),
 			fmt.Sprintf("%v", item.IsTop),
-			fmt.Sprintf("%v", item.Price),
+			fmt.Sprintf("%.2f", float64(item.Price)/100),
 			fmt.Sprintf("%v", item.Sort),
 			csvSafeArticle(item.Icon),
 			csvSafeArticle(item.Email),

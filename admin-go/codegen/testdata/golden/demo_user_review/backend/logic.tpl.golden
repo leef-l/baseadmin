@@ -100,8 +100,6 @@ func (s *sUserReview) Update(ctx context.Context, in *model.UserReviewUpdateInpu
 		IsPassed: in.IsPassed,
 		Sort: in.Sort,
 		Status: in.Status,
-		TenantId: in.TenantID,
-		MerchantId: in.MerchantID,
 	}
 	_, err := dao.DemoUserReview.Ctx(ctx).Where(dao.DemoUserReview.Columns().Id, in.ID).Where(dao.DemoUserReview.Columns().DeletedAt, nil).Data(data).Update()
 	return err

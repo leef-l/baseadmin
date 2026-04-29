@@ -41,6 +41,27 @@ async function initSetupVbenForm() {
         }
         return true;
       },
+      email: (value) => {
+        if (!value) return true;
+        if (!/^[\w.+-]+@[\w-]+\.[\w.]+$/.test(String(value))) {
+          return '请输入正确的邮箱地址';
+        }
+        return true;
+      },
+      phone: (value) => {
+        if (!value) return true;
+        if (!/^1[3-9]\d{9}$/.test(String(value))) {
+          return '请输入正确的手机号码';
+        }
+        return true;
+      },
+      url: (value) => {
+        if (!value) return true;
+        if (!/^https?:\/\/.+/i.test(String(value))) {
+          return '请输入正确的URL地址';
+        }
+        return true;
+      },
     },
   });
 }

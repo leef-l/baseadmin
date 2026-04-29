@@ -254,8 +254,12 @@ func MapComponent(field FieldMeta) string {
 		return ComponentSelect
 	}
 
-	// TEXT/LONGTEXT 类型 → Textarea
 	dbLower := strings.ToLower(field.DBType)
+	// JSON 类型 → JsonEditor
+	if dbLower == "json" {
+		return ComponentJsonEditor
+	}
+	// TEXT/LONGTEXT 类型 → Textarea
 	if dbLower == "text" || dbLower == "longtext" || dbLower == "mediumtext" || dbLower == "tinytext" {
 		return ComponentTextarea
 	}

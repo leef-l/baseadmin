@@ -51,10 +51,21 @@ var SharedFuncMap = template.FuncMap{
 		if s == "" {
 			return false
 		}
-		for _, c := range s {
+		hasDot := false
+		for i, c := range s {
+			if c == '-' && i == 0 {
+				continue
+			}
+			if c == '.' && !hasDot {
+				hasDot = true
+				continue
+			}
 			if c < '0' || c > '9' {
 				return false
 			}
+		}
+		if len(s) == 1 && (s[0] == '-' || s[0] == '.') {
+			return false
 		}
 		return true
 	},

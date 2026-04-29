@@ -94,8 +94,6 @@ func (s *sTag) Update(ctx context.Context, in *model.TagUpdateInput) error {
 		Color: in.Color,
 		Sort: in.Sort,
 		Status: in.Status,
-		TenantId: in.TenantID,
-		MerchantId: in.MerchantID,
 	}
 	_, err := dao.DemoTag.Ctx(ctx).Where(dao.DemoTag.Columns().Id, in.ID).Where(dao.DemoTag.Columns().DeletedAt, nil).Data(data).Update()
 	return err

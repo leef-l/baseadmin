@@ -98,7 +98,7 @@ type ArticleDeleteRes struct {
 // ArticleBatchDeleteReq 批量删除文章请求
 type ArticleBatchDeleteReq struct {
 	g.Meta `path:"/article/batch-delete" method:"delete" tags:"文章" summary:"批量删除文章"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"文章ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"文章ID列表"`
 }
 
 // ArticleBatchDeleteRes 批量删除文章响应
@@ -109,7 +109,7 @@ type ArticleBatchDeleteRes struct {
 // ArticleBatchUpdateReq 批量编辑文章请求
 type ArticleBatchUpdateReq struct {
 	g.Meta `path:"/article/batch-update" method:"put" tags:"文章" summary:"批量编辑文章"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"文章ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"文章ID列表"`
 	Status *int `json:"status" dc:"Status"`
 	Type *int `json:"type" dc:"Type"`
 	IsTop *int `json:"isTop" dc:"IsTop"`

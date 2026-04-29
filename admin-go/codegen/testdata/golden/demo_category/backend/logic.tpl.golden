@@ -92,8 +92,6 @@ func (s *sCategory) Update(ctx context.Context, in *model.CategoryUpdateInput) e
 		Icon: in.Icon,
 		Sort: in.Sort,
 		Status: in.Status,
-		TenantId: in.TenantID,
-		MerchantId: in.MerchantID,
 	}
 	_, err := dao.DemoCategory.Ctx(ctx).Where(dao.DemoCategory.Columns().Id, in.ID).Where(dao.DemoCategory.Columns().DeletedAt, nil).Data(data).Update()
 	return err

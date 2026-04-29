@@ -66,7 +66,7 @@ type UserReviewDeleteRes struct {
 // UserReviewBatchDeleteReq 批量删除用户审核请求
 type UserReviewBatchDeleteReq struct {
 	g.Meta `path:"/user_review/batch-delete" method:"delete" tags:"用户审核" summary:"批量删除用户审核"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"用户审核ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"用户审核ID列表"`
 }
 
 // UserReviewBatchDeleteRes 批量删除用户审核响应
@@ -77,7 +77,7 @@ type UserReviewBatchDeleteRes struct {
 // UserReviewBatchUpdateReq 批量编辑用户审核请求
 type UserReviewBatchUpdateReq struct {
 	g.Meta `path:"/user_review/batch-update" method:"put" tags:"用户审核" summary:"批量编辑用户审核"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"用户审核ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"用户审核ID列表"`
 	ReviewType *int `json:"reviewType" dc:"ReviewType"`
 	IsPassed *int `json:"isPassed" dc:"IsPassed"`
 	Status *int `json:"status" dc:"Status"`

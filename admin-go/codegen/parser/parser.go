@@ -180,10 +180,10 @@ func FinalizeTemplateMeta(meta *TableMeta) {
 				meta.ParentDisplayField = field.RefDisplayLower
 			}
 		}
-		if field.Name == "status" {
+		if field.Name == "status" && !field.IsHidden {
 			meta.HasStatus = true
 		}
-		if field.Name == "sort" {
+		if field.Name == "sort" && !field.IsHidden {
 			meta.HasSort = true
 		}
 		if field.IsPassword {

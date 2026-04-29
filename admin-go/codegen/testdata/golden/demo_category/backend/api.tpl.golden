@@ -62,7 +62,7 @@ type CategoryDeleteRes struct {
 // CategoryBatchDeleteReq 批量删除分类请求
 type CategoryBatchDeleteReq struct {
 	g.Meta `path:"/category/batch-delete" method:"delete" tags:"分类" summary:"批量删除分类"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"分类ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"分类ID列表"`
 }
 
 // CategoryBatchDeleteRes 批量删除分类响应
@@ -73,7 +73,7 @@ type CategoryBatchDeleteRes struct {
 // CategoryBatchUpdateReq 批量编辑分类请求
 type CategoryBatchUpdateReq struct {
 	g.Meta `path:"/category/batch-update" method:"put" tags:"分类" summary:"批量编辑分类"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"分类ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"分类ID列表"`
 	Status *int `json:"status" dc:"Status"`
 }
 

@@ -58,7 +58,7 @@ type {{.ModelName}}DeleteRes struct {
 // {{.ModelName}}BatchDeleteReq 批量删除{{.Comment}}请求
 type {{.ModelName}}BatchDeleteReq struct {
 	g.Meta `path:"/{{.ModuleName}}/batch-delete" method:"delete" tags:"{{.Comment}}" summary:"批量删除{{.Comment}}"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"{{.Comment}}ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"{{.Comment}}ID列表"`
 }
 
 // {{.ModelName}}BatchDeleteRes 批量删除{{.Comment}}响应
@@ -70,7 +70,7 @@ type {{.ModelName}}BatchDeleteRes struct {
 // {{.ModelName}}BatchUpdateReq 批量编辑{{.Comment}}请求
 type {{.ModelName}}BatchUpdateReq struct {
 	g.Meta `path:"/{{.ModuleName}}/batch-update" method:"put" tags:"{{.Comment}}" summary:"批量编辑{{.Comment}}"`
-	IDs    []snowflake.JsonInt64 `json:"ids" v:"required#ID列表不能为空" dc:"{{.Comment}}ID列表"`
+	IDs    []snowflake.JsonInt64 `json:"ids" v:"required|max-length:500#ID列表不能为空|最多支持500条" dc:"{{.Comment}}ID列表"`
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (.IsEnum)}}
 	{{.NameCamel}} *{{.GoType}} `json:"{{.NameLower}}" dc:"{{.Label}}"`

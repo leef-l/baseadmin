@@ -149,6 +149,8 @@ func (c *c{{.ModelName}}) Export(ctx context.Context, req *v1.{{.ModelName}}Expo
 			csvSafe{{$.ModelName}}(item.{{.RefFieldName}}),
 {{- else if eq .GoType "*gtime.Time"}}
 			func() string { if item.{{.NameCamel}} != nil { return item.{{.NameCamel}}.String() }; return "" }(),
+{{- else if .IsMoney}}
+			fmt.Sprintf("%.2f", float64(item.{{.NameCamel}})/100),
 {{- else if eq .GoType "string"}}
 			csvSafe{{$.ModelName}}(item.{{.NameCamel}}),
 {{- else}}

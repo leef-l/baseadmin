@@ -176,6 +176,9 @@ const [Form, formApi] = useVbenForm({
       component: 'TreeSelect',
       fieldName: '{{.NameLower}}',
       label: {{if .TooltipText}}tooltipLabel('{{.ShortLabel}}', '{{.TooltipText}}'){{else}}'{{.Label}}'{{end}},
+{{- if and $.HasTenantScope $isScopeField}}
+      ifShow: () => isPlatformSuperAdmin.value,
+{{- end}}
 {{- if .IsRequired}}
       rules: 'selectRequired',
 {{- end}}
@@ -345,7 +348,9 @@ const [Form, formApi] = useVbenForm({
       component: 'Input',
       fieldName: '{{.NameLower}}',
       label: {{if .TooltipText}}tooltipLabel('{{.ShortLabel}}', '{{.TooltipText}}'){{else}}'{{.Label}}'{{end}},
-{{- if .IsRequired}}
+{{- if .FrontendRules}}
+      rules: '{{.FrontendRules}}',
+{{- else if .IsRequired}}
       rules: 'required',
 {{- end}}
       componentProps: { placeholder: '请输入{{.Label}}'{{if gt .MaxLength 0}}, maxlength: {{.MaxLength}}{{end}} },
