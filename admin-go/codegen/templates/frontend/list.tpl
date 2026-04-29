@@ -236,10 +236,11 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
 {{- if and $.HasTenantScope $isScopeField}}
     ...(isPlatformSuperAdmin.value ? [
 {{- end}}
+{{- $isSortable := or .IsMoney .IsSearchable (eq .Name "sort") (eq .Name "status")}}
 {{- if .RefFieldJSON}}
     { field: '{{.RefFieldJSON}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
 {{- else if .IsEnum}}
-    { field: '{{.NameLower}}', title: '{{.ShortLabel}}', width: 120, slots: { default: '{{.NameLower}}_cell' }{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
+    { field: '{{.NameLower}}', title: '{{.ShortLabel}}', width: 120, slots: { default: '{{.NameLower}}_cell' }{{if and $isTree $firstDataCol}}, treeNode: true{{end}}{{if $isSortable}}, sortable: true{{end}} },
 {{- else if eq .Component "ImageUpload"}}
     { field: '{{.NameLower}}', title: '{{.ShortLabel}}', width: 100, slots: { default: '{{.NameLower}}_cell' }{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
 {{- else if eq .Component "InputUrl"}}
@@ -249,9 +250,9 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
 {{- else if or (eq .Component "RichText") (eq .Component "JsonEditor")}}
 {{- /* 富文本和JSON字段不在列表中显示，不消耗 firstDataCol */}}
 {{- else if .IsMoney}}
-    { field: '{{.NameLower}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}, width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-'{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
+    { field: '{{.NameLower}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}, width: 120, formatter: ({ cellValue }: any) => cellValue != null ? (cellValue / 100).toFixed(2) : '-'{{if and $isTree $firstDataCol}}, treeNode: true{{end}}, sortable: true },
 {{- else}}
-    { field: '{{.NameLower}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}{{if and $isTree $firstDataCol}}, treeNode: true{{end}} },
+    { field: '{{.NameLower}}', title: '{{.ShortLabel}}'{{if .TooltipText}}, slots: { header: tooltipHeader('{{.ShortLabel}}', '{{.TooltipText}}') }{{end}}{{if and $isTree $firstDataCol}}, treeNode: true{{end}}{{if $isSortable}}, sortable: true{{end}} },
 {{- end}}
 {{- if and $.HasTenantScope $isScopeField}}
     ] : []),

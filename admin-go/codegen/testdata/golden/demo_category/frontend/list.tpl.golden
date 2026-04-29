@@ -174,10 +174,10 @@ const gridOptions: VxeGridProps<CategoryItem> = {
   columns: [
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { title: '序号', type: 'seq', width: 50 },
-    { field: 'name', title: 'Name', treeNode: true },
+    { field: 'name', title: 'Name', treeNode: true, sortable: true },
     { field: 'icon', title: 'Icon' },
-    { field: 'sort', title: 'Sort', slots: { header: tooltipHeader('Sort', '升序') } },
-    { field: 'status', title: 'Status', width: 120, slots: { default: 'status_cell' } },
+    { field: 'sort', title: 'Sort', slots: { header: tooltipHeader('Sort', '升序') }, sortable: true },
+    { field: 'status', title: 'Status', width: 120, slots: { default: 'status_cell' }, sortable: true },
     ...(isPlatformSuperAdmin.value ? [
     { field: 'tenantName', title: '租户' },
     ] : []),

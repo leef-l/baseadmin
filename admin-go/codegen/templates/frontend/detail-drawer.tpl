@@ -2,6 +2,9 @@
 import { ref } from 'vue';
 import { useVbenModal } from '@vben/common-ui';
 import { Descriptions, DescriptionsItem{{if .HasEnum}}, Tag{{end}} } from 'ant-design-vue';
+{{- if .HasTenantScope}}
+import { usePlatformSuperAdmin } from '#/utils/auth-scope';
+{{- end}}
 import { get{{.ModelName}}Detail } from '#/api/{{.AppName}}/{{.ModuleName}}';
 import type { {{.ModelName}}Item } from '#/api/{{.AppName}}/{{.ModuleName}}/types';
 {{- if .HasRichTextComponent}}
@@ -40,6 +43,9 @@ function get{{.NameCamel}}Color(val: EnumValue | null | undefined): string {
   return TAG_COLORS[idx >= 0 ? idx % TAG_COLORS.length : 0] ?? 'default';
 }
 {{end}}
+{{- end}}
+{{- if .HasTenantScope}}
+const isPlatformSuperAdmin = usePlatformSuperAdmin();
 {{- end}}
 const detail = ref<{{.ModelName}}Item | null>(null);
 const openToken = ref(0);
@@ -87,8 +93,9 @@ const [Modal, modalApi] = useVbenModal({
       <DescriptionsItem label="ID">{{"{{"}} detail.id {{"}}"}}</DescriptionsItem>
 {{- range .Fields}}
 {{- if and (not .IsHidden) (not .IsID) (not .IsPassword) (not .IsTimeField)}}
+{{- $isScopeField := and $.HasTenantScope (or (eq .Name "tenant_id") (eq .Name "merchant_id"))}}
 {{- if .RefFieldJSON}}
-      <DescriptionsItem label="{{.ShortLabel}}">{{"{{"}} detail.{{.RefFieldJSON}} || '-' {{"}}"}}</DescriptionsItem>
+      <DescriptionsItem {{if $isScopeField}}v-if="isPlatformSuperAdmin" {{end}}label="{{.ShortLabel}}">{{"{{"}} detail.{{.RefFieldJSON}} || '-' {{"}}"}}</DescriptionsItem>
 {{- else if .IsEnum}}
       <DescriptionsItem label="{{.ShortLabel}}">
         <Tag :color="get{{.NameCamel}}Color(detail.{{.NameLower}})">{{"{{"}} getEnumLabel({{.NameLower}}Map, detail.{{.NameLower}}) {{"}}"}}</Tag>

@@ -151,10 +151,10 @@ const gridOptions: VxeGridProps<TagItem> = {
   columns: [
     ...(canBatchDelete ? [{ type: 'checkbox', width: 50 }] : []),
     { title: '序号', type: 'seq', width: 50 },
-    { field: 'name', title: 'Name' },
+    { field: 'name', title: 'Name', sortable: true },
     { field: 'color', title: 'Color' },
-    { field: 'sort', title: 'Sort' },
-    { field: 'status', title: 'Status', width: 120, slots: { default: 'status_cell' } },
+    { field: 'sort', title: 'Sort', sortable: true },
+    { field: 'status', title: 'Status', width: 120, slots: { default: 'status_cell' }, sortable: true },
     ...(isPlatformSuperAdmin.value ? [
     { field: 'tenantName', title: '租户' },
     ] : []),
