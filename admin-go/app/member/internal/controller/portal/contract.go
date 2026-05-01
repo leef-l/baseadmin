@@ -3,6 +3,8 @@ package portal
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -131,7 +133,7 @@ func (c cContract) List(ctx context.Context, req *v1.ContractListReq) (res *v1.C
 	return out, nil
 }
 
-// Download 受保护：流式输出 signed_html（前端可在浏览器打印为 PDF）。
+// Download 受保护：返回真实 PDF 文件；PDF 未就绪时降级返回 HTML（前端可"打印 → 另存为 PDF"）。
 // 走 ghttp 直接写响应，不经 MiddlewareHandlerResponse 封装。
 func DownloadContract(r *ghttp.Request) {
 	ctx := r.Context()
@@ -145,15 +147,41 @@ func DownloadContract(r *ghttp.Request) {
 		r.Response.WriteStatus(400, "合同 ID 不能为空")
 		return
 	}
-	html, contractNo, err := contract.GetSignedHTML(ctx, memberID, contractID)
+	filePath, body, contractNo, isPDF, err := contract.GetDownload(ctx, memberID, contractID)
 	if err != nil {
 		g.Log().Warningf(ctx, "DownloadContract err: %v", err)
 		r.Response.WriteStatus(404, "合同不存在")
 		return
 	}
+	writeContractResponse(r, filePath, body, contractNo, isPDF)
+}
+
+// writeContractResponse 自适应 PDF / HTML 流式输出。
+func writeContractResponse(r *ghttp.Request, filePath string, body []byte, contractNo string, isPDF bool) {
+	ctx := r.Context()
+	if filePath != "" {
+		f, err := os.Open(filePath)
+		if err != nil {
+			g.Log().Warningf(ctx, "open contract file err=%v path=%s", err, filePath)
+			r.Response.WriteStatus(500, "文件读取失败")
+			return
+		}
+		defer f.Close()
+		ext := ".pdf"
+		ct := "application/pdf"
+		if !isPDF {
+			ext = ".html"
+			ct = "text/html; charset=utf-8"
+		}
+		r.Response.Header().Set("Content-Type", ct)
+		r.Response.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s%s"`, contractNo, ext))
+		_, _ = io.Copy(r.Response.RawWriter(), f)
+		return
+	}
+	// 兜底：从 DB 取 signed_html
 	r.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	r.Response.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.html"`, contractNo))
-	r.Response.Write(html)
+	r.Response.Write(body)
 }
 
 func contractTypeText(t string) string {

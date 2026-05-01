@@ -66,5 +66,8 @@ member:
   h5BaseURL: "https://funddisk.easytestdev.online/h5"
   inviteCodeLength: 8
   registerRequireInviteCode: true
-  # 合同 HTML 落盘路径（异步生成，可被 download 接口流式回吐）
+  # 合同 HTML/PDF 落盘路径（异步生成，可被 download 接口流式回吐）
   contractStorageDir: "./runtime/contracts"
+  # Chromium 二进制路径（用于服务端渲染合同 PDF）。留空则按 PATH 探测：
+  #   ungoogled-chromium / chromium / chromium-browser / google-chrome / google-chrome-stable
+  contractChromiumPath: ""

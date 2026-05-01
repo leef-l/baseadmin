@@ -4,6 +4,8 @@ package contract
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -12,6 +14,7 @@ import (
 
 	v1 "gbaseadmin/app/member/api/member/v1"
 	"gbaseadmin/app/member/internal/dao"
+	logiccontract "gbaseadmin/app/member/internal/logic/contract"
 	"gbaseadmin/app/member/internal/model/entity"
 )
 
@@ -101,7 +104,7 @@ func (c cContract) List(ctx context.Context, req *v1.ContractListReq) (res *v1.C
 	return out, nil
 }
 
-// Download 后台下载合同（流式）。
+// Download 后台下载合同：优先返回 PDF；未就绪时降级 HTML。
 func Download(r *ghttp.Request) {
 	ctx := r.Context()
 	contractID, _ := strconv.ParseInt(r.GetQuery("contractId").String(), 10, 64)
@@ -109,27 +112,38 @@ func Download(r *ghttp.Request) {
 		r.Response.WriteStatus(400, "合同 ID 不能为空")
 		return
 	}
-	cols := dao.MemberContract.Columns()
-	var row entity.MemberContract
-	if err := dao.MemberContract.Ctx(ctx).
-		Where(cols.Id, contractID).
-		Where(cols.DeletedAt, nil).
-		Scan(&row); err != nil {
+	filePath, body, contractNo, isPDF, err := logiccontract.GetDownload(ctx, 0, contractID)
+	if err != nil {
 		g.Log().Warningf(ctx, "admin Download err=%v", err)
-		r.Response.WriteStatus(500, "查询失败")
-		return
-	}
-	if row.Id == 0 {
 		r.Response.WriteStatus(404, "合同不存在")
 		return
 	}
-	if row.SignedHtml == "" {
+	if filePath != "" {
+		f, openErr := os.Open(filePath)
+		if openErr != nil {
+			g.Log().Warningf(ctx, "open contract file err=%v path=%s", openErr, filePath)
+			r.Response.WriteStatus(500, "文件读取失败")
+			return
+		}
+		defer f.Close()
+		ext := ".pdf"
+		ct := "application/pdf"
+		if !isPDF {
+			ext = ".html"
+			ct = "text/html; charset=utf-8"
+		}
+		r.Response.Header().Set("Content-Type", ct)
+		r.Response.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s%s"`, contractNo, ext))
+		_, _ = io.Copy(r.Response.RawWriter(), f)
+		return
+	}
+	if len(body) == 0 {
 		r.Response.WriteStatus(404, "合同尚未生成")
 		return
 	}
 	r.Response.Header().Set("Content-Type", "text/html; charset=utf-8")
-	r.Response.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.html"`, row.ContractNo))
-	r.Response.Write(row.SignedHtml)
+	r.Response.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.html"`, contractNo))
+	r.Response.Write(body)
 }
 
 func pdfStatusText(s int) string {

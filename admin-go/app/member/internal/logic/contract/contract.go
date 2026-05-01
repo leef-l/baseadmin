@@ -1,17 +1,17 @@
-// Package contract 合同模板渲染 + 签署 + 异步生成。
+// Package contract 合同模板渲染 + 签署 + 异步生成 PDF。
 //
-// 当前 PDF 生成方案：把签署后的 HTML（含手写签名 PNG）落盘到 contractStorageDir。
-// 客户端打开后可用浏览器"打印 → 另存为 PDF"或"分享"得到正式 PDF；
-// 服务端只需保存 HTML，下载接口直接流式回吐文件。
+// PDF 生成方案：用 headless Chromium 命令行（--headless --print-to-pdf）将签署后的 HTML
+// 渲染为 PDF。Chromium 二进制路径默认 ungoogled-chromium / chromium / google-chrome 自动探测，
+// 也可通过 member.contractChromiumPath 显式指定。
 //
-// 后续如需服务端直接生成 PDF，可切到 chromedp 或 wkhtmltopdf，
-// 仅需替换 generatePDF() 内部实现，对接调用方零变更。
+// 渲染失败时降级保存 HTML 文件并标记 PDF 状态为失败，前端可仍下载 HTML（浏览器打印 → PDF）。
 package contract
 
 import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -140,6 +140,41 @@ func pickTemplate(ctx context.Context, templateID int64, contractType string) (*
 	return &tpl, nil
 }
 
+// GetDownload 返回合同下载所需信息（优先 pdf_path 是 .pdf 时返回 PDF 流；否则返回 signed_html）。
+//
+// userID 传 0 表示后台调用（不校验归属）。
+// 返回值：filePath（磁盘路径，可能 .pdf 或 .html）、contentBytes（filePath 为空时使用）、contractNo、isPDF、err。
+func GetDownload(ctx context.Context, userID, contractID int64) (filePath string, contentBytes []byte, contractNo string, isPDF bool, err error) {
+	cols := dao.MemberContract.Columns()
+	q := dao.MemberContract.Ctx(ctx).
+		Where(cols.Id, contractID).
+		Where(cols.DeletedAt, nil)
+	if userID > 0 {
+		q = q.Where(cols.UserId, userID)
+	}
+	var c entity.MemberContract
+	if err = q.Scan(&c); err != nil {
+		return "", nil, "", false, err
+	}
+	if c.Id == 0 {
+		return "", nil, "", false, gerror.New("合同不存在")
+	}
+	contractNo = c.ContractNo
+	// PDF 已就绪
+	if strings.HasSuffix(c.PdfPath, ".pdf") {
+		if _, statErr := os.Stat(c.PdfPath); statErr == nil {
+			return c.PdfPath, nil, contractNo, true, nil
+		}
+	}
+	// 否则降级到 HTML 文件 / signed_html
+	if strings.HasSuffix(c.PdfPath, ".html") {
+		if _, statErr := os.Stat(c.PdfPath); statErr == nil {
+			return c.PdfPath, nil, contractNo, false, nil
+		}
+	}
+	return "", []byte(c.SignedHtml), contractNo, false, nil
+}
+
 // GetSignedHTML 返回合同 signed_html（用于 download / 预览）。
 func GetSignedHTML(ctx context.Context, userID int64, contractID int64) (htmlContent string, contractNo string, err error) {
 	cols := dao.MemberContract.Columns()
@@ -240,9 +275,15 @@ func htmlEscape(s string) string {
 	return r.Replace(s)
 }
 
-// doGeneratePDFAsync 异步把 signed_html 写到磁盘文件。
-// 当前实现：写为 .html 文件，前端下载后用浏览器查看 / 打印为 PDF。
-// 占位符：未来可替换为 chromedp/wkhtmltopdf 真实 PDF 生成。
+// doGeneratePDFAsync 异步用 headless Chromium 把 signed_html 渲染成 PDF。
+//
+// 流程：
+//  1. 把 signed_html 写到 storageDir/{contractNo}.html
+//  2. 调 chromium --headless --print-to-pdf={contractNo}.pdf 渲染
+//  3. 渲染成功 → pdf_path 指向 .pdf；失败 → pdf_path 指向 .html，标记 PDFStatusFailed
+//
+// Chromium 命令使用 --no-pdf-header-footer 去掉默认页眉页脚；--virtual-time-budget 等待资源加载；
+// --no-sandbox 让 root 可运行（生产环境若不用 root 可移除）。
 func doGeneratePDFAsync(contractID int64, signedHTML, contractNo string) {
 	ctx := context.Background()
 	dir := storageDir()
@@ -250,22 +291,98 @@ func doGeneratePDFAsync(contractID int64, signedHTML, contractNo string) {
 		markPDFFailed(ctx, contractID, err)
 		return
 	}
-	filename := contractNo + ".html"
-	fullPath := filepath.Join(dir, filename)
-	if err := os.WriteFile(fullPath, []byte(signedHTML), 0o644); err != nil {
+	htmlPath := filepath.Join(dir, contractNo+".html")
+	if err := os.WriteFile(htmlPath, []byte(signedHTML), 0o644); err != nil {
 		markPDFFailed(ctx, contractID, err)
 		return
 	}
+
 	cols := dao.MemberContract.Columns()
+	pdfPath := filepath.Join(dir, contractNo+".pdf")
+
+	if err := renderHTMLToPDF(ctx, htmlPath, pdfPath); err != nil {
+		// PDF 渲染失败，保留 HTML 作为兜底
+		_, _ = dao.MemberContract.Ctx(ctx).
+			Where(cols.Id, contractID).
+			Data(g.Map{
+				cols.PdfStatus: PDFStatusFailed,
+				cols.PdfPath:   htmlPath,
+				cols.PdfError:  "PDF 渲染失败：" + err.Error(),
+			}).Update()
+		g.Log().Errorf(ctx, "[contract] render pdf failed id=%d err=%v", contractID, err)
+		return
+	}
+
+	// 渲染成功后可以删掉中间 html，只保留 pdf；这里保留 html 便于排查。
 	if _, err := dao.MemberContract.Ctx(ctx).
 		Where(cols.Id, contractID).
 		Data(g.Map{
 			cols.PdfStatus: PDFStatusReady,
-			cols.PdfPath:   fullPath,
+			cols.PdfPath:   pdfPath,
 			cols.PdfError:  "",
 		}).Update(); err != nil {
 		g.Log().Errorf(ctx, "[contract] update pdf path err id=%d err=%v", contractID, err)
 	}
+}
+
+// renderHTMLToPDF 调 Chromium 命令行渲染 PDF。
+func renderHTMLToPDF(ctx context.Context, htmlPath, pdfPath string) error {
+	bin, err := resolveChromiumBinary(ctx)
+	if err != nil {
+		return err
+	}
+	args := []string{
+		"--headless=new",
+		"--no-sandbox",
+		"--disable-gpu",
+		"--disable-dev-shm-usage",
+		"--no-pdf-header-footer",
+		"--virtual-time-budget=2000",
+		"--print-to-pdf=" + pdfPath,
+		"file://" + htmlPath,
+	}
+	cmd := exec.Command(bin, args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("chromium 渲染失败: %w (output=%s)", err, truncate(string(out), 400))
+	}
+	stat, err := os.Stat(pdfPath)
+	if err != nil {
+		return fmt.Errorf("PDF 输出文件不存在: %w (output=%s)", err, truncate(string(out), 400))
+	}
+	if stat.Size() == 0 {
+		return fmt.Errorf("PDF 输出文件为空 (output=%s)", truncate(string(out), 400))
+	}
+	return nil
+}
+
+// resolveChromiumBinary 找到 chromium 可执行文件。
+// 优先级：member.contractChromiumPath > $PATH 探测。
+func resolveChromiumBinary(ctx context.Context) (string, error) {
+	v := strings.TrimSpace(g.Cfg().MustGet(ctx, "member.contractChromiumPath").String())
+	if v != "" {
+		return v, nil
+	}
+	candidates := []string{
+		"ungoogled-chromium",
+		"chromium",
+		"chromium-browser",
+		"google-chrome",
+		"google-chrome-stable",
+	}
+	for _, c := range candidates {
+		if path, err := exec.LookPath(c); err == nil {
+			return path, nil
+		}
+	}
+	return "", gerror.New("未找到 chromium 二进制（请安装 chromium 或在 member.contractChromiumPath 配置路径）")
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "...(truncated)"
 }
 
 func markPDFFailed(ctx context.Context, contractID int64, err error) {
