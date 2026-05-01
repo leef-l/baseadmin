@@ -5,6 +5,7 @@ import (
 
 	_ "gbaseadmin/app/member/internal/logic/level"
 	_ "gbaseadmin/app/member/internal/logic/level_log"
+	_ "gbaseadmin/app/member/internal/logic/portal"
 	_ "gbaseadmin/app/member/internal/logic/rebind_log"
 	_ "gbaseadmin/app/member/internal/logic/shop_category"
 	_ "gbaseadmin/app/member/internal/logic/shop_goods"

@@ -25,8 +25,11 @@ redis:
     db: 0
 
 # JWT 配置
+# - secret 是后台 token 密钥（system/upload 同源），≥32 字符
+# - memberSecret 是 C 端会员 token 密钥，必须与后台分离避免互通
 jwt:
-  secret: "change_me"
+  secret: "change_me_at_least_32_chars_long_secret_xxxxxx"
+  memberSecret: "change_me_member_secret_at_least_32_chars_long_xxxx"
   expire: 24
 
 # 应用间票据互通配置
@@ -34,3 +37,32 @@ sso:
   appId: "gbaseadmin-admin"
   sharedKey: "change_me_shared_sso_key"
   ticketExpireSeconds: 60
+
+# 短信验证码（C 端注册 / 找回密码 / 修改手机号）
+# - 默认走 mock 通道，固定验证码 123456，仅供本地联调；生产必须改成 aliyun
+# - codeExpireSeconds 验证码有效期；limitSeconds 同手机号同场景重发间隔；verifyMaxAttempts 校验最大错误次数
+sms:
+  provider: "mock"
+  codeExpireSeconds: 300
+  limitSeconds: 60
+  verifyMaxAttempts: 5
+  providers:
+    mock:
+      kind: "mock"
+      fixedCode: "123456"
+    aliyun:
+      kind: "aliyun"
+      region: "cn-hangzhou"
+      accessKeyId: ""
+      accessKeySecret: ""
+      signName: ""
+      templateCode: ""
+
+# 会员业务配置
+# - h5BaseURL 用于生成邀请链接 / 二维码内容（H5 SPA 部署后可改）
+# - inviteCodeLength 邀请码长度（8 位 base32 已够大）
+# - registerRequireInviteCode 注册是否必须填邀请码（true 表示找不到上级则拒绝注册）
+member:
+  h5BaseURL: "https://funddisk.easytestdev.online/h5"
+  inviteCodeLength: 8
+  registerRequireInviteCode: true
