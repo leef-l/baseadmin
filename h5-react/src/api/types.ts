@@ -36,6 +36,18 @@ export interface MeProfile {
   activeCount: number;
   teamTurnover: number;
   inviteUrl: string;
+  dailyPurchaseLimit: number;
+  todayPurchaseCount: number;
+  totalPurchaseCount: number;
+}
+
+export interface PortalBizConfig {
+  purchaseStart: string;
+  purchaseEnd: string;
+  purchaseDays: number[];
+  consignStart: string;
+  consignEnd: string | null;
+  serverTimestamp: number;
 }
 
 export interface WalletInfo {

@@ -7,6 +7,7 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gcmd"
 
+	"gbaseadmin/app/member/internal/controller/biz_config"
 	"gbaseadmin/app/member/internal/controller/level"
 	"gbaseadmin/app/member/internal/controller/level_log"
 	"gbaseadmin/app/member/internal/controller/portal"
@@ -44,6 +45,7 @@ var (
 				group.Group("/api/member", func(group *ghttp.RouterGroup) {
 					group.Middleware(middleware.Auth)
 					group.Bind(
+						biz_config.BizConfig,
 						level.Level,
 						level_log.LevelLog,
 						rebind_log.RebindLog,
@@ -70,6 +72,7 @@ var (
 						portal.Auth,
 					)
 					// 公开浏览（不强制登录）
+					group.Bind(portal.BizConfig)
 					group.GET("/mall/categories", portal.Mall.Categories)
 					group.GET("/mall/goods", portal.Mall.Goods)
 					group.GET("/mall/goods/detail", portal.Mall.GoodsDetail)

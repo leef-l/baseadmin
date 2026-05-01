@@ -28,8 +28,11 @@ type MeProfileRes struct {
 	TeamCount     int    `json:"teamCount"`
 	DirectCount   int    `json:"directCount"`
 	ActiveCount   int    `json:"activeCount"`
-	TeamTurnover  int64  `json:"teamTurnover" dc:"团队总营业额（分）"`
-	InviteURL     string `json:"inviteUrl" dc:"邀请链接（含邀请码参数）"`
+	TeamTurnover       int64  `json:"teamTurnover" dc:"团队总营业额（分）"`
+	InviteURL          string `json:"inviteUrl" dc:"邀请链接（含邀请码参数）"`
+	DailyPurchaseLimit int    `json:"dailyPurchaseLimit" dc:"每日限购单数"`
+	TodayPurchaseCount int    `json:"todayPurchaseCount" dc:"今日已购单数"`
+	TotalPurchaseCount int    `json:"totalPurchaseCount" dc:"历史累计购单数"`
 }
 
 // ----- 修改资料 -----

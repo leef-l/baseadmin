@@ -12,7 +12,7 @@ gfcli:
   gen:
     dao:
       - link: "mysql:sql_funddisk_easytestdev_online:daa5129899a218@tcp(127.0.0.1:3306)/sql_funddisk_easytestdev_online?charset=utf8mb4"
-        tables: "member_level,member_level_log,member_rebind_log,member_shop_category,member_shop_goods,member_shop_order,member_team_export,member_user,member_wallet,member_wallet_log,member_warehouse_goods,member_warehouse_listing,member_warehouse_trade"
+        tables: "member_business_config,member_level,member_level_log,member_rebind_log,member_shop_category,member_shop_goods,member_shop_order,member_team_export,member_user,member_wallet,member_wallet_log,member_warehouse_goods,member_warehouse_listing,member_warehouse_trade"
         descriptionTag: true
         noJsonTag: true
         noModelComment: false

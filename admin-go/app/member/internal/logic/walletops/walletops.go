@@ -33,12 +33,15 @@ const (
 
 // Change 类型常量（与 member_wallet_log.change_type 取值一致）。
 const (
-	ChangeTypeRecharge  = 1 // 充值
-	ChangeTypeConsume   = 2 // 消费（商城下单）
-	ChangeTypePromote   = 3 // 推广奖
-	ChangeTypeWHIncome  = 4 // 仓库卖出收入（卖家奖金）
-	ChangeTypeFee       = 5 // 平台扣除
-	ChangeTypeAdjust    = 6 // 后台调整
+	ChangeTypeRecharge            = 1  // 充值
+	ChangeTypeConsume             = 2  // 消费（商城下单）
+	ChangeTypePromote             = 3  // 推广奖
+	ChangeTypeWHIncome            = 4  // 仓库卖出收入（卖家奖金）
+	ChangeTypeFee                 = 5  // 平台扣除
+	ChangeTypeAdjust              = 6  // 后台调整
+	ChangeTypeSelfRebateTier      = 11 // 自购阶梯返（如第 2/3/4 单 88/188/288）
+	ChangeTypeSelfTurnoverReward  = 12 // 自购按金额比例返奖励钱包
+	ChangeTypeDirectPromoteReward = 13 // 直推下级进货按金额比例返推广钱包
 )
 
 // MoveInput 描述一次钱包变动。

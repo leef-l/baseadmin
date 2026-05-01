@@ -3,6 +3,7 @@ package portal
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
@@ -10,6 +11,7 @@ import (
 	"github.com/gogf/gf/v2/os/gtime"
 
 	"gbaseadmin/app/member/internal/dao"
+	"gbaseadmin/app/member/internal/logic/bizconfig"
 	"gbaseadmin/app/member/internal/logic/teamops"
 	"gbaseadmin/app/member/internal/logic/walletops"
 	"gbaseadmin/app/member/internal/model/do"
@@ -65,10 +67,18 @@ func (s *sPortalAuth) ListWarehouseGoods(ctx context.Context, in *ListWarehouseG
 		return nil, gerror.New("商品 ID 不能为空")
 	}
 
+	cfg, err := bizconfig.GetCachedConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if ok, msg := cfg.IsConsignAllowed(time.Now()); !ok {
+		return nil, gerror.New(msg)
+	}
+
 	listingID := snowflake.Generate()
 	var listingPrice int64
 
-	err := g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		// 1. 锁商品行
 		var goods entity.MemberWarehouseGoods
 		if err := tx.Model(dao.MemberWarehouseGoods.Table()).Ctx(ctx).
@@ -165,6 +175,14 @@ func (s *sPortalAuth) PlaceWarehouseTrade(ctx context.Context, in *PlaceWarehous
 		return nil, gerror.New("挂卖记录不存在")
 	}
 
+	cfg, err := bizconfig.GetCachedConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if ok, msg := cfg.IsConsignAllowed(time.Now()); !ok {
+		return nil, gerror.New(msg)
+	}
+
 	// 校验买家资格（不在事务内，资格短时间不变）
 	var buyer entity.MemberUser
 	if err := dao.MemberUser.Ctx(ctx).
@@ -186,7 +204,7 @@ func (s *sPortalAuth) PlaceWarehouseTrade(ctx context.Context, in *PlaceWarehous
 	tradeID := snowflake.Generate()
 	tradeNo := fmt.Sprintf("W%d", int64(tradeID))
 
-	err := g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	err = g.DB().Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		// 1. 锁挂卖记录
 		var listing entity.MemberWarehouseListing
 		if err := tx.Model(dao.MemberWarehouseListing.Table()).Ctx(ctx).

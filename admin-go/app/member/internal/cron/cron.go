@@ -5,6 +5,7 @@
 // 当前注册的任务：
 //   - 每天 01:30 扫描会员等级过期，把 is_qualified 置 0
 //   - 每小时一次轻量补偿：补充再次校验过期（防止跨日未扫到）
+//   - 每天 00:05 把 today_purchase_count 全部清零（兜底；下单时也会按日期懒重置）
 package cron
 
 import (
@@ -13,6 +14,7 @@ import (
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gcron"
 
+	"gbaseadmin/app/member/internal/dao"
 	"gbaseadmin/app/member/internal/logic/teamops"
 )
 
@@ -41,6 +43,24 @@ func Setup(ctx context.Context) error {
 			g.Log().Infof(ctx, "[cron] hourly compensate processed=%d", count)
 		}
 	}, "member.scan_expired_levels.hourly"); err != nil {
+		return err
+	}
+
+	// 每天 00:05 重置 today_purchase_count；下单时也会按日期懒重置，此处是兜底。
+	if _, err := gcron.AddSingleton(ctx, "0 5 0 * * *", func(ctx context.Context) {
+		cols := dao.MemberUser.Columns()
+		r, err := dao.MemberUser.Ctx(ctx).
+			Where(cols.DeletedAt, nil).
+			Where(cols.TodayPurchaseCount+" > 0").
+			Data(g.Map{cols.TodayPurchaseCount: 0}).
+			Update()
+		if err != nil {
+			g.Log().Errorf(ctx, "[cron] reset today_purchase_count err=%v", err)
+			return
+		}
+		affected, _ := r.RowsAffected()
+		g.Log().Infof(ctx, "[cron] reset today_purchase_count affected=%d", affected)
+	}, "member.reset_today_purchase_count"); err != nil {
 		return err
 	}
 

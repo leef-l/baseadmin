@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { mallApi } from '@/api/mall';
 import { MallCategory, MallGoods } from '@/api/types';
+import { formatCountdown, usePurchaseWindow } from '@/hooks/usePurchaseWindow';
 
 export default function MallList() {
   const [categories, setCategories] = useState<MallCategory[]>([]);
@@ -12,6 +13,7 @@ export default function MallList() {
   const [pageNum, setPageNum] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const nav = useNavigate();
+  const window = usePurchaseWindow();
 
   useEffect(() => {
     mallApi.categories().then((r) => setCategories(r.list || []));
@@ -50,6 +52,31 @@ export default function MallList() {
     <div className="bg-[#f5f5f7] min-h-screen">
       <div className="bg-white px-3 pt-3 pb-2 sticky top-0 z-30">
         <SearchBar placeholder="搜索商品" value={keyword} onChange={setKeyword} />
+        {window.cfg && (
+          <div
+            className={`mt-2 text-xs px-3 py-1.5 rounded-lg ${
+              window.isInWindow ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'
+            }`}
+          >
+            {window.isInWindow ? (
+              <>
+                进货中（{window.cfg.purchaseStart}~{window.cfg.purchaseEnd}） · 距结束{' '}
+                <b>{formatCountdown(window.countdownSeconds)}</b>
+              </>
+            ) : (
+              <>
+                进货时间 {window.cfg.purchaseStart}~{window.cfg.purchaseEnd}
+                {window.countdownSeconds > 0 && (
+                  <>
+                    {' '}
+                    · <b>{formatCountdown(window.countdownSeconds)}</b> 后开放
+                  </>
+                )}
+                {!window.countdownSeconds && <> · {window.reason}</>}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex">

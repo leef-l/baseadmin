@@ -8,7 +8,6 @@ import { useAuth } from '@/stores/auth';
 export default function Profile() {
   const [profile, setProfile] = useState<MeProfile | null>(null);
   const [nickname, setNickname] = useState('');
-  const [avatar, setAvatar] = useState('');
   const [realName, setRealName] = useState('');
   const [loading, setLoading] = useState(false);
   const setUser = useAuth((s) => s.setUser);
@@ -17,7 +16,6 @@ export default function Profile() {
     meApi.profile().then((p) => {
       setProfile(p);
       setNickname(p.nickname);
-      setAvatar(p.avatar);
       setRealName(p.realName);
     });
   }, []);
@@ -25,13 +23,13 @@ export default function Profile() {
   const submit = async () => {
     setLoading(true);
     try {
-      await meApi.update({ nickname, avatar, realName });
+      await meApi.update({ nickname, realName });
       Toast.show({ icon: 'success', content: '已保存' });
       setUser({
         userID: profile?.memberId || '',
         phone: profile?.phone,
         nickname,
-        avatar,
+        avatar: profile?.avatar,
         inviteCode: profile?.inviteCode,
         levelName: profile?.levelName,
         isQualified: profile?.isQualified,
@@ -48,9 +46,6 @@ export default function Profile() {
         <Form layout="vertical">
           <Form.Item label="昵称">
             <Input value={nickname} onChange={setNickname} clearable />
-          </Form.Item>
-          <Form.Item label="头像 URL">
-            <Input value={avatar} onChange={setAvatar} placeholder="可粘贴 OSS 图片地址" clearable />
           </Form.Item>
           <Form.Item label="真实姓名">
             <Input value={realName} onChange={setRealName} clearable />

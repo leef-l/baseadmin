@@ -3,18 +3,23 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import PageHeader from '@/components/layout/PageHeader';
 import { mallApi } from '@/api/mall';
-import { MallGoodsDetail } from '@/api/types';
+import { meApi } from '@/api/me';
+import { MallGoodsDetail, MeProfile } from '@/api/types';
+import { formatCountdown, usePurchaseWindow } from '@/hooks/usePurchaseWindow';
 
 export default function MallDetail() {
   const { id } = useParams();
   const [detail, setDetail] = useState<MallGoodsDetail | null>(null);
+  const [profile, setProfile] = useState<MeProfile | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const nav = useNavigate();
+  const window = usePurchaseWindow();
 
   useEffect(() => {
     if (!id) return;
     mallApi.detail(id).then(setDetail);
+    meApi.profile().then(setProfile).catch(() => {});
   }, [id]);
 
   if (!detail) {
@@ -28,7 +33,22 @@ export default function MallDetail() {
 
   const images = detail.images?.length ? detail.images : [detail.cover];
 
+  const remaining = profile
+    ? Math.max(0, profile.dailyPurchaseLimit - profile.todayPurchaseCount)
+    : null;
+
+  const canBuy = window.isInWindow && (remaining === null || remaining > 0);
+  const blockReason = !window.isInWindow
+    ? window.reason
+    : remaining === 0
+    ? `今日限购已用完（${profile?.todayPurchaseCount}/${profile?.dailyPurchaseLimit}）`
+    : '';
+
   const placeOrder = async () => {
+    if (!canBuy) {
+      Toast.show({ icon: 'fail', content: blockReason });
+      return;
+    }
     const ok = await Dialog.confirm({
       content: (
         <div>
@@ -82,6 +102,31 @@ export default function MallDetail() {
         </div>
       </div>
 
+      <div className="bg-white p-4 mt-2 text-sm">
+        {window.cfg && (
+          <div className="flex items-center justify-between">
+            <span>进货时间</span>
+            <span className={window.isInWindow ? 'text-green-600 font-medium' : 'text-gray-500'}>
+              {window.cfg.purchaseStart} ~ {window.cfg.purchaseEnd}
+              {window.isInWindow && (
+                <span className="ml-2">距结束 {formatCountdown(window.countdownSeconds)}</span>
+              )}
+              {!window.isInWindow && window.countdownSeconds > 0 && (
+                <span className="ml-2 text-primary">{formatCountdown(window.countdownSeconds)} 后开放</span>
+              )}
+            </span>
+          </div>
+        )}
+        {profile && (
+          <div className="flex items-center justify-between mt-2">
+            <span>今日剩余</span>
+            <span className="text-primary font-bold">
+              {remaining}/{profile.dailyPurchaseLimit} 单
+            </span>
+          </div>
+        )}
+      </div>
+
       <div className="bg-white p-4 mt-2">
         <div className="flex items-center justify-between">
           <span className="text-sm">购买数量</span>
@@ -95,20 +140,24 @@ export default function MallDetail() {
       </div>
 
       <div
-        className="fixed bottom-0 left-0 right-0 bg-white p-3 flex gap-2"
+        className="fixed bottom-0 left-0 right-0 bg-white p-3 flex flex-col gap-1"
         style={{
           borderTop: '1px solid #f0f0f0',
           paddingBottom: 'calc(12px + env(safe-area-inset-bottom))',
         }}
       >
+        {!canBuy && blockReason && (
+          <div className="text-center text-xs text-gray-500 pb-1">{blockReason}</div>
+        )}
         <Button
           color="primary"
           fill="solid"
           loading={submitting}
+          disabled={!canBuy}
           onClick={placeOrder}
           style={{ flex: 1, borderRadius: 999 }}
         >
-          立即购买（优惠券支付）
+          {canBuy ? '立即购买（优惠券支付）' : '当前不可购买'}
         </Button>
       </div>
     </div>

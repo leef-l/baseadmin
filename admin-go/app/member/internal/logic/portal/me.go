@@ -52,48 +52,63 @@ func (s *sPortalAuth) GetMyProfile(ctx context.Context, userID int64) (*MyProfil
 		expireAt = u.LevelExpireAt.String()
 	}
 
+	todayCount := int(u.TodayPurchaseCount)
+	if u.LastPurchaseDate != nil && !u.LastPurchaseDate.IsZero() {
+		if u.LastPurchaseDate.Format("Y-m-d") != gtime.Now().Format("Y-m-d") {
+			todayCount = 0
+		}
+	} else {
+		todayCount = 0
+	}
+
 	return &MyProfile{
-		MemberID:      fmt.Sprintf("%d", u.Id),
-		Phone:         u.Phone,
-		Username:      u.Username,
-		Nickname:      u.Nickname,
-		Avatar:        u.Avatar,
-		RealName:      u.RealName,
-		InviteCode:    u.InviteCode,
-		ParentID:      fmt.Sprintf("%d", u.ParentId),
-		LevelID:       fmt.Sprintf("%d", u.LevelId),
-		LevelName:     levelName,
-		LevelExpireAt: expireAt,
-		IsActive:      u.IsActive,
-		IsQualified:   u.IsQualified,
-		TeamCount:     int(u.TeamCount),
-		DirectCount:   int(u.DirectCount),
-		ActiveCount:   int(u.ActiveCount),
-		TeamTurnover:  int64(u.TeamTurnover),
-		InviteURL:     buildInviteURL(ctx, u.InviteCode),
+		MemberID:           fmt.Sprintf("%d", u.Id),
+		Phone:              u.Phone,
+		Username:           u.Username,
+		Nickname:           u.Nickname,
+		Avatar:             u.Avatar,
+		RealName:           u.RealName,
+		InviteCode:         u.InviteCode,
+		ParentID:           fmt.Sprintf("%d", u.ParentId),
+		LevelID:            fmt.Sprintf("%d", u.LevelId),
+		LevelName:          levelName,
+		LevelExpireAt:      expireAt,
+		IsActive:           u.IsActive,
+		IsQualified:        u.IsQualified,
+		TeamCount:          int(u.TeamCount),
+		DirectCount:        int(u.DirectCount),
+		ActiveCount:        int(u.ActiveCount),
+		TeamTurnover:       int64(u.TeamTurnover),
+		InviteURL:          buildInviteURL(ctx, u.InviteCode),
+		DailyPurchaseLimit: int(u.DailyPurchaseLimit),
+		TodayPurchaseCount: todayCount,
+		TotalPurchaseCount: int(u.TotalPurchaseCount),
 	}, nil
 }
 
 // MyProfile 返回值（不与 api v1 耦合，由 controller 转换）。
 type MyProfile struct {
-	MemberID      string
-	Phone         string
-	Username      string
-	Nickname      string
-	Avatar        string
-	RealName      string
-	InviteCode    string
-	ParentID      string
-	LevelID       string
-	LevelName     string
-	LevelExpireAt string
-	IsActive      int
-	IsQualified   int
-	TeamCount     int
-	DirectCount   int
-	ActiveCount   int
-	TeamTurnover  int64
-	InviteURL     string
+	MemberID           string
+	Phone              string
+	Username           string
+	Nickname           string
+	Avatar             string
+	RealName           string
+	InviteCode         string
+	ParentID           string
+	LevelID            string
+	LevelName          string
+	LevelExpireAt      string
+	IsActive           int
+	IsQualified        int
+	TeamCount          int
+	DirectCount        int
+	ActiveCount        int
+	TeamTurnover       int64
+	InviteURL          string
+	DailyPurchaseLimit int
+	TodayPurchaseCount int
+	TotalPurchaseCount int
 }
 
 // ----- Update profile -----
@@ -595,6 +610,12 @@ func changeTypeText(t int) string {
 		return "平台扣除"
 	case walletops.ChangeTypeAdjust:
 		return "后台调整"
+	case walletops.ChangeTypeSelfRebateTier:
+		return "自购阶梯奖励"
+	case walletops.ChangeTypeSelfTurnoverReward:
+		return "自购返奖"
+	case walletops.ChangeTypeDirectPromoteReward:
+		return "直推返奖"
 	}
 	return "其它"
 }
