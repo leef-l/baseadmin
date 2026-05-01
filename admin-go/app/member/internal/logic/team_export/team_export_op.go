@@ -62,51 +62,26 @@ type ExportOutput struct {
 	MemberCount int
 }
 
-// Export 触发一次团队数据导出。
+// 导出任务 deploy_status 复用语义：
+//   0=排队  1=运行中  2=完成（可下载）  3=失败
+// 这是为了不引入新字段。前端展示时按导出场景翻译为"排队/导出中/已就绪/失败"。
+
+// Export 立即创建一条 member_team_export 记录（deploy_status=0 排队），并启动异步任务执行真实导出。
+// 业务调用方拿到 ExportID 后用 GetExport(ctx, id) 轮询状态，状态=2 时调 download 接口拿文件。
 func Export(ctx context.Context, in *ExportInput) (*ExportOutput, error) {
 	if in == nil || in.UserID <= 0 {
 		return nil, gerror.New("目标会员 ID 不能为空")
 	}
 
-	// 1. 递归收集子树
-	subtree, err := collectSubtreeIDs(ctx, in.UserID)
-	if err != nil {
-		return nil, err
-	}
-	if len(subtree) == 0 {
-		return nil, gerror.New("目标会员不存在")
-	}
-
-	// 2. 生成 SQL 包
-	sqlText, err := buildSQLDump(ctx, subtree)
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. 写入文件 + gzip
-	exportRoot := getExportRoot(ctx)
-	if err := os.MkdirAll(exportRoot, 0o755); err != nil {
-		return nil, fmt.Errorf("创建导出目录失败: %w", err)
-	}
-	ts := time.Now().Format("20060102-150405")
-	fileName := fmt.Sprintf("%d-%s.sql.gz", in.UserID, ts)
-	fullPath := filepath.Join(exportRoot, fileName)
-	fileSize, err := writeGzipFile(fullPath, sqlText)
-	if err != nil {
-		return nil, err
-	}
-
-	// 4. 写入 member_team_export
 	exportID := snowflake.Generate()
 	now := gtime.Now()
-	relativeURL := "/team-export/" + fileName
 	if _, err := dao.MemberTeamExport.Ctx(ctx).Data(do.MemberTeamExport{
 		Id:              exportID,
 		UserId:          in.UserID,
-		TeamMemberCount: len(subtree),
+		TeamMemberCount: 0,
 		ExportType:      normalizeExportType(in.ExportType),
-		FileUrl:         relativeURL,
-		FileSize:        fileSize,
+		FileUrl:         "",
+		FileSize:        0,
 		DeployStatus:    deployStatusInit,
 		Status:          1,
 		Remark:          strings.TrimSpace(in.Remark),
@@ -115,20 +90,104 @@ func Export(ctx context.Context, in *ExportInput) (*ExportOutput, error) {
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}).Insert(); err != nil {
-		// 失败时清理已生成的文件
-		_ = os.Remove(fullPath)
 		return nil, err
 	}
 
-	g.Log().Infof(ctx, "[team_export] export done user=%d size=%d members=%d file=%s",
-		in.UserID, fileSize, len(subtree), relativeURL)
+	exportRoot := getExportRoot(ctx)
+	go runExportAsync(int64(exportID), in.UserID, exportRoot)
 
 	return &ExportOutput{
 		ExportID:    fmt.Sprintf("%d", int64(exportID)),
-		FileURL:     relativeURL,
-		FileSize:    fileSize,
-		MemberCount: len(subtree),
+		FileURL:     "",
+		FileSize:    0,
+		MemberCount: 0,
 	}, nil
+}
+
+// runExportAsync 后台异步生成 SQL 文件并更新记录。
+func runExportAsync(exportID, userID int64, exportRoot string) {
+	ctx := context.Background()
+	cols := dao.MemberTeamExport.Columns()
+
+	// 标记运行中
+	_, _ = dao.MemberTeamExport.Ctx(ctx).
+		Where(cols.Id, exportID).
+		Data(g.Map{cols.DeployStatus: deployStatusRunning}).Update()
+
+	subtree, err := collectSubtreeIDs(ctx, userID)
+	if err != nil {
+		markExportFailed(ctx, exportID, err)
+		return
+	}
+	if len(subtree) == 0 {
+		markExportFailed(ctx, exportID, gerror.New("目标会员不存在"))
+		return
+	}
+
+	sqlText, err := buildSQLDump(ctx, subtree)
+	if err != nil {
+		markExportFailed(ctx, exportID, err)
+		return
+	}
+
+	if err := os.MkdirAll(exportRoot, 0o755); err != nil {
+		markExportFailed(ctx, exportID, fmt.Errorf("创建导出目录失败: %w", err))
+		return
+	}
+	ts := time.Now().Format("20060102-150405")
+	fileName := fmt.Sprintf("%d-%s.sql.gz", userID, ts)
+	fullPath := filepath.Join(exportRoot, fileName)
+	fileSize, err := writeGzipFile(fullPath, sqlText)
+	if err != nil {
+		markExportFailed(ctx, exportID, err)
+		return
+	}
+
+	relativeURL := "/team-export/" + fileName
+	if _, err := dao.MemberTeamExport.Ctx(ctx).
+		Where(cols.Id, exportID).
+		Data(g.Map{
+			cols.FileUrl:         relativeURL,
+			cols.FileSize:        fileSize,
+			cols.TeamMemberCount: len(subtree),
+			cols.DeployStatus:    deployStatusDone,
+		}).Update(); err != nil {
+		g.Log().Errorf(ctx, "[team_export] update record err id=%d err=%v", exportID, err)
+		return
+	}
+	g.Log().Infof(ctx, "[team_export] export done user=%d size=%d members=%d file=%s",
+		userID, fileSize, len(subtree), relativeURL)
+}
+
+func markExportFailed(ctx context.Context, exportID int64, e error) {
+	cols := dao.MemberTeamExport.Columns()
+	_, _ = dao.MemberTeamExport.Ctx(ctx).
+		Where(cols.Id, exportID).
+		Data(g.Map{
+			cols.DeployStatus: deployStatusFailed,
+			cols.Remark:       "导出失败：" + e.Error(),
+		}).Update()
+	g.Log().Errorf(ctx, "[team_export] failed id=%d err=%v", exportID, e)
+}
+
+// GetExport 查询导出状态（前端轮询）。
+func GetExport(ctx context.Context, exportID int64) (status int, fileURL string, fileSize int64, members int, err error) {
+	cols := dao.MemberTeamExport.Columns()
+	row, err := dao.MemberTeamExport.Ctx(ctx).
+		Where(cols.Id, exportID).
+		Where(cols.DeletedAt, nil).
+		One()
+	if err != nil {
+		return 0, "", 0, 0, err
+	}
+	if row.IsEmpty() {
+		return 0, "", 0, 0, gerror.New("导出记录不存在")
+	}
+	return row[cols.DeployStatus].Int(),
+		row[cols.FileUrl].String(),
+		row[cols.FileSize].Int64(),
+		row[cols.TeamMemberCount].Int(),
+		nil
 }
 
 // DeployInput 站点裂变部署入参。
@@ -248,7 +307,7 @@ func buildSQLDump(ctx context.Context, ids []int64) (string, error) {
 	sb.WriteString("-- generated_at=" + time.Now().UTC().Format(time.RFC3339) + "\n")
 	sb.WriteString(fmt.Sprintf("-- members=%d\n\n", len(ids)))
 
-	// member_user
+	// member_user（按 id）
 	if err := dumpTable(ctx, &sb, "member_user", "id", ids); err != nil {
 		return "", err
 	}
@@ -256,16 +315,36 @@ func buildSQLDump(ctx context.Context, ids []int64) (string, error) {
 	if err := dumpTable(ctx, &sb, "member_wallet", "user_id", ids); err != nil {
 		return "", err
 	}
-	// member_wallet_log（按 user_id）
+	// member_wallet_log
 	if err := dumpTable(ctx, &sb, "member_wallet_log", "user_id", ids); err != nil {
 		return "", err
 	}
-	// member_shop_order（按 user_id）
+	// member_shop_order
 	if err := dumpTable(ctx, &sb, "member_shop_order", "user_id", ids); err != nil {
+		return "", err
+	}
+	// member_warehouse_goods（按 owner_id）
+	if err := dumpTable(ctx, &sb, "member_warehouse_goods", "owner_id", ids); err != nil {
+		return "", err
+	}
+	// member_warehouse_listing（按 seller_id）
+	if err := dumpTable(ctx, &sb, "member_warehouse_listing", "seller_id", ids); err != nil {
 		return "", err
 	}
 	// member_warehouse_trade（buyer_id 或 seller_id 命中即导）
 	if err := dumpTradeTable(ctx, &sb, ids); err != nil {
+		return "", err
+	}
+	// member_level_log
+	if err := dumpTable(ctx, &sb, "member_level_log", "user_id", ids); err != nil {
+		return "", err
+	}
+	// member_rebind_log
+	if err := dumpTable(ctx, &sb, "member_rebind_log", "user_id", ids); err != nil {
+		return "", err
+	}
+	// member_contract（按 user_id）
+	if err := dumpTable(ctx, &sb, "member_contract", "user_id", ids); err != nil {
 		return "", err
 	}
 	return sb.String(), nil

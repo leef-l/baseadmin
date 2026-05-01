@@ -22,6 +22,8 @@ const ChangePhone = lazy(() => import('@/pages/me/ChangePhone'));
 const InviteShare = lazy(() => import('@/pages/me/InviteShare'));
 const Wallet = lazy(() => import('@/pages/wallet/Wallet'));
 const Team = lazy(() => import('@/pages/team/Team'));
+const SignContract = lazy(() => import('@/pages/contract/SignContract'));
+const MyContracts = lazy(() => import('@/pages/contract/MyContracts'));
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const isAuthed = useAuth((s) => s.isAuthed());
@@ -124,6 +126,22 @@ export default function AppRouter() {
           element={
             <RequireAuth>
               <Team />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/sign-contract"
+          element={
+            <RequireAuth>
+              <SignContract />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/me/contracts"
+          element={
+            <RequireAuth>
+              <MyContracts />
             </RequireAuth>
           }
         />

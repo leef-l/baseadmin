@@ -1,6 +1,7 @@
 import { Avatar, Dialog, List, Toast } from 'antd-mobile';
 import { useEffect, useState } from 'react';
 import {
+  EditSOutline,
   GiftOutline,
   KeyOutline,
   PayCircleOutline,
@@ -12,11 +13,13 @@ import {
 } from 'antd-mobile-icons';
 import { useNavigate } from 'react-router-dom';
 import { meApi } from '@/api/me';
+import { contractApi } from '@/api/contract';
 import { MeProfile } from '@/api/types';
 import { useAuth } from '@/stores/auth';
 
 export default function Me() {
   const [profile, setProfile] = useState<MeProfile | null>(null);
+  const [hasSigned, setHasSigned] = useState<boolean | null>(null);
   const user = useAuth((s) => s.user);
   const setUser = useAuth((s) => s.setUser);
   const clear = useAuth((s) => s.clear);
@@ -35,6 +38,7 @@ export default function Me() {
         isQualified: p.isQualified,
       });
     });
+    contractApi.status('register').then((s) => setHasSigned(s.hasSign)).catch(() => {});
   }, []);
 
   const logout = async () => {
@@ -71,6 +75,18 @@ export default function Me() {
         </div>
       </div>
 
+      {hasSigned === false && (
+        <div
+          className="mx-3 mt-3 p-3 rounded-xl flex items-center gap-2 text-sm"
+          style={{ background: '#fff7e6', color: '#d4880b', border: '1px solid #ffd591' }}
+          onClick={() => nav('/sign-contract?type=register')}
+        >
+          <EditSOutline />
+          <span className="flex-1">您还未签署会员协议，点击立即签署</span>
+          <RightOutline />
+        </div>
+      )}
+
       <div className="m-3">
         <List style={{ '--border-top': 'none', '--border-bottom': 'none', borderRadius: 12 } as any}>
           <List.Item prefix={<UserSetOutline />} arrow={<RightOutline />} onClick={() => nav('/me/profile')}>
@@ -98,6 +114,9 @@ export default function Me() {
           </List.Item>
           <List.Item prefix={<UserContactOutline />} arrow={<RightOutline />} onClick={() => nav('/mall/orders')}>
             我的订单
+          </List.Item>
+          <List.Item prefix={<EditSOutline />} arrow={<RightOutline />} onClick={() => nav('/me/contracts')}>
+            我的合同
           </List.Item>
         </List>
       </div>

@@ -8,6 +8,8 @@ import (
 	"github.com/gogf/gf/v2/os/gcmd"
 
 	"gbaseadmin/app/member/internal/controller/biz_config"
+	"gbaseadmin/app/member/internal/controller/contract"
+	"gbaseadmin/app/member/internal/controller/contract_template"
 	"gbaseadmin/app/member/internal/controller/level"
 	"gbaseadmin/app/member/internal/controller/level_log"
 	"gbaseadmin/app/member/internal/controller/portal"
@@ -46,6 +48,8 @@ var (
 					group.Middleware(middleware.Auth)
 					group.Bind(
 						biz_config.BizConfig,
+						contract.Contract,
+						contract_template.ContractTemplate,
 						level.Level,
 						level_log.LevelLog,
 						rebind_log.RebindLog,
@@ -60,6 +64,8 @@ var (
 						warehouse_listing.WarehouseListing,
 						warehouse_trade.WarehouseTrade,
 					)
+					group.GET("/contract/download", contract.Download)
+					group.GET("/team_export/download", team_export.Download)
 				})
 
 				// C 端 portal 路由：H5 会员账号 JWT。
@@ -73,6 +79,7 @@ var (
 					)
 					// 公开浏览（不强制登录）
 					group.Bind(portal.BizConfig)
+					group.GET("/contract/template", portal.Contract.Template)
 					group.GET("/mall/categories", portal.Mall.Categories)
 					group.GET("/mall/goods", portal.Mall.Goods)
 					group.GET("/mall/goods/detail", portal.Mall.GoodsDetail)
@@ -94,6 +101,11 @@ var (
 						group.POST("/warehouse/trade/place", portal.Warehouse.PlaceTrade)
 						group.POST("/warehouse/trade/confirm", portal.Warehouse.ConfirmTrade)
 						group.GET("/warehouse/my-trades", portal.Warehouse.MyTrades)
+						// 合同受保护：签署、状态、列表、下载
+						group.POST("/contract/sign", portal.Contract.Sign)
+						group.GET("/contract/status", portal.Contract.Status)
+						group.GET("/contract/list", portal.Contract.List)
+						group.GET("/contract/download", portal.DownloadContract)
 					})
 				})
 			})

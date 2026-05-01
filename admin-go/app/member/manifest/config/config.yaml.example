@@ -66,3 +66,5 @@ member:
   h5BaseURL: "https://funddisk.easytestdev.online/h5"
   inviteCodeLength: 8
   registerRequireInviteCode: true
+  # 合同 HTML 落盘路径（异步生成，可被 download 接口流式回吐）
+  contractStorageDir: "./runtime/contracts"

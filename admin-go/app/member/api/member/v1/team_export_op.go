@@ -35,3 +35,20 @@ type TeamExportDeployRes struct {
 	DeployStatus int    `json:"deployStatus"`
 	DeployDomain string `json:"deployDomain"`
 }
+
+// TeamExportStatusReq 查询导出任务状态（异步轮询）。
+type TeamExportStatusReq struct {
+	g.Meta   `path:"/team_export/status" method:"get" tags:"团队数据导出" summary:"导出任务状态"`
+	ExportID snowflake.JsonInt64 `json:"exportId" v:"required"`
+}
+
+// TeamExportStatusRes 状态响应（status: 0=排队 1=运行中 2=已就绪 3=失败）。
+type TeamExportStatusRes struct {
+	g.Meta      `mime:"application/json"`
+	ExportID    string `json:"exportId"`
+	Status      int    `json:"status"`
+	StatusText  string `json:"statusText"`
+	FileURL     string `json:"fileUrl"`
+	FileSize    int64  `json:"fileSize"`
+	MemberCount int    `json:"memberCount"`
+}

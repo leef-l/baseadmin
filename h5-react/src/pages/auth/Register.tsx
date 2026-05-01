@@ -67,7 +67,8 @@ export default function Register() {
         isQualified: r.isQualified,
       });
       Toast.show({ icon: 'success', content: '注册成功' });
-      nav('/', { replace: true });
+      // 注册成功后引导签署会员协议；不签也可继续，去首页
+      nav('/sign-contract?type=register', { replace: true });
     } catch {
       // 全局 toast
     } finally {

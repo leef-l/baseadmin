@@ -28,23 +28,35 @@ var WarehouseGoods = cWarehouseGoods{}
 type cWarehouseGoods struct{}
 
 // Create 创建仓库商品
+//
+// 业务规则：管理员后台手动给指定会员（owner_id）创建持有中的仓库商品。
+//   - 未填 GoodsStatus 时默认 1=持有中
+//   - 未填 CurrentPrice 时回退到 InitPrice，避免出现 0 价导致挂卖价计算异常
 func (c *cWarehouseGoods) Create(ctx context.Context, req *v1.WarehouseGoodsCreateReq) (res *v1.WarehouseGoodsCreateRes, err error) {
+	goodsStatus := req.GoodsStatus
+	if goodsStatus == 0 {
+		goodsStatus = 1
+	}
+	currentPrice := req.CurrentPrice
+	if currentPrice == 0 {
+		currentPrice = req.InitPrice
+	}
 	err = service.WarehouseGoods().Create(ctx, &model.WarehouseGoodsCreateInput{
-		GoodsNo: req.GoodsNo,
-		Title: req.Title,
-		Cover: req.Cover,
-		InitPrice: req.InitPrice,
-		CurrentPrice: req.CurrentPrice,
-		PriceRiseRate: req.PriceRiseRate,
+		GoodsNo:         req.GoodsNo,
+		Title:           req.Title,
+		Cover:           req.Cover,
+		InitPrice:       req.InitPrice,
+		CurrentPrice:    currentPrice,
+		PriceRiseRate:   req.PriceRiseRate,
 		PlatformFeeRate: req.PlatformFeeRate,
-		OwnerID: req.OwnerID,
-		TradeCount: req.TradeCount,
-		GoodsStatus: req.GoodsStatus,
-		Remark: req.Remark,
-		Sort: req.Sort,
-		Status: req.Status,
-		TenantID: req.TenantID,
-		MerchantID: req.MerchantID,
+		OwnerID:         req.OwnerID,
+		TradeCount:      req.TradeCount,
+		GoodsStatus:     goodsStatus,
+		Remark:          req.Remark,
+		Sort:            req.Sort,
+		Status:          req.Status,
+		TenantID:        req.TenantID,
+		MerchantID:      req.MerchantID,
 	})
 	return
 }
