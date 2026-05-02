@@ -211,12 +211,24 @@ fi
 cp -R "$SCRIPT_DIR/database/migrations/." "$DEPLOY_DIR/database/migrations/"
 
 # ---------- 3. 生成配置文件 ----------
+# member 服务额外需要 jwt.memberSecret / redis / sms / member.* 配置块
+# 仅当目标 config.yaml 不存在时才生成；已有配置不覆盖（避免运营手动改的值丢失）
+JWT_MEMBER_SECRET="${JWT_MEMBER_SECRET:-$(openssl rand -hex 32)}"
+REDIS_ADDR="${REDIS_ADDR:-127.0.0.1:6379}"
+REDIS_PASS="${REDIS_PASS:-}"
+REDIS_DB="${REDIS_DB:-0}"
+
 info "生成配置文件..."
 for i in "${!APPS[@]}"; do
   app="${APPS[$i]}"
   port="${PORTS[$i]}"
   db_link="$(get_db_for_app "$app")"
   conf="$DEPLOY_DIR/$app/manifest/config/config.yaml"
+
+  if [ -f "$conf" ]; then
+    info "$app 配置已存在，保留不覆盖: $conf"
+    continue
+  fi
 
   cat > "$conf" <<EOF
 server:
@@ -235,10 +247,50 @@ database:
     debug: false
     charset: "utf8mb4"
 
+redis:
+  default:
+    address: "${REDIS_ADDR}"
+    pass: "${REDIS_PASS}"
+    db: ${REDIS_DB}
+
 jwt:
   secret: "${JWT_SECRET}"
+  memberSecret: "${JWT_MEMBER_SECRET}"
   expire: 24
 EOF
+
+  if [ "$app" = "member" ]; then
+    cat >> "$conf" <<EOF
+
+# 短信配置（默认 mock；生产改 aliyun 并填 AK/SK/signName/templateCode）
+sms:
+  provider: "mock"
+  codeExpireSeconds: 300
+  limitSeconds: 60
+  verifyMaxAttempts: 5
+  providers:
+    mock:
+      kind: "mock"
+      fixedCode: "123456"
+    aliyun:
+      kind: "aliyun"
+      region: "cn-hangzhou"
+      accessKeyId: ""
+      accessKeySecret: ""
+      signName: ""
+      templateCode: ""
+
+# 会员业务配置
+member:
+  h5BaseURL: "https://${DOMAIN}/h5"
+  inviteCodeLength: 8
+  registerRequireInviteCode: true
+  contractStorageDir: "${DEPLOY_DIR}/member/runtime/contracts"
+  contractChromiumPath: ""
+  teamExportRoot: "${DEPLOY_DIR}/member/runtime/team-export"
+EOF
+  fi
+
   info "$app 配置已生成 (端口: $port)"
 done
 
@@ -407,8 +459,22 @@ apply_pending_migrations() {
     if [ "\$migration_version_num" -le "\$CURRENT_VERSION" ]; then continue; fi
     echo "[migrate] 执行 \${migration_name}"
     mark_dirty "\$migration_version_num"
-    # 迁移文件默认发到 baseadmin 库（菜单等系统数据）
-    mysql_baseadmin < "\$migration_file"
+    # 路由规则：
+    #   - 含 _admin_menus 或 _system_*.sql → baseadmin 库（系统级 / 菜单）
+    #   - 其它 _member_* → funddisk 库（业务表）
+    #   - 其它（兼容历史） → baseadmin 库
+    case "\$migration_name" in
+      *_member_admin_menus*) target_db="baseadmin" ;;
+      *_member_*)            target_db="funddisk"  ;;
+      *)                     target_db="baseadmin" ;;
+    esac
+    if [ "\$target_db" = "funddisk" ]; then
+      echo "[migrate]   → funddisk 库"
+      mysql_funddisk < "\$migration_file"
+    else
+      echo "[migrate]   → baseadmin 库"
+      mysql_baseadmin < "\$migration_file"
+    fi
     mark_clean "\$migration_version_num"
     CURRENT_VERSION="\$migration_version_num"
     CURRENT_DIRTY=0

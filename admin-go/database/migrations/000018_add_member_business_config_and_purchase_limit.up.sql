@@ -6,7 +6,8 @@
 --   3. 每日限购按等级控制；会员表加每日已购计数，跨日 cron 重置
 --   4. 重置 member_level 为 普通=1单 / 高级=2单 / 核心=5单
 --
--- 幂等性：本迁移可以安全重复执行（CREATE TABLE IF NOT EXISTS / 列存在性检查 / INSERT...ON DUPLICATE）。
+-- 幂等性：通过 INFORMATION_SCHEMA + PREPARE/EXECUTE 实现 ADD COLUMN IF NOT EXISTS。
+-- 不使用 DELIMITER（兼容 mysql CLI 直接 source 加载）。
 -- ================================================================
 
 SET NAMES utf8mb4;
@@ -61,63 +62,56 @@ VALUES
   );
 
 -- ----------------------------------------------------------------
--- 2. member_level 增加 daily_purchase_limit（幂等：先检查列是否已存在）
+-- 2. ALTER TABLE：用 PREPARE/EXECUTE 实现幂等 ADD COLUMN（不依赖 DELIMITER）
 -- ----------------------------------------------------------------
-DROP PROCEDURE IF EXISTS `pf_add_col_18`;
-DELIMITER $$
-CREATE PROCEDURE `pf_add_col_18`()
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_level' AND COLUMN_NAME = 'daily_purchase_limit'
-  ) THEN
-    ALTER TABLE `member_level`
-      ADD COLUMN `daily_purchase_limit` int unsigned NOT NULL DEFAULT '1'
-        COMMENT '该等级每日限购单数|search:eq' AFTER `need_team_turnover`;
-  END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_user' AND COLUMN_NAME = 'daily_purchase_limit'
-  ) THEN
-    ALTER TABLE `member_user`
-      ADD COLUMN `daily_purchase_limit` int unsigned NOT NULL DEFAULT '1'
-        COMMENT '本会员每日限购单数（按等级初始化，可单独调整）|search:eq' AFTER `is_qualified`;
-  END IF;
+-- member_level.daily_purchase_limit
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_level' AND COLUMN_NAME = 'daily_purchase_limit') = 0,
+  'ALTER TABLE `member_level` ADD COLUMN `daily_purchase_limit` int unsigned NOT NULL DEFAULT 1 COMMENT ''该等级每日限购单数|search:eq'' AFTER `need_team_turnover`',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_user' AND COLUMN_NAME = 'today_purchase_count'
-  ) THEN
-    ALTER TABLE `member_user`
-      ADD COLUMN `today_purchase_count` int unsigned NOT NULL DEFAULT '0'
-        COMMENT '今日已购单数|search:off' AFTER `daily_purchase_limit`;
-  END IF;
+-- member_user.daily_purchase_limit
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_user' AND COLUMN_NAME = 'daily_purchase_limit') = 0,
+  'ALTER TABLE `member_user` ADD COLUMN `daily_purchase_limit` int unsigned NOT NULL DEFAULT 1 COMMENT ''本会员每日限购单数（按等级初始化，可单独调整）|search:eq'' AFTER `is_qualified`',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_user' AND COLUMN_NAME = 'last_purchase_date'
-  ) THEN
-    ALTER TABLE `member_user`
-      ADD COLUMN `last_purchase_date` date DEFAULT NULL
-        COMMENT '最近购买日期（跨日重置 today_purchase_count）|search:off' AFTER `today_purchase_count`;
-  END IF;
+-- member_user.today_purchase_count
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_user' AND COLUMN_NAME = 'today_purchase_count') = 0,
+  'ALTER TABLE `member_user` ADD COLUMN `today_purchase_count` int unsigned NOT NULL DEFAULT 0 COMMENT ''今日已购单数|search:off'' AFTER `daily_purchase_limit`',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_user' AND COLUMN_NAME = 'total_purchase_count'
-  ) THEN
-    ALTER TABLE `member_user`
-      ADD COLUMN `total_purchase_count` int unsigned NOT NULL DEFAULT '0'
-        COMMENT '历史总购单数（用于阶梯返佣判断）|search:off' AFTER `last_purchase_date`;
-  END IF;
-END$$
-DELIMITER ;
-CALL `pf_add_col_18`();
-DROP PROCEDURE IF EXISTS `pf_add_col_18`;
+-- member_user.last_purchase_date
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_user' AND COLUMN_NAME = 'last_purchase_date') = 0,
+  'ALTER TABLE `member_user` ADD COLUMN `last_purchase_date` date DEFAULT NULL COMMENT ''最近购买日期（跨日重置 today_purchase_count）|search:off'' AFTER `today_purchase_count`',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- member_user.total_purchase_count
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_user' AND COLUMN_NAME = 'total_purchase_count') = 0,
+  'ALTER TABLE `member_user` ADD COLUMN `total_purchase_count` int unsigned NOT NULL DEFAULT 0 COMMENT ''历史总购单数（用于阶梯返佣判断）|search:off'' AFTER `last_purchase_date`',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ----------------------------------------------------------------
--- 3. 等级数据：UPSERT 模式，已有记录的 name/level_no 不强覆盖（运营可能已改过名）
+-- 3. 等级数据：UPSERT，不强覆盖运营改过的 name/level_no
 -- ----------------------------------------------------------------
 INSERT INTO `member_level`
   (`id`, `name`, `level_no`, `icon`, `duration_days`, `need_active_count`, `need_team_turnover`,
