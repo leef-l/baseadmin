@@ -34,8 +34,13 @@ export default function Wallet() {
     setHasMore(logs.length + res.list.length < res.total);
   };
 
-  const currentWallet: WalletInfo | undefined =
-    wallets && (activeType === 1 ? wallets.coupon : activeType === 2 ? wallets.reward : wallets.promote);
+  const currentWallet: WalletInfo | undefined = wallets
+    ? activeType === 1
+      ? wallets.coupon
+      : activeType === 2
+        ? wallets.reward
+        : wallets.promote
+    : undefined;
   const themeColor = TYPE_OPTIONS.find((t) => t.type === activeType)?.color || '#ff6a00';
 
   return (

@@ -704,8 +704,22 @@ server {
         access_log off;
     }
 
-    # member API
+    # member 后台 API（admin 用）
     location ^~ /api/member/ {
+        proxy_pass http://127.0.0.1:${PORTS[2]};
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # member portal API（H5 会员端用，路径不能合并到 /api/member/）
+    location ^~ /api/member-portal/ {
         proxy_pass http://127.0.0.1:${PORTS[2]};
         proxy_http_version 1.1;
         proxy_set_header Connection "";
