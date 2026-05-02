@@ -16,7 +16,6 @@ import { getWarehouseTradeList, deleteWarehouseTrade, batchDeleteWarehouseTrade,
 import { getWarehouseGoodsList } from '#/api/member/warehouse_goods';
 import { getWarehouseListingList } from '#/api/member/warehouse_listing';
 import { getUserTree } from '#/api/member/user';
-import { getUserTree } from '#/api/member/user';
 import { getTenantList } from '#/api/system/tenant';
 import { getMerchantList } from '#/api/system/merchant';
 import type { WarehouseTradeItem } from '#/api/member/warehouse_trade/types';

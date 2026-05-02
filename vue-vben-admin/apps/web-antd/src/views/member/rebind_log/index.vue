@@ -13,8 +13,6 @@ import { getGridSelectedIds } from '#/utils/grid-selection';
 import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getRebindLogList, deleteRebindLog, batchDeleteRebindLog, exportRebindLog, importRebindLog, downloadImportTemplateRebindLog } from '#/api/member/rebind_log';
 import { getUserTree } from '#/api/member/user';
-import { getUserTree } from '#/api/member/user';
-import { getUserTree } from '#/api/member/user';
 import { getUsersList } from '#/api/system/users';
 import { getTenantList } from '#/api/system/tenant';
 import { getMerchantList } from '#/api/system/merchant';

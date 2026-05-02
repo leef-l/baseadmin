@@ -15,10 +15,6 @@ import type {
 } from '#/api/member/rebind_log/types';
 import { getUserTree } from '#/api/member/user';
 import type { UserItem } from '#/api/member/user/types';
-import { getUserTree } from '#/api/member/user';
-import type { UserItem } from '#/api/member/user/types';
-import { getUserTree } from '#/api/member/user';
-import type { UserItem } from '#/api/member/user/types';
 import { getUsersList } from '#/api/system/users';
 import { getTenantList } from '#/api/system/tenant';
 import { getMerchantList } from '#/api/system/merchant';

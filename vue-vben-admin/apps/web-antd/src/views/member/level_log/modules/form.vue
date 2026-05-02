@@ -16,7 +16,6 @@ import type {
 import { getUserTree } from '#/api/member/user';
 import type { UserItem } from '#/api/member/user/types';
 import { getLevelList } from '#/api/member/level';
-import { getLevelList } from '#/api/member/level';
 import { getTenantList } from '#/api/system/tenant';
 import { getMerchantList } from '#/api/system/merchant';
 

@@ -18,8 +18,6 @@ import { getWarehouseGoodsList } from '#/api/member/warehouse_goods';
 import { getWarehouseListingList } from '#/api/member/warehouse_listing';
 import { getUserTree } from '#/api/member/user';
 import type { UserItem } from '#/api/member/user/types';
-import { getUserTree } from '#/api/member/user';
-import type { UserItem } from '#/api/member/user/types';
 import { getTenantList } from '#/api/system/tenant';
 import { getMerchantList } from '#/api/system/merchant';
 

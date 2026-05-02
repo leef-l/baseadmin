@@ -14,7 +14,6 @@ import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getLevelLogList, deleteLevelLog, batchDeleteLevelLog, exportLevelLog, importLevelLog, downloadImportTemplateLevelLog } from '#/api/member/level_log';
 import { getUserTree } from '#/api/member/user';
 import { getLevelList } from '#/api/member/level';
-import { getLevelList } from '#/api/member/level';
 import { getTenantList } from '#/api/system/tenant';
 import { getMerchantList } from '#/api/system/merchant';
 import type { LevelLogItem } from '#/api/member/level_log/types';
