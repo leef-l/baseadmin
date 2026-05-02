@@ -52,7 +52,10 @@ func (c cContract) List(ctx context.Context, req *v1.ContractListReq) (res *v1.C
 		return nil, err
 	}
 	var rows []entity.MemberContract
-	if err := m.OrderDesc(cols.Id).Page(pageNum, pageSize).Scan(&rows); err != nil {
+	if err := m.
+		Fields(cols.Id, cols.ContractNo, cols.UserId, cols.ContractType, cols.TemplateId,
+			cols.SignedAt, cols.SignedIp, cols.PdfStatus, cols.PdfPath, cols.CreatedAt).
+		OrderDesc(cols.Id).Page(pageNum, pageSize).Scan(&rows); err != nil {
 		return nil, err
 	}
 

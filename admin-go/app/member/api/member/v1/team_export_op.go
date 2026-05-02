@@ -51,4 +51,5 @@ type TeamExportStatusRes struct {
 	FileURL     string `json:"fileUrl"`
 	FileSize    int64  `json:"fileSize"`
 	MemberCount int    `json:"memberCount"`
+	ErrReason   string `json:"errReason" dc:"失败原因（仅 status=3 时有值）"`
 }

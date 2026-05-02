@@ -111,7 +111,10 @@ func (c cContract) List(ctx context.Context, req *v1.ContractListReq) (res *v1.C
 		return nil, err
 	}
 	var rows []entity.MemberContract
-	if err := m.OrderDesc(cols.Id).Page(pageNum, pageSize).Scan(&rows); err != nil {
+	// 列表场景裁掉 signed_html / signature_image 等大字段（每条可几十 KB）
+	if err := m.
+		Fields(cols.Id, cols.ContractNo, cols.ContractType, cols.SignedAt, cols.PdfStatus, cols.PdfPath).
+		OrderDesc(cols.Id).Page(pageNum, pageSize).Scan(&rows); err != nil {
 		return nil, err
 	}
 	out := &v1.ContractListRes{Total: total, List: make([]*v1.ContractListItem, 0, len(rows))}

@@ -39,7 +39,7 @@ func (c *cTeamExport) Run(ctx context.Context, req *v1.TeamExportRunReq) (res *v
 
 // Status 查询导出任务状态（前端轮询用）。
 func (c *cTeamExport) Status(ctx context.Context, req *v1.TeamExportStatusReq) (res *v1.TeamExportStatusRes, err error) {
-	status, fileURL, fileSize, members, err := team_export.GetExport(ctx, int64(req.ExportID))
+	status, fileURL, fileSize, members, errReason, err := team_export.GetExport(ctx, int64(req.ExportID))
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +50,7 @@ func (c *cTeamExport) Status(ctx context.Context, req *v1.TeamExportStatusReq) (
 		FileURL:     fileURL,
 		FileSize:    fileSize,
 		MemberCount: members,
+		ErrReason:   errReason,
 	}, nil
 }
 
@@ -62,7 +63,7 @@ func Download(r *ghttp.Request) {
 		r.Response.WriteStatus(400, "exportId 不能为空")
 		return
 	}
-	status, fileURL, _, _, err := team_export.GetExport(ctx, exportID)
+	status, fileURL, _, _, _, err := team_export.GetExport(ctx, exportID)
 	if err != nil {
 		g.Log().Warningf(ctx, "team_export Download err=%v", err)
 		r.Response.WriteStatus(404, "导出不存在")
@@ -75,6 +76,9 @@ func Download(r *ghttp.Request) {
 	root := strings.TrimSpace(g.Cfg().MustGet(ctx, "member.teamExportRoot").String())
 	if root == "" {
 		root = filepath.Join("resource", "team-export")
+	}
+	if abs, absErr := filepath.Abs(root); absErr == nil {
+		root = abs
 	}
 	rel := strings.TrimPrefix(fileURL, "/team-export/")
 	full := filepath.Join(root, rel)

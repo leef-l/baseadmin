@@ -205,10 +205,12 @@ func tryUpgradeOnTx(ctx context.Context, tx gdb.TX, userID int64) error {
 		return err
 	}
 
-	// 更新会员
+	// 更新会员：等级 + 资格 + 每日限购（按目标等级覆盖）
+	// daily_purchase_limit 设计上由等级决定，升级即同步；管理员后台仍可单独再调，但下一次升级会被再次覆盖。
 	updateData := g.Map{
-		dao.MemberUser.Columns().LevelId:     target.Id,
-		dao.MemberUser.Columns().IsQualified: 1,
+		dao.MemberUser.Columns().LevelId:            target.Id,
+		dao.MemberUser.Columns().IsQualified:        1,
+		dao.MemberUser.Columns().DailyPurchaseLimit: target.DailyPurchaseLimit,
 	}
 	if expireAt != nil {
 		updateData[dao.MemberUser.Columns().LevelExpireAt] = expireAt

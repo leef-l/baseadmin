@@ -396,10 +396,14 @@ func markPDFFailed(ctx context.Context, contractID int64, err error) {
 	g.Log().Errorf(ctx, "[contract] generate pdf failed id=%d err=%v", contractID, err)
 }
 
+// storageDir 始终返回绝对路径（避免 cwd 漂移导致 .pdf/.html 找不到）。
 func storageDir() string {
 	dir := g.Cfg().MustGet(context.Background(), "member.contractStorageDir").String()
 	if strings.TrimSpace(dir) == "" {
 		dir = "./runtime/contracts"
+	}
+	if abs, err := filepath.Abs(dir); err == nil {
+		return abs
 	}
 	return dir
 }

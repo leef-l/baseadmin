@@ -200,6 +200,9 @@ func (s *sPortalAuth) PlaceShopOrder(ctx context.Context, in *PlaceShopOrderInpu
 		}
 
 		// ---- 6. 更新会员限购计数 / 历史购单数 ----
+		// nthOrder = 历史累计第几单（一生维度，一旦达到某档位即奖一次，永不重复）。
+		// today_purchase_count 是当日维度，仅用于限购判断，与阶梯返佣无关。
+		// 例：用户一生第 2 单 → 奖 88；之后无论今天明天再下单都不再奖第 2 档；只有再到第 3、4 单才匹配新档位。
 		nthOrder = int(user.TotalPurchaseCount) + 1
 		if _, err := tx.Model(dao.MemberUser.Table()).Ctx(ctx).
 			Where(dao.MemberUser.Columns().Id, in.UserID).

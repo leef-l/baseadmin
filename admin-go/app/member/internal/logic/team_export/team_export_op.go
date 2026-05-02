@@ -171,22 +171,29 @@ func markExportFailed(ctx context.Context, exportID int64, e error) {
 }
 
 // GetExport 查询导出状态（前端轮询）。
-func GetExport(ctx context.Context, exportID int64) (status int, fileURL string, fileSize int64, members int, err error) {
+// 失败时 errReason 取 remark 字段（markExportFailed 写入 "导出失败：原因"）。
+func GetExport(ctx context.Context, exportID int64) (status int, fileURL string, fileSize int64, members int, errReason string, err error) {
 	cols := dao.MemberTeamExport.Columns()
 	row, err := dao.MemberTeamExport.Ctx(ctx).
 		Where(cols.Id, exportID).
 		Where(cols.DeletedAt, nil).
 		One()
 	if err != nil {
-		return 0, "", 0, 0, err
+		return 0, "", 0, 0, "", err
 	}
 	if row.IsEmpty() {
-		return 0, "", 0, 0, gerror.New("导出记录不存在")
+		return 0, "", 0, 0, "", gerror.New("导出记录不存在")
 	}
-	return row[cols.DeployStatus].Int(),
+	st := row[cols.DeployStatus].Int()
+	reason := ""
+	if st == deployStatusFailed {
+		reason = row[cols.Remark].String()
+	}
+	return st,
 		row[cols.FileUrl].String(),
 		row[cols.FileSize].Int64(),
 		row[cols.TeamMemberCount].Int(),
+		reason,
 		nil
 }
 
@@ -449,14 +456,17 @@ func normalizeExportType(t int) int {
 	return 1
 }
 
-// getExportRoot 决定导出根目录：
+// getExportRoot 决定导出根目录（始终返回绝对路径，避免 cwd 漂移）。
 //   - 配置 member.teamExportRoot 优先
-//   - 否则用 admin-go/resource/team-export（部署后位于 deploy 目录的 resource 里）
+//   - 否则用 ./resource/team-export 然后转绝对
 func getExportRoot(ctx context.Context) string {
 	v := strings.TrimSpace(g.Cfg().MustGet(ctx, "member.teamExportRoot").String())
-	if v != "" {
-		return v
+	if v == "" {
+		v = filepath.Join("resource", "team-export")
 	}
-	return filepath.Join("resource", "team-export")
+	if abs, err := filepath.Abs(v); err == nil {
+		return abs
+	}
+	return v
 }
 
