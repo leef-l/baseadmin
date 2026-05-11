@@ -2,12 +2,15 @@
 
 本文给 AI/代理维护 codegen 时使用。业务字段备注规则见 [字段备注与生成规则.md](./字段备注与生成规则.md)。
 
+> **应用范围**：codegen 仅服务 baseadmin 范围 `system / upload`。不要为基础框架以外的业务（产品/会员/订单等）扩展模板与配置。
+
 ## 先读顺序
 
 1. `admin-go/codegen/README.md`
 2. `admin-go/codegen/docs/字段备注与生成规则.md`
-3. 本文
-4. 需要改行为时，再读 `parser/`、`templates/`、`generator/` 对应文件
+3. `admin-go/codegen/CHANGELOG.md`（历史变更最完整记录，避免重复改）
+4. 本文
+5. 需要改行为时，再读 `parser/`、`templates/`、`generator/` 对应文件
 
 ## 运行约束
 

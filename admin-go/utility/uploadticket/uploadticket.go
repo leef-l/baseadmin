@@ -12,7 +12,6 @@ import (
 )
 
 type Claims struct {
-	MemberID            int64    `json:"memberId,omitempty"`
 	Role                string   `json:"role,omitempty"`
 	Scene               string   `json:"scene"`
 	ConfigID            int64    `json:"configId,omitempty"`

@@ -9,7 +9,7 @@
 5. 提交前必须确认当前改动属于同一整体功能；不允许把无关改动混进同一个功能提交
 6. 如果功能包含数据库变更，必须先补 `admin-go/database/migrations/` 迁移文件，再执行提交脚本
 7. 推送目标默认是 `origin` 当前分支；除非有明确要求，不要临时改推送目标
-8. 当前服务器联调、迁移、demo 体验测试、线上冒烟只允许使用 `baseadmin.easytestdev.online` 站点库：`127.0.0.1:3306/sql_baseadmin_easytestdev_online`；禁止误连临时库、Docker 开发库或其它项目库
+8. 当前服务器联调、迁移、线上冒烟只允许使用 `127.0.0.1:3306/baseadmin_xgwise`（用户 `baseadmin_xgwise`，密码见 `admin-go/.env`）；禁止误连临时库、Docker 开发库或其它项目库
 
 ## 标准命令
 

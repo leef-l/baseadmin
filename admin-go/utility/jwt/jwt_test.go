@@ -44,17 +44,6 @@ func TestParseTokenRejectsUnexpectedSigningMethod(t *testing.T) {
 	}
 }
 
-func TestVerifyAnyTokenAcceptsMemberToken(t *testing.T) {
-	token, err := GenerateMemberToken(1001, "13800000000", 1, 2002, "coach")
-	if err != nil {
-		t.Fatalf("GenerateMemberToken failed: %v", err)
-	}
-
-	if !VerifyAnyToken(token) {
-		t.Fatal("VerifyAnyToken should accept valid member token")
-	}
-}
-
 func TestParseTokenTrimsWhitespace(t *testing.T) {
 	token, err := GenerateToken(123, "admin", 9, 0, 0)
 	if err != nil {

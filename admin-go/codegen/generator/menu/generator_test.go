@@ -11,7 +11,7 @@ import (
 
 func TestBuildButtonSpecsMatchesFeatureFlags(t *testing.T) {
 	meta := &parser.TableMeta{
-		AppName:      "demo",
+		AppName:      "sample",
 		ModuleName:   "article",
 		HasImport:    true,
 		HasBatchEdit: true,
@@ -19,14 +19,14 @@ func TestBuildButtonSpecsMatchesFeatureFlags(t *testing.T) {
 
 	got := buildButtonSpecs(meta)
 	want := []buttonSpec{
-		{suffix: "新增", permission: "demo:article:create", sort: 1},
-		{suffix: "修改", permission: "demo:article:update", sort: 2},
-		{suffix: "删除", permission: "demo:article:delete", sort: 3},
-		{suffix: "批量删除", permission: "demo:article:batch-delete", sort: 4},
-		{suffix: "查看", permission: "demo:article:detail", sort: 5},
-		{suffix: "导出", permission: "demo:article:export", sort: 6},
-		{suffix: "导入", permission: "demo:article:import", sort: 7},
-		{suffix: "批量编辑", permission: "demo:article:batch-update", sort: 8},
+		{suffix: "新增", permission: "sample:article:create", sort: 1},
+		{suffix: "修改", permission: "sample:article:update", sort: 2},
+		{suffix: "删除", permission: "sample:article:delete", sort: 3},
+		{suffix: "批量删除", permission: "sample:article:batch-delete", sort: 4},
+		{suffix: "查看", permission: "sample:article:detail", sort: 5},
+		{suffix: "导出", permission: "sample:article:export", sort: 6},
+		{suffix: "导入", permission: "sample:article:import", sort: 7},
+		{suffix: "批量编辑", permission: "sample:article:batch-update", sort: 8},
 	}
 
 	if !reflect.DeepEqual(got, want) {
@@ -36,7 +36,7 @@ func TestBuildButtonSpecsMatchesFeatureFlags(t *testing.T) {
 
 func TestBuildButtonSpecsSkipsUnsupportedActions(t *testing.T) {
 	meta := &parser.TableMeta{
-		AppName:      "demo",
+		AppName:      "sample",
 		ModuleName:   "category",
 		HasParentID:  true,
 		HasImport:    false,
@@ -45,13 +45,13 @@ func TestBuildButtonSpecsSkipsUnsupportedActions(t *testing.T) {
 
 	got := buildButtonSpecs(meta)
 	for _, btn := range got {
-		if btn.permission == "demo:category:import" || btn.permission == "demo:category:batch-update" {
+		if btn.permission == "sample:category:import" || btn.permission == "sample:category:batch-update" {
 			t.Fatalf("unexpected button permission for tree/non-import module: %+v", got)
 		}
 	}
 	foundBatchDelete := false
 	for _, btn := range got {
-		if btn.permission == "demo:category:batch-delete" {
+		if btn.permission == "sample:category:batch-delete" {
 			foundBatchDelete = true
 			break
 		}
@@ -157,7 +157,7 @@ func TestGenerateIDRemainsMonotonicWhenClockMovesBackwards(t *testing.T) {
 }
 
 func TestFindMenuIDRejectsNilDB(t *testing.T) {
-	if _, err := findMenuID(nil, "path", "/demo", menuTypeDirectory); err != sql.ErrConnDone {
+	if _, err := findMenuID(nil, "path", "/sample", menuTypeDirectory); err != sql.ErrConnDone {
 		t.Fatalf("findMenuID nil db mismatch: %v", err)
 	}
 }

@@ -10,16 +10,16 @@ set -e
 DOMAIN="baseadmin.easytestdev.online"   # 替换为你的域名
 DEPLOY_DIR="/www/wwwroot/${DOMAIN}"
 FRONTEND_DIR="/www/wwwroot/${DOMAIN}"
-DB_NAME="sql_baseadmin_easytestdev_online"
-DB_USER="sql_baseadmin_easytestdev_online"
-DB_PASS="4365d2c5953988"
+DB_NAME="baseadmin_xgwise"
+DB_USER="baseadmin_xgwise"
+DB_PASS="zindbf32GbDpFKrY"
 DB_ROOT_PASS="${DB_ROOT_PASS:-$DB_PASS}"
 DB_HOST="127.0.0.1"
 DB_PORT="3306"
 JWT_SECRET="change_me"
 
-APPS=("system" "upload" "demo")
-PORTS=("10022" "10023" "10026")
+APPS=("system" "upload")
+PORTS=("10022" "10023")
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SOURCE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -218,20 +218,6 @@ server {
     # upload 后端 API
     location /api/upload/ {
         proxy_pass http://127.0.0.1:10023;
-        proxy_http_version 1.1;
-        proxy_set_header Connection "";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_connect_timeout 10s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-    }
-
-    # demo 体验应用 API
-    location /api/demo/ {
-        proxy_pass http://127.0.0.1:10026;
         proxy_http_version 1.1;
         proxy_set_header Connection "";
         proxy_set_header Host $host;

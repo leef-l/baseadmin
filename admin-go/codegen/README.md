@@ -567,21 +567,23 @@ menu_modules:
 | 特性 | 触发条件 | 生成效果 |
 |------|---------|---------|
 | 树形结构 | 表中存在 `parent_id` 字段 | 后端生成树形查询接口，前端生成树形表格 |
-| 密码加密 | 字段名为 `password`/`*_password`/`*_pwd` | 后端自动 bcrypt 加密 |
+| 密码加密 | 字段名为 `password`/`*_password`/`*_pwd`/`*_secret`/`*_secret_key`/`*_secret_id`/`*_access_key`/`*_access_token`/`*_refresh_token`/`*_api_token` | 后端自动 bcrypt 加密 |
 | 外键关联 | 字段名为 `*_id`（排除 `id`、`dept_id`） | 自动批量查询关联表（`WHERE id IN (...)`），填充显示字段（title/name/username/nickname/real_name/label/phone/mobile） |
 | 多选外键 | 字段名为 `*_ids` | 前端多选组件，后端数组处理 |
 | Snowflake ID | 所有 `BIGINT` 主键/外键 | 使用 `JsonInt64` 防止 JS 精度丢失 |
 | 软删除 | 存在 `deleted_at` 字段 | 查询自动过滤已删除记录 |
 | 枚举常量 | 字段注释包含枚举定义 | 后端生成 Go 常量，前端生成 options |
 | Tooltip 提示 | 字段注释标签含 `（）` 或 `()` | 前端表单 label 和列头自动渲染 Tooltip 问号图标 |
-| 模糊搜索 | 字段名为 `title`/`name`/`phone`/`email` 等 | 后端 `WhereLike` 模糊查询，前端搜索栏自动添加 Input |
+| 模糊搜索 | 字段名为 `title`/`name`/`phone`/`email`/`intro`/`address`/`contact`/`contact_name`/`link_url`/`url`/`keyword` 或后缀 `_intro`/`_address`/`_keyword` 等 | 后端 `WhereLike` 模糊查询，前端搜索栏自动添加 Input |
 | 精确搜索 | 字段名后缀 `_no`/`_code`/`_sn` | 编号类字段用精确匹配 `Where` 而非 `WhereLike` |
-| 金额格式化 | 字段名含 `price`/`amount`/`balance`/`fee`/`cost` | 列表自动"分→元"格式化显示（`/ 100`） |
+| 金额格式化 | 字段名含 `price`/`amount`/`balance`/`fee`/`cost`/`deposit`/`refund`/`turnover`/`expense` | 列表自动"分→元"格式化显示（`/ 100`） |
 | 批量删除 | 所有表 | 前端勾选框 + 批量删除按钮，后端 `WhereIn` 批量软删除 |
+| 批量编辑 | 表中存在 `status` 枚举字段且非隐藏 | 触发表级 `HasBatchEdit=true`，列表生成批量编辑按钮、模板生成 batch-update 接口 |
 | CSV 导出 | 所有表 | 后端 CSV 流式输出，前端导出按钮（Blob 下载） |
 | 详情抽屉 | 所有表 | 只读详情展示，枚举 Tag、图片预览、富文本渲染 |
 | 时间范围筛选 | 所有表 | 前端 RangePicker + 后端 `created_at` 区间查询 |
 | 列表排序 | 所有表 | 前端列头排序 + 后端动态 `OrderBy`/`OrderDir` |
+| 租户/商户标签覆盖 | 所有表的 `tenant_id`/`merchant_id` | 强制 Label/ShortLabel 为"租户"/"商户"，并清空 Tooltip |
 
 ## SaaS 与数据权限生成约定
 

@@ -98,7 +98,7 @@ func TestNormalizeTableName(t *testing.T) {
 		{appName: "system", input: "dept", want: "system_dept"},
 		{appName: "system", input: "system_role", want: "system_role"},
 		{appName: "upload", input: " upload_dir ", want: "upload_dir"},
-		{appName: "demo", input: `"tag"`, want: "demo_tag"},
+		{appName: "sample", input: `"tag"`, want: "sample_tag"},
 		{appName: "", input: "dept", want: "dept"},
 	}
 

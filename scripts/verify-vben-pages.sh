@@ -73,7 +73,6 @@ first_file_without_match() {
 business_pages=(
   "$VIEWS_DIR/system"
   "$VIEWS_DIR/upload"
-  "$VIEWS_DIR/demo"
 )
 
 for dir in "${business_pages[@]}"; do

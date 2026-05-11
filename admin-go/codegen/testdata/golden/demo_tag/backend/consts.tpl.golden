@@ -1,8 +1,0 @@
-package consts
-
-// TagStatus Status
-const (
-	TagStatusDisabled = 0 // 禁用
-	TagStatusEnabled = 1 // 启用
-)
-

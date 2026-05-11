@@ -8,7 +8,76 @@ import type { ComponentType } from './component';
 import { setupVbenForm, useVbenForm as useForm, z } from '@vben/common-ui';
 import { $t } from '@vben/locales';
 
+type RuleContext = Record<string, any>;
+type RuleValidator = (
+  value: any,
+  params: any,
+  ctx: RuleContext,
+) => boolean | string;
+
 async function initSetupVbenForm() {
+  const defineRules: Record<string, RuleValidator> = {
+    // 输入项目必填国际化适配
+    required: (value, _params, ctx) => {
+      if (value === undefined || value === null || value.length === 0) {
+        return $t('ui.formRules.required', [ctx.label]);
+      }
+      return true;
+    },
+    // 选择项目必填国际化适配
+    selectRequired: (value, _params, ctx) => {
+      if (value === undefined || value === null) {
+        return $t('ui.formRules.selectRequired', [ctx.label]);
+      }
+      return true;
+    },
+    email: (value) => {
+      if (!value) return true;
+      if (!/^[\w.+-]+@[\w-]+\.[\w.]+$/.test(String(value))) {
+        return '请输入正确的邮箱地址';
+      }
+      return true;
+    },
+    phone: (value) => {
+      if (!value) return true;
+      if (!/^1[3-9]\d{9}$/.test(String(value))) {
+        return '请输入正确的手机号码';
+      }
+      return true;
+    },
+    url: (value) => {
+      if (!value) return true;
+      if (!/^https?:\/\/.+/i.test(String(value))) {
+        return '请输入正确的URL地址';
+      }
+      return true;
+    },
+    requiredEmail: (value, _params, ctx) => {
+      if (!value)
+        return $t('ui.formRules.required', [ctx.label]);
+      if (!/^[\w.+-]+@[\w-]+\.[\w.]+$/.test(String(value))) {
+        return '请输入正确的邮箱地址';
+      }
+      return true;
+    },
+    requiredPhone: (value, _params, ctx) => {
+      if (!value)
+        return $t('ui.formRules.required', [ctx.label]);
+      if (!/^1[3-9]\d{9}$/.test(String(value))) {
+        return '请输入正确的手机号码';
+      }
+      return true;
+    },
+    requiredUrl: (value, _params, ctx) => {
+      if (!value)
+        return $t('ui.formRules.required', [ctx.label]);
+      if (!/^https?:\/\/.+/i.test(String(value))) {
+        return '请输入正确的URL地址';
+      }
+      return true;
+    },
+  };
+
   setupVbenForm<ComponentType>({
     config: {
       // ant design vue组件库默认都是 v-model:value
@@ -26,67 +95,7 @@ async function initSetupVbenForm() {
         Upload: 'fileList',
       },
     },
-    defineRules: {
-      // 输入项目必填国际化适配
-      required: (value, _params, ctx) => {
-        if (value === undefined || value === null || value.length === 0) {
-          return $t('ui.formRules.required', [ctx.label]);
-        }
-        return true;
-      },
-      // 选择项目必填国际化适配
-      selectRequired: (value, _params, ctx) => {
-        if (value === undefined || value === null) {
-          return $t('ui.formRules.selectRequired', [ctx.label]);
-        }
-        return true;
-      },
-      email: (value) => {
-        if (!value) return true;
-        if (!/^[\w.+-]+@[\w-]+\.[\w.]+$/.test(String(value))) {
-          return '请输入正确的邮箱地址';
-        }
-        return true;
-      },
-      phone: (value) => {
-        if (!value) return true;
-        if (!/^1[3-9]\d{9}$/.test(String(value))) {
-          return '请输入正确的手机号码';
-        }
-        return true;
-      },
-      url: (value) => {
-        if (!value) return true;
-        if (!/^https?:\/\/.+/i.test(String(value))) {
-          return '请输入正确的URL地址';
-        }
-        return true;
-      },
-      requiredEmail: (value, _params, ctx) => {
-        if (!value)
-          return $t('ui.formRules.required', [ctx.label]);
-        if (!/^[\w.+-]+@[\w-]+\.[\w.]+$/.test(String(value))) {
-          return '请输入正确的邮箱地址';
-        }
-        return true;
-      },
-      requiredPhone: (value, _params, ctx) => {
-        if (!value)
-          return $t('ui.formRules.required', [ctx.label]);
-        if (!/^1[3-9]\d{9}$/.test(String(value))) {
-          return '请输入正确的手机号码';
-        }
-        return true;
-      },
-      requiredUrl: (value, _params, ctx) => {
-        if (!value)
-          return $t('ui.formRules.required', [ctx.label]);
-        if (!/^https?:\/\/.+/i.test(String(value))) {
-          return '请输入正确的URL地址';
-        }
-        return true;
-      },
-    },
+    defineRules,
   });
 }
 

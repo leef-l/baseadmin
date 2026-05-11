@@ -69,11 +69,11 @@ func TestValidateMetaScopeRejectsDictFields(t *testing.T) {
 
 func TestValidateMetaScopeAllowsDictFieldsWhenConfigured(t *testing.T) {
 	cfg := &Config{
-		AllowedApps:            []string{"demo"},
+		AllowedApps:            []string{"sample"},
 		AllowMissingDictModule: true,
 	}
 	meta := &parser.TableMeta{
-		AppName: "demo",
+		AppName: "sample",
 		Fields: []parser.FieldMeta{
 			{Name: "level", DictType: "article_level"},
 		},
@@ -94,13 +94,13 @@ func TestValidateMetaScopeAllowsDictFieldsWhenFrontendDictModuleExists(t *testin
 	}
 
 	cfg := &Config{
-		AllowedApps: []string{"demo"},
+		AllowedApps: []string{"sample"},
 		Frontend: FrontendConfig{
 			Output: root,
 		},
 	}
 	meta := &parser.TableMeta{
-		AppName: "demo",
+		AppName: "sample",
 		Fields: []parser.FieldMeta{
 			{Name: "level", DictType: "article_level"},
 		},

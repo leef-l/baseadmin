@@ -8,7 +8,7 @@ import (
 )
 
 func TestWriteFileIfChangedSkipsIdenticalContent(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "demo.txt")
+	path := filepath.Join(t.TempDir(), "sample.txt")
 	if err := os.WriteFile(path, []byte("hello"), 0o644); err != nil {
 		t.Fatalf("write seed file: %v", err)
 	}
@@ -23,7 +23,7 @@ func TestWriteFileIfChangedSkipsIdenticalContent(t *testing.T) {
 }
 
 func TestWriteFileIfChangedWritesChangedContent(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "demo.txt")
+	path := filepath.Join(t.TempDir(), "sample.txt")
 	if err := os.WriteFile(path, []byte("old"), 0o644); err != nil {
 		t.Fatalf("write seed file: %v", err)
 	}
@@ -53,11 +53,11 @@ func TestPlanAndCommitSkipUnchangedWritesInForceMode(t *testing.T) {
 		t.Fatalf("mkdir tpl dir: %v", err)
 	}
 
-	tplPath := filepath.Join(tplDir, "demo.tpl")
+	tplPath := filepath.Join(tplDir, "sample.tpl")
 	if err := os.WriteFile(tplPath, []byte("hello {{.Name}}"), 0o644); err != nil {
 		t.Fatalf("write template: %v", err)
 	}
-	outPath := filepath.Join(outDir, "demo", "dept.txt")
+	outPath := filepath.Join(outDir, "sample", "dept.txt")
 	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
 		t.Fatalf("mkdir output dir: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestPlanAndCommitSkipUnchangedWritesInForceMode(t *testing.T) {
 		t.Fatalf("write existing output: %v", err)
 	}
 
-	plans, err := PlanFiles([]TemplateMapping{{TplFile: "demo.tpl", OutputPath: "{app}/{module}.txt"}}, tplDir, outDir, "demo", "dept", true, map[string]string{"Name": "world"})
+	plans, err := PlanFiles([]TemplateMapping{{TplFile: "sample.tpl", OutputPath: "{app}/{module}.txt"}}, tplDir, outDir, "sample", "dept", true, map[string]string{"Name": "world"})
 	if err != nil {
 		t.Fatalf("PlanFiles failed: %v", err)
 	}
@@ -87,11 +87,11 @@ func TestPlanAndCommitWritesChangedContentInForceMode(t *testing.T) {
 		t.Fatalf("mkdir tpl dir: %v", err)
 	}
 
-	tplPath := filepath.Join(tplDir, "demo.tpl")
+	tplPath := filepath.Join(tplDir, "sample.tpl")
 	if err := os.WriteFile(tplPath, []byte("hello {{.Name}}"), 0o644); err != nil {
 		t.Fatalf("write template: %v", err)
 	}
-	outPath := filepath.Join(outDir, "demo", "dept.txt")
+	outPath := filepath.Join(outDir, "sample", "dept.txt")
 	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
 		t.Fatalf("mkdir output dir: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestPlanAndCommitWritesChangedContentInForceMode(t *testing.T) {
 		t.Fatalf("write existing output: %v", err)
 	}
 
-	plans, err := PlanFiles([]TemplateMapping{{TplFile: "demo.tpl", OutputPath: "{app}/{module}.txt"}}, tplDir, outDir, "demo", "dept", true, map[string]string{"Name": "world"})
+	plans, err := PlanFiles([]TemplateMapping{{TplFile: "sample.tpl", OutputPath: "{app}/{module}.txt"}}, tplDir, outDir, "sample", "dept", true, map[string]string{"Name": "world"})
 	if err != nil {
 		t.Fatalf("PlanFiles failed: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestPlanFilesCapturesCreateSkipAndProtectActions(t *testing.T) {
 		t.Fatalf("write enhance template: %v", err)
 	}
 
-	existingPath := filepath.Join(outDir, "demo", "existing.txt")
+	existingPath := filepath.Join(outDir, "sample", "existing.txt")
 	if err := os.MkdirAll(filepath.Dir(existingPath), 0o755); err != nil {
 		t.Fatalf("mkdir existing dir: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestPlanFilesCapturesCreateSkipAndProtectActions(t *testing.T) {
 		{TplFile: "new.tpl", OutputPath: "{app}/new.txt"},
 		{TplFile: "existing.tpl", OutputPath: "{app}/existing.txt"},
 		{TplFile: "enhance.tpl", OutputPath: "{app}/module_enhance.txt"},
-	}, tplDir, outDir, "demo", "dept", false, map[string]string{"Name": "world"})
+	}, tplDir, outDir, "sample", "dept", false, map[string]string{"Name": "world"})
 	if err != nil {
 		t.Fatalf("PlanFiles failed: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestPlanFilesCapturesCreateSkipAndProtectActions(t *testing.T) {
 
 	forcedPlans, err := PlanFiles([]TemplateMapping{
 		{TplFile: "enhance.tpl", OutputPath: "{app}/module_enhance.txt"},
-	}, tplDir, outDir, "demo", "dept", true, map[string]string{"Name": "world"})
+	}, tplDir, outDir, "sample", "dept", true, map[string]string{"Name": "world"})
 	if err != nil {
 		t.Fatalf("forced PlanFiles failed: %v", err)
 	}

@@ -25,9 +25,8 @@ type Claims struct {
 }
 
 var (
-	secret       []byte
-	memberSecret []byte
-	expireTime   time.Duration
+	secret     []byte
+	expireTime time.Duration
 )
 
 const defaultInsecureSecret = "gbaseadmin-secret-key"
@@ -43,12 +42,6 @@ func init() {
 		panic("jwt.secret 长度不足 32 字符，请使用更长的随机密钥")
 	}
 	secret = []byte(raw)
-	mKey, _ := g.Cfg().Get(ctx, "jwt.memberSecret", "")
-	if memberKey := strings.TrimSpace(mKey.String()); memberKey != "" {
-		memberSecret = []byte(memberKey)
-	} else {
-		memberSecret = secret
-	}
 	hours, _ := g.Cfg().Get(ctx, "jwt.expire", 24)
 	expireHours := hours.Int()
 	if expireHours <= 0 {
@@ -88,55 +81,10 @@ func ParseToken(tokenStr string) (*Claims, error) {
 	return nil, gojwt.ErrTokenInvalidClaims
 }
 
-// MemberClaims C端会员 JWT 载荷
-type MemberClaims struct {
-	MemberID    int64  `json:"memberId"`
-	Phone       string `json:"phone"`
-	IsCoach     int    `json:"isCoach"`
-	CoachID     int64  `json:"coachId"`
-	CurrentRole string `json:"currentRole"` // "member" | "coach"
-	gojwt.RegisteredClaims
-}
-
-// GenerateMemberToken 生成会员 JWT Token
-func GenerateMemberToken(memberID int64, phone string, isCoach int, coachID int64, currentRole string) (string, error) {
-	now := time.Now()
-	claims := MemberClaims{
-		MemberID:    memberID,
-		Phone:       phone,
-		IsCoach:     isCoach,
-		CoachID:     coachID,
-		CurrentRole: currentRole,
-		RegisteredClaims: gojwt.RegisteredClaims{
-			ExpiresAt: gojwt.NewNumericDate(now.Add(expireTime)),
-			IssuedAt:  gojwt.NewNumericDate(now),
-			Issuer:    "gbaseadmin-member",
-		},
-	}
-	token := gojwt.NewWithClaims(gojwt.SigningMethodHS256, claims)
-	return token.SignedString(memberSecret)
-}
-
 // VerifyAnyToken 只验证 token 签名合法且未过期，不关心是哪种身份
 func VerifyAnyToken(tokenStr string) bool {
 	_, err := ParseToken(tokenStr)
-	if err == nil {
-		return true
-	}
-	_, err = ParseMemberToken(tokenStr)
 	return err == nil
-}
-
-// ParseMemberToken 解析会员 JWT Token
-func ParseMemberToken(tokenStr string) (*MemberClaims, error) {
-	token, err := parseToken(tokenStr, &MemberClaims{}, memberSecret)
-	if err != nil {
-		return nil, err
-	}
-	if claims, ok := token.Claims.(*MemberClaims); ok && token.Valid {
-		return claims, nil
-	}
-	return nil, gojwt.ErrTokenInvalidClaims
 }
 
 func parseToken(tokenStr string, claims gojwt.Claims, key []byte) (*gojwt.Token, error) {

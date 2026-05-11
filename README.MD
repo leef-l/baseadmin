@@ -1,19 +1,18 @@
 # GBaseAdmin
 
-后台基础框架仓库，保留：
+后台基础框架仓库，正式范围：
 
 - `admin-go/app/system`
 - `admin-go/app/upload`
-- `admin-go/app/demo`（codegen 生成的示例应用，验证生成器全场景覆盖）
-- `vue-vben-admin/apps/web-antd/src/`
+- `vue-vben-admin/apps/web-antd/src/`（system / upload 子树 + 公共壳）
 - `admin-go/codegen/`
+- `docker/`、`scripts/`、`contracts/`、`docs/`、`.github/`
 
-当前代码里实际保留的业务模块：
+当前 baseadmin 业务模块：
 
 - `system`：`auth`（含登出 Token 黑名单）、`dept`、`role`、`menu`、`users`、`tenant`、`merchant`、`domain`、`daemon`，以及公开探活 `healthz` / `readyz`
-- `upload`：`config`、`dir`、`dir_rule`、`file`、`uploader`，以及公开探活 `healthz` / `readyz`
-- `demo`：`appointment`、`audit_log`、`campaign`、`category`、`contract`、`customer`、`order`、`product`、`survey`、`work_order`（codegen 全场景覆盖示例）
-- `web-antd` 页面：`views/system/{dept,menu,role,users,tenant,merchant,domain,daemon}`、`views/upload/{config,dir,dir_rule,file}`、`views/demo/{appointment,audit_log,campaign,category,contract,customer,order,product,survey,work_order}`
+- `upload`：`config`、`dir`、`dir_rule`、`file`、`uploader`（含 `/api/upload/public/uploader/upload_by_ticket` 票据上传公开通道），以及公开探活 `healthz` / `readyz`
+- `web-antd` 页面：`views/system/{dept,menu,role,users,tenant,merchant,domain,daemon}`、`views/upload/{config,dir,dir_rule,file}`
 - 上传复用组件：`components/file-manager`、`components/upload`、`components/tinymce`、`components/json-editor`
 
 详细说明统一放在 `docs/` 目录，新人从代码库导读开始读：
@@ -22,7 +21,6 @@
 - [文档索引](docs/README.md)
 - [System 应用说明](admin-go/app/system/README.MD)
 - [Upload 应用说明](admin-go/app/upload/README.MD)
-- [Demo 应用说明](admin-go/app/demo/README.MD)
 - [代码生成器说明](admin-go/codegen/README.md)
 - [Codegen AI 执行手册](admin-go/codegen/docs/Codegen-AI执行手册.md)
 - [SaaS 多租户与域名说明](docs/SaaS多租户与域名说明.md)
@@ -66,7 +64,7 @@ env 同步、国内镜像、profile、代理、初始化迁移等完整细节见
 ## Git 提交铁律
 
 - 整体功能完成后必须立即提交并推送到 GitHub，禁止把“本地已完成但未推送”当作结束状态
-- 当前服务器联调、迁移、demo 体验测试、线上冒烟必须使用 `baseadmin.easytestdev.online` 站点库：`127.0.0.1:3306/sql_baseadmin_easytestdev_online`；禁止误连临时库、Docker 开发库或其它项目库
+- 当前服务器联调、迁移、线上冒烟必须使用 `127.0.0.1:3306/baseadmin_xgwise`（用户 `baseadmin_xgwise`，密码见 `admin-go/.env`）；禁止误连临时库、Docker 开发库或其它项目库
 - 统一使用仓库脚本：
 
 ```bash

@@ -21,7 +21,7 @@ database:
   port: 3306
   user: root
   password: secret
-  dbname: demo
+  dbname: sample
 backend:
   output: ../app
 frontend:
@@ -70,7 +70,7 @@ database:
   port: 3306
   user: root
   password: secret
-  dbname: demo
+  dbname: sample
 backend:
   output: ../app
 frontend:
@@ -79,8 +79,8 @@ allowed_apps:
   - system
   - upload
 menu_apps:
-  demo:
-    title: 演示
+  evil:
+    title: 越界
     icon: AppstoreOutlined
 `
 	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {

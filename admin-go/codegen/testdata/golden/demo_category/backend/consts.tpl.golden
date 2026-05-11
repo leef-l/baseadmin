@@ -1,8 +1,0 @@
-package consts
-
-// CategoryStatus Status
-const (
-	CategoryStatusDisabled = 0 // 禁用
-	CategoryStatusEnabled = 1 // 启用
-)
-

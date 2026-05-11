@@ -9,16 +9,16 @@
 5. [Docker 开发说明](docs/Docker开发说明.md)
 6. [system 服务路由入口](admin-go/app/system/internal/cmd/cmd.go)
 7. [upload 服务路由入口](admin-go/app/upload/internal/cmd/cmd.go)
-8. [demo 服务路由入口](admin-go/app/demo/internal/cmd/cmd.go)
 
 当前仓库是后台基础框架，AI/代理默认只围绕以下范围工作：
 
 - 后端：`admin-go/app/system`
 - 后端：`admin-go/app/upload`
-- 后端：`admin-go/app/demo`（codegen 全场景示例，只用于开发验证）
-- 管理端：`vue-vben-admin/apps/web-antd/src/` 下的 `system` / `upload` / `demo` 以及后台公共壳
+- 管理端：`vue-vben-admin/apps/web-antd/src/` 下的 `system` / `upload` 以及后台公共壳
 - 生成器：`admin-go/codegen/`
 - Docker 入口：`docker/dev/`、`docker/prod/`
+
+> 历史上仓库曾被注入 funddisk（会员分销/资金盘）业务的代码 —— `admin-go/app/member`、`h5-react/`、`vue-vben-admin/apps/web-antd/src/{views,api}/member/`、迁移 `000017_*`–`000020_*`、`utility/sms`、`utility/jwt` 中的 MemberToken、配置文件中的 `member` 条目等 —— 已于 2026-05-09 一次性清理。后续不要在本基础框架仓库再放业务/产品代码；新业务请抽到独立仓库。
 
 ## 目录边界
 
@@ -84,7 +84,7 @@ admin-go/app/*/internal/model/entity/
 
 6. **完成即提交，含 DB 变更必先写 migrate**。整体功能完成后必须立即提交并推送，禁止把"本地已完成但未推送"当作结束状态。**若功能包含数据库变更，必须先补齐 `admin-go/database/migrations/` 下的 `golang-migrate` 迁移文件，再执行业务提交**。默认使用仓库脚本 `./scripts/feature-publish.sh "type(scope): summary"` 基于已暂存内容提交并推送；只有明确确认全部改动都属于同一批交付时，才使用 `--all`。
 
-7. **数据库联调只认 baseadmin 站点库**。本仓库在当前服务器做联调、迁移、demo 体验测试、线上冒烟时，必须使用 `baseadmin.easytestdev.online` 对应站点库：`127.0.0.1:3306/sql_baseadmin_easytestdev_online`。数据库连接真源是 `admin-go/app/system/manifest/config/config.yaml`、`admin-go/app/upload/manifest/config/config.yaml`、`admin-go/app/demo/manifest/config/config.yaml` 和 `admin-go/.env`。禁止误连临时库、Docker 开发库、其它项目库或其它域名的数据库；确需隔离验证时，必须先明确说明隔离库名称、用途和清理方式。
+7. **数据库联调只认 baseadmin 主库**。本仓库在当前服务器做联调、迁移、线上冒烟时，必须使用 `127.0.0.1:3306/baseadmin_xgwise`（用户 `baseadmin_xgwise`，密码不写入文档，去 `admin-go/.env` 或 `manifest/config/config.yaml` 看）。数据库连接真源是 `admin-go/app/system/manifest/config/config.yaml`、`admin-go/app/upload/manifest/config/config.yaml` 和 `admin-go/.env`。禁止误连临时库、Docker 开发库、其它项目库或其它域名的数据库；确需隔离验证时，必须先明确说明隔离库名称、用途和清理方式。
 
 ### C. Docker 联动
 

@@ -1,6 +1,6 @@
 {
-  "allowedApps": ["system", "upload", "demo", "member"],
-  "topLevelMenuPaths": ["/system", "/upload", "/demo", "/member"],
+  "allowedApps": ["system", "upload"],
+  "topLevelMenuPaths": ["/system", "/upload"],
   "forbiddenMenuPaths": ["/dashboard", "/analytics", "/workspace"],
   "supportedComponents": [
     "Input",
