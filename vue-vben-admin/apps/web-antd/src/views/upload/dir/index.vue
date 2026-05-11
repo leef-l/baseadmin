@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
+import type { ActionMoreItem } from '#/components/action-more/index.vue';
 import type { DirItem } from '#/api/upload/dir/types';
 
 import { useAccess } from '@vben/access';
@@ -10,6 +11,7 @@ import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { batchDeleteDir, deleteDir, getDirTree } from '#/api/upload/dir';
+import ActionMore from '#/components/action-more/index.vue';
 import { getGridSelectedIds } from '#/utils/grid-selection';
 
 import FormModal from './modules/form.vue';
@@ -48,6 +50,8 @@ const [FormModalComp, formModalApi] = useVbenModal({
 });
 const { hasAccessByCodes } = useAccess();
 const canBatchDelete = hasAccessByCodes(['upload:dir:batch-delete']);
+const canDelete = hasAccessByCodes(['upload:dir:delete']);
+const canUpdate = hasAccessByCodes(['upload:dir:update']);
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -162,6 +166,24 @@ function handleBatchDelete() {
     },
   });
 }
+
+function getRowActions(row: DirItem): ActionMoreItem[] {
+  return [
+    {
+      key: 'edit',
+      label: '编辑',
+      onClick: () => handleEdit(row),
+      visible: canUpdate,
+    },
+    {
+      danger: true,
+      key: 'delete',
+      label: '删除',
+      onClick: () => handleDelete(row),
+      visible: canDelete,
+    },
+  ];
+}
 </script>
 
 <template>
@@ -183,8 +205,7 @@ function handleBatchDelete() {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button v-access:code="'upload:dir:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button v-access:code="'upload:dir:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <ActionMore :actions="getRowActions(row)" />
       </template>
     </Grid>
   </Page>

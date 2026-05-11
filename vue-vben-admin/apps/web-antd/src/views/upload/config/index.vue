@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
+import type { ActionMoreItem } from '#/components/action-more/index.vue';
 
 import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
@@ -9,6 +10,7 @@ import { Button, message, Modal, Tag } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { batchDeleteConfig, deleteConfig, getConfigList } from '#/api/upload/config';
 import type { ConfigItem } from '#/api/upload/config/types';
+import ActionMore from '#/components/action-more/index.vue';
 import { getGridSelectedIds } from '#/utils/grid-selection';
 import FormModal from './modules/form.vue';
 
@@ -81,6 +83,8 @@ const [FormModalComp, formModalApi] = useVbenModal({
 });
 const { hasAccessByCodes } = useAccess();
 const canBatchDelete = hasAccessByCodes(['upload:config:batch-delete']);
+const canDelete = hasAccessByCodes(['upload:config:delete']);
+const canUpdate = hasAccessByCodes(['upload:config:update']);
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -218,6 +222,24 @@ function handleBatchDelete() {
     },
   });
 }
+
+function getRowActions(row: ConfigItem): ActionMoreItem[] {
+  return [
+    {
+      key: 'edit',
+      label: '编辑',
+      onClick: () => handleEdit(row),
+      visible: canUpdate,
+    },
+    {
+      danger: true,
+      key: 'delete',
+      label: '删除',
+      onClick: () => handleDelete(row),
+      visible: canDelete,
+    },
+  ];
+}
 </script>
 
 <template>
@@ -244,8 +266,7 @@ function handleBatchDelete() {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button v-access:code="'upload:config:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button v-access:code="'upload:config:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <ActionMore :actions="getRowActions(row)" />
       </template>
     </Grid>
   </Page>

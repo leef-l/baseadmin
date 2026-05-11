@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
+import type { ActionMoreItem } from '#/components/action-more/index.vue';
 
 import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
@@ -9,6 +10,7 @@ import { Button, message, Modal, Tag } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { batchDeleteFile, deleteFile, getFileList } from '#/api/upload/file';
 import type { FileItem } from '#/api/upload/file/types';
+import ActionMore from '#/components/action-more/index.vue';
 import { getGridSelectedIds } from '#/utils/grid-selection';
 import CreateFileModal from './modules/create-file.vue';
 import CreateImageModal from './modules/create-image.vue';
@@ -72,6 +74,8 @@ const [CreateImageModalComp, createImageModalApi] = useVbenModal({
 });
 const { hasAccessByCodes } = useAccess();
 const canBatchDelete = hasAccessByCodes(['upload:file:batch-delete']);
+const canDelete = hasAccessByCodes(['upload:file:delete']);
+const canUpdate = hasAccessByCodes(['upload:file:update']);
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -209,6 +213,24 @@ function handleBatchDelete() {
     },
   });
 }
+
+function getRowActions(row: FileItem): ActionMoreItem[] {
+  return [
+    {
+      key: 'edit',
+      label: '编辑',
+      onClick: () => handleEdit(row),
+      visible: canUpdate,
+    },
+    {
+      danger: true,
+      key: 'delete',
+      label: '删除',
+      onClick: () => handleDelete(row),
+      visible: canDelete,
+    },
+  ];
+}
 </script>
 
 <template>
@@ -234,8 +256,7 @@ function handleBatchDelete() {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button v-access:code="'upload:file:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button v-access:code="'upload:file:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <ActionMore :actions="getRowActions(row)" />
       </template>
     </Grid>
   </Page>

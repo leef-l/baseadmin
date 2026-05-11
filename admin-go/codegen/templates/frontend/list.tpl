@@ -7,6 +7,7 @@ import { onMounted{{if .HasImport}}, ref{{end}} } from 'vue';
 {{- end}}
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
+import type { ActionMoreItem } from '#/components/action-more/index.vue';
 
 import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
@@ -19,6 +20,7 @@ import { Button, message, Modal{{if .HasEnum}}, Tag{{end}} } from 'ant-design-vu
 {{- end}}
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
+import ActionMore from '#/components/action-more/index.vue';
 import { getGridSelectedIds } from '#/utils/grid-selection';
 {{- if .HasTenantScope}}
 import { usePlatformSuperAdmin } from '#/utils/auth-scope';
@@ -137,6 +139,9 @@ const [DetailDrawerComp, detailDrawerApi] = useVbenModal({
 });
 const { hasAccessByCodes } = useAccess();
 const canBatchDelete = hasAccessByCodes(['{{.AppName}}:{{.ModuleName}}:batch-delete']);
+const canDelete = hasAccessByCodes(['{{.AppName}}:{{.ModuleName}}:delete']);
+const canDetail = hasAccessByCodes(['{{.AppName}}:{{.ModuleName}}:detail']);
+const canUpdate = hasAccessByCodes(['{{.AppName}}:{{.ModuleName}}:update']);
 {{- if .HasTenantScope}}
 const isPlatformSuperAdmin = usePlatformSuperAdmin();
 {{- end}}
@@ -650,6 +655,30 @@ function handleBatchUpdateStatus() {
   });
 }
 {{- end}}
+
+function getRowActions(row: {{.ModelName}}Item): ActionMoreItem[] {
+  return [
+    {
+      key: 'detail',
+      label: '查看',
+      onClick: () => handleView(row),
+      visible: canDetail,
+    },
+    {
+      key: 'edit',
+      label: '编辑',
+      onClick: () => handleEdit(row),
+      visible: canUpdate,
+    },
+    {
+      danger: true,
+      key: 'delete',
+      label: '删除',
+      onClick: () => handleDelete(row),
+      visible: canDelete,
+    },
+  ];
+}
 </script>
 
 <template>
@@ -705,9 +734,7 @@ function handleBatchUpdateStatus() {
 {{- end}}
 {{- end}}
       <template #action="{ row }">
-        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:detail'" type="link" size="small" @click="handleView(row)">查看</Button>
-        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <ActionMore :actions="getRowActions(row)" />
       </template>
     </Grid>
   </Page>

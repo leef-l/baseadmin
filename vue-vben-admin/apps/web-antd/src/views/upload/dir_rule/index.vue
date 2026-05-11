@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
+import type { ActionMoreItem } from '#/components/action-more/index.vue';
 import type { DirRuleItem, DirRuleStorageTypesValue } from '#/api/upload/dir_rule/types';
 
 import { useAccess } from '@vben/access';
@@ -10,6 +11,7 @@ import { Button, message, Modal, Tag } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { batchDeleteDirRule, deleteDirRule, getDirRuleList } from '#/api/upload/dir_rule';
+import ActionMore from '#/components/action-more/index.vue';
 import { getGridSelectedIds } from '#/utils/grid-selection';
 
 import FormModal from './modules/form.vue';
@@ -91,6 +93,8 @@ const [FormModalComp, formModalApi] = useVbenModal({
 });
 const { hasAccessByCodes } = useAccess();
 const canBatchDelete = hasAccessByCodes(['upload:dir_rule:batch-delete']);
+const canDelete = hasAccessByCodes(['upload:dir_rule:delete']);
+const canUpdate = hasAccessByCodes(['upload:dir_rule:update']);
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
   collapsed: false,
@@ -219,6 +223,24 @@ function handleBatchDelete() {
     },
   });
 }
+
+function getRowActions(row: DirRuleItem): ActionMoreItem[] {
+  return [
+    {
+      key: 'edit',
+      label: '编辑',
+      onClick: () => handleEdit(row),
+      visible: canUpdate,
+    },
+    {
+      danger: true,
+      key: 'delete',
+      label: '删除',
+      onClick: () => handleDelete(row),
+      visible: canDelete,
+    },
+  ];
+}
 </script>
 
 <template>
@@ -257,8 +279,7 @@ function handleBatchDelete() {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button v-access:code="'upload:dir_rule:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button v-access:code="'upload:dir_rule:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <ActionMore :actions="getRowActions(row)" />
       </template>
     </Grid>
   </Page>

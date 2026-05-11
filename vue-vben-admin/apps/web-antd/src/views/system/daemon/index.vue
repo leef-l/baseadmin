@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
+import type { ActionMoreItem } from '#/components/action-more/index.vue';
 
 import { ref } from 'vue';
 
@@ -21,6 +22,7 @@ import {
   stopDaemon,
 } from '#/api/system/daemon';
 import type { DaemonItem } from '#/api/system/daemon/types';
+import ActionMore from '#/components/action-more/index.vue';
 import { getGridSelectedIds } from '#/utils/grid-selection';
 
 import FormModal from './modules/form.vue';
@@ -29,6 +31,11 @@ const { hasAccessByCodes } = useAccess();
 const canBatchDelete = hasAccessByCodes(['system:daemon:batch-delete']);
 const canBatchRestart = hasAccessByCodes(['system:daemon:restart']);
 const canBatchStop = hasAccessByCodes(['system:daemon:stop']);
+const canDelete = hasAccessByCodes(['system:daemon:delete']);
+const canRestart = hasAccessByCodes(['system:daemon:restart']);
+const canStop = hasAccessByCodes(['system:daemon:stop']);
+const canUpdate = hasAccessByCodes(['system:daemon:update']);
+const canView = hasAccessByCodes(['system:daemon:view']);
 
 const detailOpen = ref(false);
 const detailLoading = ref(false);
@@ -260,6 +267,42 @@ function handleBatchDelete() {
 function runtimeColor(status?: string) {
   return runtimeColorMap[status || 'UNKNOWN'] || 'default';
 }
+
+function getRowActions(row: DaemonItem): ActionMoreItem[] {
+  return [
+    {
+      key: 'view',
+      label: '查看',
+      onClick: () => handleView(row),
+      visible: canView,
+    },
+    {
+      key: 'edit',
+      label: '编辑',
+      onClick: () => handleEdit(row),
+      visible: canUpdate,
+    },
+    {
+      key: 'restart',
+      label: '重启',
+      onClick: () => handleRestart(row),
+      visible: canRestart,
+    },
+    {
+      key: 'stop',
+      label: '暂停',
+      onClick: () => handleStop(row),
+      visible: canStop,
+    },
+    {
+      danger: true,
+      key: 'delete',
+      label: '删除',
+      onClick: () => handleDelete(row),
+      visible: canDelete,
+    },
+  ];
+}
 </script>
 
 <template>
@@ -297,47 +340,7 @@ function runtimeColor(status?: string) {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button
-          v-access:code="'system:daemon:view'"
-          type="link"
-          size="small"
-          @click="handleView(row)"
-        >
-          查看
-        </Button>
-        <Button
-          v-access:code="'system:daemon:update'"
-          type="link"
-          size="small"
-          @click="handleEdit(row)"
-        >
-          编辑
-        </Button>
-        <Button
-          v-access:code="'system:daemon:restart'"
-          type="link"
-          size="small"
-          @click="handleRestart(row)"
-        >
-          重启
-        </Button>
-        <Button
-          v-access:code="'system:daemon:stop'"
-          type="link"
-          size="small"
-          @click="handleStop(row)"
-        >
-          暂停
-        </Button>
-        <Button
-          v-access:code="'system:daemon:delete'"
-          type="link"
-          danger
-          size="small"
-          @click="handleDelete(row)"
-        >
-          删除
-        </Button>
+        <ActionMore :actions="getRowActions(row)" />
       </template>
     </Grid>
     <Modal

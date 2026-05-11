@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
+import type { ActionMoreItem } from '#/components/action-more/index.vue';
 
 import { h, onMounted, ref } from 'vue';
 
@@ -13,6 +14,7 @@ import { getDeptTree } from '#/api/system/dept';
 import type { DeptItem } from '#/api/system/dept/types';
 import { batchDeleteUsers, deleteUsers, getUsersList, resetUsersPassword } from '#/api/system/users';
 import type { UsersItem } from '#/api/system/users/types';
+import ActionMore from '#/components/action-more/index.vue';
 import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getGridSelectedIds } from '#/utils/grid-selection';
 import FormModal from './modules/form.vue';
@@ -95,6 +97,8 @@ const [FormModalComp, formModalApi] = useVbenModal({
 });
 const { hasAccessByCodes } = useAccess();
 const canBatchDelete = hasAccessByCodes(['system:user:batch-delete']);
+const canDelete = hasAccessByCodes(['system:user:delete']);
+const canUpdate = hasAccessByCodes(['system:user:update']);
 const isPlatformSuperAdmin = usePlatformSuperAdmin();
 /** 搜索表单配置 */
 const formOptions: VbenFormProps = {
@@ -287,6 +291,30 @@ function handleResetPassword(row: UsersItem) {
     },
   });
 }
+
+function getRowActions(row: UsersItem): ActionMoreItem[] {
+  return [
+    {
+      key: 'edit',
+      label: '编辑',
+      onClick: () => handleEdit(row),
+      visible: canUpdate,
+    },
+    {
+      key: 'reset-password',
+      label: '重置密码',
+      onClick: () => handleResetPassword(row),
+      visible: canUpdate,
+    },
+    {
+      danger: true,
+      key: 'delete',
+      label: '删除',
+      onClick: () => handleDelete(row),
+      visible: canDelete && row.username !== 'admin',
+    },
+  ];
+}
 </script>
 
 <template>
@@ -338,9 +366,7 @@ function handleResetPassword(row: UsersItem) {
             </Tag>
           </template>
           <template #action="{ row }">
-            <Button v-access:code="'system:user:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
-            <Button v-access:code="'system:user:update'" type="link" size="small" @click="handleResetPassword(row)">重置密码</Button>
-            <Button v-if="row.username !== 'admin'" v-access:code="'system:user:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+            <ActionMore :actions="getRowActions(row)" />
           </template>
         </Grid>
       </div>

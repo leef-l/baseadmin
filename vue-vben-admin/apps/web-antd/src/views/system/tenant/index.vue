@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
+import type { ActionMoreItem } from '#/components/action-more/index.vue';
 
 import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
@@ -13,6 +14,7 @@ import {
   getTenantList,
 } from '#/api/system/tenant';
 import type { TenantItem } from '#/api/system/tenant/types';
+import ActionMore from '#/components/action-more/index.vue';
 import { getGridSelectedIds } from '#/utils/grid-selection';
 
 import FormModal from './modules/form.vue';
@@ -37,6 +39,8 @@ function getStatusColor(val: number): string {
 
 const { hasAccessByCodes } = useAccess();
 const canBatchDelete = hasAccessByCodes(['system:tenant:batch-delete']);
+const canDelete = hasAccessByCodes(['system:tenant:delete']);
+const canUpdate = hasAccessByCodes(['system:tenant:update']);
 
 const [FormModalComp, formModalApi] = useVbenModal({
   connectedComponent: FormModal,
@@ -175,6 +179,24 @@ function handleBatchDelete() {
     title: '确认批量删除',
   });
 }
+
+function getRowActions(row: TenantItem): ActionMoreItem[] {
+  return [
+    {
+      key: 'edit',
+      label: '编辑',
+      onClick: () => handleEdit(row),
+      visible: canUpdate,
+    },
+    {
+      danger: true,
+      key: 'delete',
+      label: '删除',
+      onClick: () => handleDelete(row),
+      visible: canDelete,
+    },
+  ];
+}
 </script>
 
 <template>
@@ -203,23 +225,7 @@ function handleBatchDelete() {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button
-          v-access:code="'system:tenant:update'"
-          type="link"
-          size="small"
-          @click="handleEdit(row)"
-        >
-          编辑
-        </Button>
-        <Button
-          v-access:code="'system:tenant:delete'"
-          type="link"
-          danger
-          size="small"
-          @click="handleDelete(row)"
-        >
-          删除
-        </Button>
+        <ActionMore :actions="getRowActions(row)" />
       </template>
     </Grid>
   </Page>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
+import type { ActionMoreItem } from '#/components/action-more/index.vue';
 
 import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
@@ -15,6 +16,7 @@ import {
   getDomainList,
 } from '#/api/system/domain';
 import type { DomainItem } from '#/api/system/domain/types';
+import ActionMore from '#/components/action-more/index.vue';
 import { usePlatformSuperAdmin } from '#/utils/auth-scope';
 import { getGridSelectedIds } from '#/utils/grid-selection';
 
@@ -54,7 +56,11 @@ function getStatusColor(value: number) {
 }
 
 const { hasAccessByCodes } = useAccess();
+const canApplySSL = hasAccessByCodes(['system:domain:ssl']);
+const canApplyNginx = hasAccessByCodes(['system:domain:apply']);
 const canBatchDelete = hasAccessByCodes(['system:domain:batch-delete']);
+const canDelete = hasAccessByCodes(['system:domain:delete']);
+const canUpdate = hasAccessByCodes(['system:domain:update']);
 const isPlatformSuperAdmin = usePlatformSuperAdmin();
 
 const [FormModalComp, formModalApi] = useVbenModal({
@@ -251,6 +257,36 @@ function handleBatchDelete() {
     title: '确认批量删除',
   });
 }
+
+function getRowActions(row: DomainItem): ActionMoreItem[] {
+  return [
+    {
+      key: 'ssl',
+      label: '申请SSL',
+      onClick: () => handleApplySSL(row),
+      visible: canApplySSL,
+    },
+    {
+      key: 'nginx',
+      label: '应用Nginx',
+      onClick: () => handleApplyNginx(row),
+      visible: canApplyNginx,
+    },
+    {
+      key: 'edit',
+      label: '编辑',
+      onClick: () => handleEdit(row),
+      visible: canUpdate,
+    },
+    {
+      danger: true,
+      key: 'delete',
+      label: '删除',
+      onClick: () => handleDelete(row),
+      visible: canDelete,
+    },
+  ];
+}
 </script>
 
 <template>
@@ -297,39 +333,7 @@ function handleBatchDelete() {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button
-          v-access:code="'system:domain:ssl'"
-          type="link"
-          size="small"
-          @click="handleApplySSL(row)"
-        >
-          申请SSL
-        </Button>
-        <Button
-          v-access:code="'system:domain:apply'"
-          type="link"
-          size="small"
-          @click="handleApplyNginx(row)"
-        >
-          应用Nginx
-        </Button>
-        <Button
-          v-access:code="'system:domain:update'"
-          type="link"
-          size="small"
-          @click="handleEdit(row)"
-        >
-          编辑
-        </Button>
-        <Button
-          v-access:code="'system:domain:delete'"
-          type="link"
-          danger
-          size="small"
-          @click="handleDelete(row)"
-        >
-          删除
-        </Button>
+        <ActionMore :actions="getRowActions(row)" />
       </template>
     </Grid>
   </Page>

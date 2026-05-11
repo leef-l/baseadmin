@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { VbenFormProps } from '#/adapter/form';
 import type { VxeGridProps } from '#/adapter/vxe-table';
+import type { ActionMoreItem } from '#/components/action-more/index.vue';
 
+import { ref } from 'vue';
 import { useAccess } from '@vben/access';
 import { Page, useVbenModal } from '@vben/common-ui';
 import { Button, message, Modal, Tag } from 'ant-design-vue';
@@ -9,11 +11,11 @@ import { Button, message, Modal, Tag } from 'ant-design-vue';
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
 import { batchDeleteRole, deleteRole, getRoleTree } from '#/api/system/role';
 import type { RoleItem } from '#/api/system/role/types';
+import ActionMore from '#/components/action-more/index.vue';
 import { getGridSelectedIds } from '#/utils/grid-selection';
 import FormModal from './modules/form.vue';
 import GrantMenuModal from './modules/grant-menu.vue';
 import GrantDeptModal from './modules/grant-dept.vue';
-import { ref } from 'vue';
 
 /** 标签颜色池 */
 const TAG_COLORS = ['green', 'red', 'blue', 'orange', 'cyan', 'purple', 'geekblue', 'magenta'];
@@ -77,6 +79,10 @@ const grantMenuRef = ref();
 const grantDeptRef = ref();
 const { hasAccessByCodes } = useAccess();
 const canBatchDelete = hasAccessByCodes(['system:role:batch-delete']);
+const canDelete = hasAccessByCodes(['system:role:delete']);
+const canGrantDept = hasAccessByCodes(['system:role:grant:dept']);
+const canGrantMenu = hasAccessByCodes(['system:role:grant:menu']);
+const canUpdate = hasAccessByCodes(['system:role:update']);
 
 /** 表单弹窗 */
 const [FormModalComp, formModalApi] = useVbenModal({
@@ -219,6 +225,36 @@ function handleGrantMenu(row: RoleItem) {
 function handleGrantDept(row: RoleItem) {
   grantDeptRef.value?.open(row.id, row.dataScope ?? 1);
 }
+
+function getRowActions(row: RoleItem): ActionMoreItem[] {
+  return [
+    {
+      key: 'edit',
+      label: '编辑',
+      onClick: () => handleEdit(row),
+      visible: canUpdate,
+    },
+    {
+      key: 'grant-menu',
+      label: '菜单权限',
+      onClick: () => handleGrantMenu(row),
+      visible: canGrantMenu,
+    },
+    {
+      key: 'grant-dept',
+      label: '数据权限',
+      onClick: () => handleGrantDept(row),
+      visible: canGrantDept,
+    },
+    {
+      danger: true,
+      key: 'delete',
+      label: '删除',
+      onClick: () => handleDelete(row),
+      visible: canDelete,
+    },
+  ];
+}
 </script>
 
 <template>
@@ -245,10 +281,7 @@ function handleGrantDept(row: RoleItem) {
         </Tag>
       </template>
       <template #action="{ row }">
-        <Button v-access:code="'system:role:update'" type="link" size="small" @click="handleEdit(row)">编辑</Button>
-        <Button v-access:code="'system:role:grant:menu'" type="link" size="small" @click="handleGrantMenu(row)">菜单权限</Button>
-        <Button v-access:code="'system:role:grant:dept'" type="link" size="small" @click="handleGrantDept(row)">数据权限</Button>
-        <Button v-access:code="'system:role:delete'" type="link" danger size="small" @click="handleDelete(row)">删除</Button>
+        <ActionMore :actions="getRowActions(row)" />
       </template>
     </Grid>
     <GrantMenuModal ref="grantMenuRef" @success="() => gridApi.reload()" />
