@@ -176,6 +176,7 @@ const gridOptions: VxeGridProps<DirRuleItem> = {
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions,
   gridOptions,
+  showSearchForm: false,
 });
 
 /** 新建 */
@@ -248,7 +249,7 @@ function getRowActions(row: DirRuleItem): ActionMoreItem[] {
     <FormModalComp @success="() => gridApi.reload()" />
     <Grid>
       <template #toolbar-actions>
-        <Button v-access:code="'upload:dir_rule:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'upload:dir_rule:create'" class="mr-2" type="primary" @click="handleCreate">新建</Button>
         <Button v-access:code="'upload:dir_rule:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #category_cell="{ row }">

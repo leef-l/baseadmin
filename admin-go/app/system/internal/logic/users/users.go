@@ -43,6 +43,10 @@ func (s *sUsers) Create(ctx context.Context, in *model.UsersCreateInput) error {
 	if err := s.ensureOwnershipWritable(ctx, in.TenantID, in.MerchantID); err != nil {
 		return err
 	}
+	// 配额检查：检查租户用户数是否超限
+	if err := s.ensureTenantUserQuota(ctx, in.TenantID); err != nil {
+		return err
+	}
 	if err := s.ensureDeptExists(ctx, in.DeptID); err != nil {
 		return err
 	}
@@ -777,6 +781,51 @@ func (s *sUsers) ensureOwnershipWritable(ctx context.Context, tenantID, merchant
 	}
 	if count == 0 {
 		return gerror.New("商户不存在或不属于所选租户")
+	}
+		return nil
+}
+
+func (s *sUsers) ensureTenantUserQuota(ctx context.Context, tenantID snowflake.JsonInt64) error {
+	if tenantID <= 0 {
+		return nil // 平台账号不限
+	}
+	// 查租户当前套餐
+	var sub struct {
+		PlanId int64 `json:"planId"`
+	}
+	err := dao.TenantPlan.Ctx(ctx).
+		Fields(dao.TenantPlan.Columns().PlanId+" AS planId").
+		Where(dao.TenantPlan.Columns().TenantId, int64(tenantID)).
+		Where(dao.TenantPlan.Columns().Status, 1).
+		Where(dao.TenantPlan.Columns().DeletedAt, nil).
+		OrderDesc(dao.TenantPlan.Columns().Id).
+		Scan(&sub)
+	if err != nil || sub.PlanId == 0 {
+		return nil // 未订阅套餐，暂不限制
+	}
+	// 查套餐的用户限制
+	userLimit, err := dao.Plan.Ctx(ctx).
+		Fields(dao.Plan.Columns().UserLimit).
+		Where(dao.Plan.Columns().Id, sub.PlanId).
+		Where(dao.Plan.Columns().DeletedAt, nil).
+		Value(dao.Plan.Columns().UserLimit)
+	if err != nil || userLimit.IsEmpty() {
+		return nil
+	}
+	limit := userLimit.Int()
+	if limit < 0 {
+		return nil // -1 表示无限
+	}
+	// 统计当前用户数
+	count, err := dao.Users.Ctx(ctx).
+		Where(dao.Users.Columns().TenantId, int64(tenantID)).
+		Where(dao.Users.Columns().DeletedAt, nil).
+		Count()
+	if err != nil {
+		return nil
+	}
+	if count >= limit {
+		return gerror.Newf("当前套餐用户数已达上限（%d人），无法创建更多用户", limit)
 	}
 	return nil
 }

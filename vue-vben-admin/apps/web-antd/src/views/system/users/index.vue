@@ -213,6 +213,7 @@ const gridOptions: VxeGridProps<UsersItem> = {
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions,
   gridOptions,
+  showSearchForm: false,
 });
 
 /** 新建 */
@@ -352,7 +353,7 @@ function getRowActions(row: UsersItem): ActionMoreItem[] {
       <div class="flex-1 overflow-hidden">
         <Grid>
           <template #toolbar-actions>
-            <Button v-access:code="'system:user:create'" type="primary" @click="handleCreate">新建</Button>
+            <Button v-access:code="'system:user:create'" class="mr-2" type="primary" @click="handleCreate">新建</Button>
             <Button v-access:code="'system:user:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
           </template>
           <template #status_cell="{ row }">

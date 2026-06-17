@@ -158,6 +158,7 @@ const gridOptions: VxeGridProps<FileItem> = {
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions,
   gridOptions,
+  showSearchForm: false,
 });
 
 /** 新建 */
@@ -239,12 +240,12 @@ function getRowActions(row: FileItem): ActionMoreItem[] {
     <CreateFileModalComp @success="() => gridApi.reload()" />
     <CreateImageModalComp @success="() => gridApi.reload()" />
     <Grid>
-      <template #toolbar-actions>
-        <Button v-access:code="'upload:file:create'" type="primary" @click="handleCreateFile">新建文件</Button>
-        <Button v-access:code="'upload:file:create'" @click="handleCreateImage">新建图片</Button>
-        <Button v-access:code="'upload:file:create'" @click="handleCreate">新建记录</Button>
-        <Button v-access:code="'upload:file:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
-      </template>
+	      <template #toolbar-actions>
+	        <Button v-access:code="'upload:file:create'" type="primary" class="mr-2" @click="handleCreateFile">新建文件</Button>
+	        <Button v-access:code="'upload:file:create'" class="mr-2" @click="handleCreateImage">新建图片</Button>
+	        <Button v-access:code="'upload:file:create'" class="mr-2" @click="handleCreate">新建记录</Button>
+	        <Button v-access:code="'upload:file:batch-delete'" danger class="mr-2" @click="handleBatchDelete">批量删除</Button>
+	      </template>
       <template #storage_cell="{ row }">
         <Tag :color="getStorageColor(row.storage ?? 1)">
           {{ storageMap[row.storage ?? 1] || row.storage }}

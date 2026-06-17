@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"database/sql"
+	"errors"
+
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 
@@ -40,7 +43,11 @@ func DomainContext(r *ghttp.Request) {
 			Where(dao.Domain.Columns().DeletedAt, nil).
 			Scan(&row)
 		if err != nil {
-			g.Log().Errorf(r.Context(), "DomainContext: query failed for host %s: %v", host, err)
+			if errors.Is(err, sql.ErrNoRows) {
+				g.Log().Debugf(r.Context(), "DomainContext: no domain configured for host %s", host)
+			} else {
+				g.Log().Errorf(r.Context(), "DomainContext: query failed for host %s: %v", host, err)
+			}
 		}
 		if row.Domain != "" {
 			r.SetCtxVar("domain_scope_matched", true)

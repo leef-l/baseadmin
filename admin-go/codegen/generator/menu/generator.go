@@ -237,20 +237,35 @@ func (g *Generator) generateWithStore(store menuStore, meta *parser.TableMeta) (
 		count++
 	}
 
-	// 4. 插入按钮权限
-	for _, btn := range buildButtonSpecs(meta) {
-		btnTitle := menuTitle + btn.suffix
-		created, err := g.ensureButton(store, menuID, btnTitle, btn.permission, btn.sort)
-		if err != nil {
-			return count, err
+		// 4. 插入按钮权限
+		for _, btn := range buildButtonSpecs(meta) {
+			btnTitle := menuTitle + btn.suffix
+			btnCreated, err := g.ensureButton(store, menuID, btnTitle, btn.permission, btn.sort)
+			if err != nil {
+				return count, err
+			}
+			if btnCreated {
+				count++
+				if !g.config.DryRun {
+					// 自动授权给超级管理员（按 permission 找到刚创建的按钮 ID）
+					btnID, _ := findMenuID(store, "permission", btn.permission, menuTypeButton)
+					if btnID > 0 {
+						_, _ = store.Exec(`INSERT IGNORE INTO system_role_menu (role_id, menu_id) VALUES (?, ?)`, superAdminRoleID, btnID)
+					}
+				}
+			}
 		}
-		if created {
-			count++
+
+		// 5. 将菜单页授权给超级管理员
+		if created && !g.config.DryRun && menuID > 0 {
+			_, _ = store.Exec(`INSERT IGNORE INTO system_role_menu (role_id, menu_id) VALUES (?, ?)`, superAdminRoleID, menuID)
 		}
+
+		return count, nil
 	}
 
-	return count, nil
-}
+	// superAdminRoleID 超级管理员角色 ID（与 migration 000001 中一致）
+	const superAdminRoleID = 1000000000000000002
 
 func (g *Generator) recordOperation(op PreviewOperation) {
 	g.operations = append(g.operations, op)

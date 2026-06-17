@@ -135,6 +135,7 @@ const gridOptions: VxeGridProps<TenantItem> = {
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions,
   gridOptions,
+  showSearchForm: false,
 });
 
 function handleCreate() {
@@ -203,22 +204,24 @@ function getRowActions(row: TenantItem): ActionMoreItem[] {
   <Page auto-content-height>
     <FormModalComp @success="() => gridApi.reload()" />
     <Grid>
-      <template #toolbar-actions>
-        <Button
-          v-access:code="'system:tenant:create'"
-          type="primary"
-          @click="handleCreate"
-        >
-          新建
-        </Button>
-        <Button
-          v-access:code="'system:tenant:batch-delete'"
-          danger
-          @click="handleBatchDelete"
-        >
-          批量删除
-        </Button>
-      </template>
+	      <template #toolbar-actions>
+	        <Button
+	          v-access:code="'system:tenant:create'"
+	          type="primary"
+	          class="mr-2"
+	          @click="handleCreate"
+	        >
+	          新建
+	        </Button>
+	        <Button
+	          v-access:code="'system:tenant:batch-delete'"
+	          danger
+	          class="mr-2"
+	          @click="handleBatchDelete"
+	        >
+	          批量删除
+	        </Button>
+	      </template>
       <template #status_cell="{ row }">
         <Tag :color="getStatusColor(row.status ?? 0)">
           {{ statusMap[row.status ?? 0] || row.status }}

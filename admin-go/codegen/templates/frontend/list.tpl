@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 {{- if .HasTooltip}}
 import { h, onMounted{{if .HasImport}}, ref{{end}} } from 'vue';
 {{- end}}
@@ -388,6 +388,7 @@ const gridOptions: VxeGridProps<{{.ModelName}}Item> = {
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions,
   gridOptions,
+  showSearchForm: false,
 });
 {{- if .HasImport}}
 
@@ -441,7 +442,7 @@ async function initSearchOptions() {
   }
 {{- else}}
   try {
-    const {{.NameLower}}Res = await get{{.RefTableCamel}}List({ pageNum: 1, pageSize: 1000 });
+    const {{.NameLower}}Res = await get{{.RefTableCamel}}List({ pageNum: 1, pageSize: 500 });
     gridApi.formApi.updateSchema([
       {
         fieldName: '{{.SearchFormField}}',
@@ -696,15 +697,15 @@ function getRowActions(row: {{.ModelName}}Item): ActionMoreItem[] {
 {{- end}}
     <Grid>
       <template #toolbar-actions>
-        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:create'" type="primary" @click="handleCreate">新建</Button>
-        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:batch-delete'" danger class="ml-2" @click="handleBatchDelete">批量删除</Button>
-        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:export'" class="ml-2" @click="handleExport">导出</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:create'" class="mr-2" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:batch-delete'" danger class="mr-2" @click="handleBatchDelete">批量删除</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:export'" class="mr-2" @click="handleExport">导出</Button>
 {{- if .HasImport}}
-        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:import'" class="ml-2" @click="handleImportTrigger">导入</Button>
-        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:import'" class="ml-2" @click="handleDownloadTemplate">模板下载</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:import'" class="mr-2" @click="handleImportTrigger">导入</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:import'" class="mr-2" @click="handleDownloadTemplate">模板下载</Button>
 {{- end}}
 {{- if .HasBatchEdit}}
-        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:batch-update'" class="ml-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
+        <Button v-access:code="'{{.AppName}}:{{.ModuleName}}:batch-update'" class="mr-2" @click="handleBatchUpdateStatus">批量修改状态</Button>
 {{- end}}
       </template>
 {{- range .Fields}}

@@ -181,6 +181,7 @@ const gridOptions: VxeGridProps<MerchantItem> = {
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions,
   gridOptions,
+  showSearchForm: false,
 });
 
 function handleCreate() {
@@ -250,20 +251,22 @@ function getRowActions(row: MerchantItem): ActionMoreItem[] {
     <FormModalComp @success="() => gridApi.reload()" />
     <Grid>
       <template #toolbar-actions>
-        <Button
-          v-access:code="'system:merchant:create'"
-          type="primary"
-          @click="handleCreate"
-        >
-          新建
-        </Button>
-        <Button
-          v-access:code="'system:merchant:batch-delete'"
-          danger
-          @click="handleBatchDelete"
-        >
-          批量删除
-        </Button>
+	        <Button
+	          v-access:code="'system:merchant:create'"
+	          type="primary"
+	          class="mr-2"
+	          @click="handleCreate"
+	        >
+	          新建
+	        </Button>
+	        <Button
+	          v-access:code="'system:merchant:batch-delete'"
+	          danger
+	          class="mr-2"
+	          @click="handleBatchDelete"
+	        >
+	          批量删除
+	        </Button>
       </template>
       <template #status_cell="{ row }">
         <Tag :color="getStatusColor(row.status ?? 0)">

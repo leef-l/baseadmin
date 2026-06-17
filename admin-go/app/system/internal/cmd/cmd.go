@@ -2,12 +2,14 @@ package cmd
 
 import (
 	"context"
+	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/os/gcmd"
 
 	"gbaseadmin/app/system/internal/controller/auth"
+	"gbaseadmin/app/system/internal/controller/cron"
 	"gbaseadmin/app/system/internal/controller/daemon"
 	"gbaseadmin/app/system/internal/controller/dept"
 	"gbaseadmin/app/system/internal/controller/domain"
@@ -15,10 +17,13 @@ import (
 	"gbaseadmin/app/system/internal/controller/hello"
 	"gbaseadmin/app/system/internal/controller/menu"
 	"gbaseadmin/app/system/internal/controller/merchant"
+	"gbaseadmin/app/system/internal/controller/plan"
 	"gbaseadmin/app/system/internal/controller/role"
 	"gbaseadmin/app/system/internal/controller/tenant"
+	"gbaseadmin/app/system/internal/controller/tenant_plan"
 	"gbaseadmin/app/system/internal/controller/users"
 	"gbaseadmin/app/system/internal/middleware"
+	cronmgr "gbaseadmin/app/system/internal/logic/cron"
 	"gbaseadmin/utility/httpmeta"
 )
 
@@ -35,14 +40,11 @@ var (
 					health.NewV1(),
 					hello.NewV1(),
 				)
-				// 系统管理模块
 				group.Group("/api/system", func(group *ghttp.RouterGroup) {
-					// 公开接口（无需登录）
 					group.Bind(
 						auth.Auth.Login,
 						auth.Auth.TicketLogin,
 					)
-					// 需要登录的接口
 					group.Group("/", func(group *ghttp.RouterGroup) {
 						group.Middleware(middleware.Auth)
 						group.Bind(
@@ -52,8 +54,11 @@ var (
 							auth.Auth.ChangePassword,
 							auth.Auth.Menus,
 							daemon.Daemon,
+							cron.Cron,
 							dept.Dept,
 							domain.Domain,
+							plan.Plan,
+							tenant_plan.TenantPlan,
 							tenant.Tenant,
 							merchant.Merchant,
 							role.Role,
@@ -63,6 +68,11 @@ var (
 					})
 				})
 			})
+			// 等服务完全启动后，再启动定时任务管理器
+			go func() {
+				time.Sleep(3 * time.Second)
+				cronmgr.GetManager().Start(ctx)
+			}()
 			s.Run()
 			return nil
 		},

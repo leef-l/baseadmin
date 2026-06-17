@@ -1,0 +1,105 @@
+// ==========================================================================
+// Code generated and maintained by GoFrame CLI tool. DO NOT EDIT.
+// ==========================================================================
+
+package internal
+
+import (
+	"context"
+
+	"github.com/gogf/gf/v2/database/gdb"
+	"github.com/gogf/gf/v2/frame/g"
+)
+
+// SystemRoleDao is the data access object for the table system_role.
+type SystemRoleDao struct {
+	table    string             // table is the underlying table name of the DAO.
+	group    string             // group is the database configuration group name of the current DAO.
+	columns  SystemRoleColumns  // columns contains all the column names of Table for convenient usage.
+	handlers []gdb.ModelHandler // handlers for customized model modification.
+}
+
+// SystemRoleColumns defines and stores column names for the table system_role.
+type SystemRoleColumns struct {
+	Id         string // 角色ID（Snowflake）
+	ParentId   string // 上级角色ID，0 表示顶级角色
+	Title      string // 角色名称
+	DataScope  string // 数据范围:1=全部,2=本部门及以下,3=本部门,4=仅本人,5=自定义
+	IsAdmin    string // 是否超级管理员:0=否,1=是
+	Sort       string // 排序（升序）
+	Status     string // 状态:0=关闭,1=开启
+	CreatedBy  string // 创建人ID
+	DeptId     string // 所属部门ID
+	TenantId   string // 租户
+	MerchantId string // 商户
+	CreatedAt  string // 创建时间
+	UpdatedAt  string // 更新时间
+	DeletedAt  string // 软删除时间，非 NULL 表示已删除
+}
+
+// systemRoleColumns holds the columns for the table system_role.
+var systemRoleColumns = SystemRoleColumns{
+	Id:         "id",
+	ParentId:   "parent_id",
+	Title:      "title",
+	DataScope:  "data_scope",
+	IsAdmin:    "is_admin",
+	Sort:       "sort",
+	Status:     "status",
+	CreatedBy:  "created_by",
+	DeptId:     "dept_id",
+	TenantId:   "tenant_id",
+	MerchantId: "merchant_id",
+	CreatedAt:  "created_at",
+	UpdatedAt:  "updated_at",
+	DeletedAt:  "deleted_at",
+}
+
+// NewSystemRoleDao creates and returns a new DAO object for table data access.
+func NewSystemRoleDao(handlers ...gdb.ModelHandler) *SystemRoleDao {
+	return &SystemRoleDao{
+		group:    "default",
+		table:    "system_role",
+		columns:  systemRoleColumns,
+		handlers: handlers,
+	}
+}
+
+// DB retrieves and returns the underlying raw database management object of the current DAO.
+func (dao *SystemRoleDao) DB() gdb.DB {
+	return g.DB(dao.group)
+}
+
+// Table returns the table name of the current DAO.
+func (dao *SystemRoleDao) Table() string {
+	return dao.table
+}
+
+// Columns returns all column names of the current DAO.
+func (dao *SystemRoleDao) Columns() SystemRoleColumns {
+	return dao.columns
+}
+
+// Group returns the database configuration group name of the current DAO.
+func (dao *SystemRoleDao) Group() string {
+	return dao.group
+}
+
+// Ctx creates and returns a Model for the current DAO. It automatically sets the context for the current operation.
+func (dao *SystemRoleDao) Ctx(ctx context.Context) *gdb.Model {
+	model := dao.DB().Model(dao.table)
+	for _, handler := range dao.handlers {
+		model = handler(model)
+	}
+	return model.Safe().Ctx(ctx)
+}
+
+// Transaction wraps the transaction logic using function f.
+// It rolls back the transaction and returns the error if function f returns a non-nil error.
+// It commits the transaction and returns nil if function f returns nil.
+//
+// Note: Do not commit or roll back the transaction in function f,
+// as it is automatically handled by this function.
+func (dao *SystemRoleDao) Transaction(ctx context.Context, f func(ctx context.Context, tx gdb.TX) error) (err error) {
+	return dao.Ctx(ctx).Transaction(ctx, f)
+}

@@ -182,8 +182,8 @@ func (s *sDomain) List(ctx context.Context, in *model.DomainListInput) (list []*
 }
 
 func (s *sDomain) ApplyNginx(ctx context.Context, id snowflake.JsonInt64) (out *model.DomainApplyNginxOutput, err error) {
-	if !shared.ResolveTenantAccessScope(ctx).All {
-		return nil, gerror.New("仅平台账号可应用Nginx配置")
+	if err := s.ensureAccessible(ctx, id); err != nil {
+		return nil, err
 	}
 	row, err := s.loadRow(ctx, id)
 	if err != nil {
@@ -218,8 +218,8 @@ func (s *sDomain) ApplyNginx(ctx context.Context, id snowflake.JsonInt64) (out *
 }
 
 func (s *sDomain) ApplySSL(ctx context.Context, id snowflake.JsonInt64) (out *model.DomainApplySSLOutput, err error) {
-	if !shared.ResolveTenantAccessScope(ctx).All {
-		return nil, gerror.New("仅平台账号可申请SSL证书")
+	if err := s.ensureAccessible(ctx, id); err != nil {
+		return nil, err
 	}
 	row, err := s.loadRow(ctx, id)
 	if err != nil {

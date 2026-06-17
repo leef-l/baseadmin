@@ -1,14 +1,17 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/net/ghttp"
 
 	"gbaseadmin/app/system/internal/logic/shared"
 	"gbaseadmin/utility/authz"
+	"gbaseadmin/utility/cache"
 	"gbaseadmin/utility/jwt"
 	"gbaseadmin/utility/response"
 )
@@ -55,6 +58,14 @@ func Auth(r *ghttp.Request) {
 		return
 	}
 
+	// 租户状态快速检查（Redis 缓存，30秒 TTL）
+	if claims.TenantID > 0 {
+		if isTenantDisabled(r.Context(), claims.TenantID) {
+			response.Forbidden(r, "所属租户已被禁用或已过期")
+			return
+		}
+	}
+
 	if permission := resolveSystemPermission(r.Method, r.URL.Path); permission != "" {
 		if permission == denyPermission {
 			response.Forbidden(r, "未配置的权限动作")
@@ -91,11 +102,23 @@ func resolveSystemPermission(method, path string) string {
 			return "system:user:" + resolved
 		}
 		return denyPermission
-	case "dept", "domain", "menu", "tenant", "merchant", "daemon":
-		if module == "daemon" && action == "detail" {
-			return "system:daemon:view"
-		}
-		if resolved := resolveSystemAction(action); resolved != "" {
+		case "dept", "domain", "menu", "tenant", "merchant", "daemon", "plan", "cron", "tenant_plan":
+			if module == "daemon" && action == "detail" {
+				return "system:daemon:view"
+			}
+			if module == "plan" && action == "subscribe" {
+				return "system:plan:subscribe"
+			}
+			if module == "plan" && action == "current" {
+				return "system:plan:current"
+			}
+			if module == "cron" && action == "trigger" {
+				return "system:cron:trigger"
+			}
+			if module == "cron" && action == "log-list" {
+				return "system:cron:log-list"
+			}
+			if resolved := resolveSystemAction(action); resolved != "" {
 			return "system:" + module + ":" + resolved
 		}
 		if module == "domain" && action == "apply-nginx" {
@@ -179,4 +202,31 @@ func splitRouteAction(prefix, path string) (string, string) {
 		return "", ""
 	}
 	return parts[0], parts[1]
+}
+
+type tenantStatusCache struct {
+	Status   int    `json:"status"`
+	ExpireAt string `json:"expireAt"`
+}
+
+func isTenantDisabled(ctx context.Context, tenantID int64) bool {
+	if tenantID <= 0 {
+		return false
+	}
+	cacheKey := fmt.Sprintf("system:tenant:status:%d", tenantID)
+	var cached tenantStatusCache
+	if ok, _ := cache.GetJSON(ctx, cacheKey, &cached); ok {
+		if cached.Status == 0 {
+			return true
+		}
+		if cached.ExpireAt != "" {
+			expireTime, err := time.Parse("2006-01-02 15:04:05", cached.ExpireAt)
+			if err == nil && time.Now().After(expireTime) {
+				return true
+			}
+		}
+		return false
+	}
+	// 缓存未命中时放行（登录时会严格校验）
+	return false
 }

@@ -112,6 +112,7 @@ const gridOptions: VxeGridProps<DeptItem> = {
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions,
   gridOptions,
+  showSearchForm: false,
 });
 
 /** 新建 */
@@ -184,7 +185,7 @@ function getRowActions(row: DeptItem): ActionMoreItem[] {
     <FormModalComp @success="() => gridApi.reload()" />
     <Grid>
       <template #toolbar-actions>
-        <Button v-access:code="'system:dept:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'system:dept:create'" class="mr-2" type="primary" @click="handleCreate">新建</Button>
         <Button v-access:code="'system:dept:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #status_cell="{ row }">

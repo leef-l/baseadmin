@@ -26,7 +26,7 @@ var (
 		Func: func(ctx context.Context, parser *gcmd.Parser) (err error) {
 			s := g.Server()
 			s.Group("/", func(group *ghttp.RouterGroup) {
-				group.Middleware(httpmeta.RequestIDMiddleware, ghttp.MiddlewareHandlerResponse, httpmeta.AccessLogMiddleware)
+				group.Middleware(httpmeta.RequestIDMiddleware, middleware.DomainContext, ghttp.MiddlewareHandlerResponse, httpmeta.AccessLogMiddleware)
 				group.Bind(
 					health.NewV1(),
 				)

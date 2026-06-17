@@ -1,8 +1,8 @@
 gfcli:
   gen:
     dao:
-      - link: "mysql:baseadmin_xgwise:zindbf32GbDpFKrY@tcp(127.0.0.1:3306)/baseadmin_xgwise?charset=utf8mb4"
-        tables: "dept,role,menu,users,role_dept,role_menu,user_role,user_dept"
+      - link: "mysql:root:root123@tcp(127.0.0.1:3306)/baseadmin?charset=utf8mb4"
+        tables: "system_plan,system_tenant_plan"
         descriptionTag: true
         noModelComment: false
         jsonCase: "CamelLower"

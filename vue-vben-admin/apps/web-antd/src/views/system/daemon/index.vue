@@ -141,6 +141,7 @@ const gridOptions: VxeGridProps<DaemonItem> = {
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions,
   gridOptions,
+  showSearchForm: false,
 });
 
 function handleCreate() {
@@ -309,31 +310,33 @@ function getRowActions(row: DaemonItem): ActionMoreItem[] {
   <Page auto-content-height>
     <FormModalComp @success="() => gridApi.reload()" />
     <Grid>
-      <template #toolbar-actions>
-        <Button
-          v-access:code="'system:daemon:create'"
-          type="primary"
-          @click="handleCreate"
-        >
-          新建
-        </Button>
-        <Button
-          v-access:code="'system:daemon:restart'"
-          @click="handleBatchRestart"
-        >
-          批量重启
-        </Button>
-        <Button v-access:code="'system:daemon:stop'" @click="handleBatchStop">
-          批量暂停
-        </Button>
-        <Button
-          v-access:code="'system:daemon:batch-delete'"
-          danger
-          @click="handleBatchDelete"
-        >
-          批量删除
-        </Button>
-      </template>
+	      <template #toolbar-actions>
+	        <Button
+	          v-access:code="'system:daemon:create'"
+	          type="primary"
+	          class="mr-2"
+	          @click="handleCreate"
+	        >
+	          新建
+	        </Button>
+	        <Button
+	          v-access:code="'system:daemon:restart'"
+	          class="mr-2"
+	          @click="handleBatchRestart"
+	        >
+	          批量重启
+	        </Button>
+	        <Button v-access:code="'system:daemon:stop'" class="mr-2" @click="handleBatchStop">
+	          批量暂停
+	        </Button>
+	        <Button
+	          v-access:code="'system:daemon:batch-delete'"
+	          danger
+	          @click="handleBatchDelete"
+	        >
+	          批量删除
+	        </Button>
+	      </template>
       <template #runtime_cell="{ row }">
         <Tag :color="runtimeColor(row.runStatus)">
           {{ row.statusText || row.runStatus || '未知' }}

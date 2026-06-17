@@ -399,8 +399,12 @@ func main() {
 				fmt.Printf("[codegen] 跳过（已存在）: internal/middleware/auth.go\n")
 			}
 
-			// 7.1 复制 middleware/context.go（如果不存在）
-			mwCtxFile := filepath.Join(mwDir, "context.go")
+		// 7.1 复制 middleware/context.go（如果不存在，且有 context_scope.go 则跳过避免冲突）
+		mwCtxFile := filepath.Join(mwDir, "context.go")
+		mwCtxScopeFile := filepath.Join(mwDir, "context_scope.go")
+		if _, scopeErr := os.Stat(mwCtxScopeFile); scopeErr == nil {
+			fmt.Printf("[codegen] 跳过（context_scope.go 已存在）: internal/middleware/context.go\n")
+		} else {
 			written, err = copyFileIfAbsent(filepath.Join(templateDir, "backend", "middleware_context.tpl"), mwCtxFile)
 			if err != nil {
 				fmt.Printf("[codegen] ✗ 写入 middleware/context.go 失败: %v\n", err)
@@ -408,11 +412,12 @@ func main() {
 			} else if written {
 				fmt.Printf("[codegen] internal/middleware/context.go\n")
 				totalFiles++
-			} else {
-				fmt.Printf("[codegen] 跳过（已存在）: internal/middleware/context.go\n")
-			}
+		} else {
+			fmt.Printf("[codegen] 跳过（已存在）: internal/middleware/context.go\n")
+		}
+		} // end if context_scope.go check
 
-			// 8. 确保 internal/packed/packed.go 存在
+		// 8. 确保 internal/packed/packed.go 存在
 			packedDir := filepath.Join(appDir, "internal", "packed")
 			packedFile := filepath.Join(packedDir, "packed.go")
 			written, err = writeFileIfAbsent(packedFile, []byte("package packed\n"))

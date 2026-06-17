@@ -60,11 +60,17 @@ type authUserRecord struct {
 	Status     int    `json:"status"`
 }
 
+type tenantStatusRecord struct {
+	Status   int    `json:"status"`
+	ExpireAt string `json:"expireAt"`
+}
+
 const (
-	authLoginFailLimit  = 5
-	authLoginFailWindow = 10 * time.Minute
-	authInfoCacheTTL    = time.Minute
-	authMenusCacheTTL   = time.Minute
+	authLoginFailLimit    = 5
+	authLoginFailWindow   = 10 * time.Minute
+	authInfoCacheTTL      = time.Minute
+	authMenusCacheTTL     = time.Minute
+	tenantStatusCacheTTL  = 30 * time.Second
 )
 
 var (
@@ -123,31 +129,37 @@ func (s *sAuth) Login(ctx context.Context, in *model.AuthLoginInput) (out *model
 		return nil, gerror.New("用户名或密码错误")
 	}
 
-	// 校验状态
-	if user.Status == 0 {
-		return nil, gerror.New("账号已被禁用")
-	}
-	if !shared.DomainScopeAllows(ctx, user.TenantId, user.MerchantId) {
-		return nil, gerror.New("当前账号不属于该访问域名")
-	}
-
-	// 校验密码
-	if !password.Verify(user.Password, in.Password) {
-		return nil, gerror.New("用户名或密码错误")
-	}
-	s.clearLoginFailures(ctx, in.Username)
-	if password.NeedsRehash(user.Password) {
-		if upgraded, hashErr := password.Hash(in.Password); hashErr == nil {
-			_, _ = dao.Users.Ctx(ctx).
-				Where(dao.Users.Columns().Id, user.Id).
-				Data(do.Users{
-					Password: upgraded,
-				}).
-				Update()
+		// 校验状态
+		if user.Status == 0 {
+			return nil, gerror.New("账号已被禁用")
 		}
-	}
+		if !shared.DomainScopeAllows(ctx, user.TenantId, user.MerchantId) {
+			return nil, gerror.New("当前账号不属于该访问域名")
+		}
 
-	// 生成 Token
+		// 校验密码
+		if !password.Verify(user.Password, in.Password) {
+			return nil, gerror.New("用户名或密码错误")
+		}
+
+		// 校验租户状态
+		if err := s.checkTenantStatus(ctx, user.TenantId); err != nil {
+			return nil, err
+		}
+
+		s.clearLoginFailures(ctx, in.Username)
+		if password.NeedsRehash(user.Password) {
+			if upgraded, hashErr := password.Hash(in.Password); hashErr == nil {
+				_, _ = dao.Users.Ctx(ctx).
+					Where(dao.Users.Columns().Id, user.Id).
+					Data(do.Users{
+						Password: upgraded,
+					}).
+					Update()
+			}
+		}
+
+		// 生成 Token
 	token, err := jwt.GenerateToken(user.Id, user.Username, user.DeptId, user.TenantId, user.MerchantId)
 	if err != nil {
 		return nil, gerror.New("生成Token失败")
@@ -200,14 +212,19 @@ func (s *sAuth) TicketLogin(ctx context.Context, in *model.AuthTicketLoginInput)
 	if user == nil || user.Id == 0 {
 		return nil, gerror.New("票据用户不存在或已删除")
 	}
-	if user.Status == 0 {
-		return nil, gerror.New("账号已被禁用")
-	}
-	if !shared.DomainScopeAllows(ctx, user.TenantId, user.MerchantId) {
-		return nil, gerror.New("当前账号不属于该访问域名")
-	}
+		if user.Status == 0 {
+			return nil, gerror.New("账号已被禁用")
+		}
+		if !shared.DomainScopeAllows(ctx, user.TenantId, user.MerchantId) {
+			return nil, gerror.New("当前账号不属于该访问域名")
+		}
 
-	token, err := jwt.GenerateToken(user.Id, user.Username, user.DeptId, user.TenantId, user.MerchantId)
+		// 校验租户状态
+		if err := s.checkTenantStatus(ctx, user.TenantId); err != nil {
+			return nil, err
+		}
+
+		token, err := jwt.GenerateToken(user.Id, user.Username, user.DeptId, user.TenantId, user.MerchantId)
 	if err != nil {
 		return nil, gerror.New("生成Token失败")
 	}
@@ -542,6 +559,83 @@ func ClearAllUserCaches(ctx context.Context) {
 	ClearUserCaches(ctx, userIDs...)
 }
 
+// checkTenantStatus 校验租户状态（是否禁用、是否过期）
+func (s *sAuth) checkTenantStatus(ctx context.Context, tenantID int64) error {
+	if tenantID <= 0 {
+		// 平台账号，无租户约束
+		return nil
+	}
+
+	// 先查 Redis 缓存
+	cacheKey := tenantStatusCacheKey(tenantID)
+	var cached tenantStatusRecord
+	if ok, _ := cache.GetJSON(ctx, cacheKey, &cached); ok {
+		if cached.Status == 0 {
+			return gerror.New("所属租户已被禁用")
+		}
+		if cached.ExpireAt != "" {
+			expireTime, err := time.Parse("2006-01-02 15:04:05", cached.ExpireAt)
+			if err == nil && time.Now().After(expireTime) {
+				return gerror.New("所属租户已过期")
+			}
+		}
+		return nil
+	}
+
+	// 缓存未命中，查数据库
+	var record tenantStatusRecord
+	err := dao.Tenant.Ctx(ctx).
+		Fields(dao.Tenant.Columns().Status, dao.Tenant.Columns().ExpireAt).
+		Where(dao.Tenant.Columns().Id, tenantID).
+		Where(dao.Tenant.Columns().DeletedAt, nil).
+		Scan(&record)
+	if err != nil {
+		return gerror.New("租户状态查询失败")
+	}
+
+	// 缓存结果
+	_ = cache.SetJSON(ctx, cacheKey, &record, tenantStatusCacheTTL)
+
+	if record.Status == 0 {
+		return gerror.New("所属租户已被禁用")
+	}
+	if record.ExpireAt != "" {
+		expireTime, parseErr := time.Parse("2006-01-02 15:04:05", record.ExpireAt)
+		if parseErr == nil && time.Now().After(expireTime) {
+			return gerror.New("所属租户已过期")
+		}
+	}
+	return nil
+}
+
+// ClearTenantTokens 清理租户下所有用户的认证缓存（用于租户被禁用时踢出所有用户）
+func ClearTenantTokens(ctx context.Context, tenantID int64) {
+	if tenantID <= 0 {
+		return
+	}
+	// 清除租户状态缓存
+	_ = cache.Delete(ctx, tenantStatusCacheKey(tenantID))
+
+	// 查询该租户下所有用户ID
+	var users []struct {
+		Id int64 `json:"id"`
+	}
+	if err := dao.Users.Ctx(ctx).
+		Fields(dao.Users.Columns().Id).
+		Where(dao.Users.Columns().TenantId, tenantID).
+		Where(dao.Users.Columns().DeletedAt, nil).
+		Scan(&users); err != nil {
+		g.Log().Warningf(ctx, "ClearTenantTokens: query users failed for tenant %d: %v", tenantID, err)
+		return
+	}
+	userIDs := make([]int64, 0, len(users))
+	for _, item := range users {
+		userIDs = append(userIDs, item.Id)
+	}
+	ClearUserCaches(ctx, userIDs...)
+	g.Log().Infof(ctx, "ClearTenantTokens: cleared %d user caches for tenant %d", len(userIDs), tenantID)
+}
+
 func (s *sAuth) loginFailKey(ctx context.Context, username string) string {
 	ip := "unknown"
 	if req := g.RequestFromCtx(ctx); req != nil {
@@ -581,6 +675,10 @@ func menusCacheKey(userID int64) string {
 
 func loginFailCacheKey(username, ip string) string {
 	return fmt.Sprintf("system:auth:login_fail:%s:%s", normalizeAuthKeyPart(username), normalizeAuthKeyPart(ip))
+}
+
+func tenantStatusCacheKey(tenantID int64) string {
+	return fmt.Sprintf("system:tenant:status:%d", tenantID)
 }
 
 func (s *sAuth) loadUserByUsername(ctx context.Context, username string) (*authUserRecord, error) {

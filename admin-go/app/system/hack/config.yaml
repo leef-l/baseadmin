@@ -11,16 +11,13 @@ gfcli:
 
   gen:
     dao:
-      - link: "mysql:baseadmin_xgwise:zindbf32GbDpFKrY@tcp(127.0.0.1:3306)/baseadmin_xgwise?charset=utf8mb4"
-        tables: "system_daemon,system_dept,system_domain,system_menu,system_merchant,system_role,system_role_dept,system_role_menu,system_tenant,system_user_dept,system_user_role,system_users"
+      - link: "mysql:root:root123@tcp(127.0.0.1:3306)/baseadmin?charset=utf8mb4"
+        tables: "system_cron,system_daemon,system_dept,system_domain,system_menu,system_merchant,system_plan,system_role,system_role_dept,system_role_menu,system_tenant,system_tenant_plan,system_user_dept,system_user_role,system_users"
         removePrefix: "system_"
         descriptionTag: true
         noJsonTag: true
         noModelComment: false
         overwriteDao: false
-        modelFile: ""
-        tplDaoIndexPath: ""
-        tplDaoInternalPath: ""
 
   docker:
     build: "-a amd64 -s linux -p temp -ew"

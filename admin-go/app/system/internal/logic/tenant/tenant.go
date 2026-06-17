@@ -8,6 +8,7 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 
 	"gbaseadmin/app/system/internal/dao"
+	authlogic "gbaseadmin/app/system/internal/logic/auth"
 	"gbaseadmin/app/system/internal/logic/shared"
 	"gbaseadmin/app/system/internal/model"
 	"gbaseadmin/app/system/internal/model/do"
@@ -115,7 +116,18 @@ func (s *sTenant) Update(ctx context.Context, in *model.TenantUpdateInput) error
 	if err := s.ensureCodeUnique(ctx, in.ID, in.Code); err != nil {
 		return err
 	}
-	_, err := dao.Tenant.Ctx(ctx).
+
+	// 检测是否从启用变为禁用
+	oldStatus, err := dao.Tenant.Ctx(ctx).
+		Where(dao.Tenant.Columns().Id, in.ID).
+		Where(dao.Tenant.Columns().DeletedAt, nil).
+		Value(dao.Tenant.Columns().Status)
+	if err != nil {
+		return err
+	}
+	wasEnabled := oldStatus.Int() != 0
+
+	_, err = dao.Tenant.Ctx(ctx).
 		Where(dao.Tenant.Columns().Id, in.ID).
 		Where(dao.Tenant.Columns().DeletedAt, nil).
 		Data(do.Tenant{
@@ -129,7 +141,15 @@ func (s *sTenant) Update(ctx context.Context, in *model.TenantUpdateInput) error
 			Remark:       in.Remark,
 		}).
 		Update()
-	return err
+	if err != nil {
+		return err
+	}
+
+	// 从启用变为禁用时，清理该租户所有用户的认证缓存
+	if wasEnabled && in.Status == 0 {
+		authlogic.ClearTenantTokens(ctx, int64(in.ID))
+	}
+	return nil
 }
 
 func (s *sTenant) Delete(ctx context.Context, id snowflake.JsonInt64) error {
@@ -139,13 +159,39 @@ func (s *sTenant) Delete(ctx context.Context, id snowflake.JsonInt64) error {
 	if err := s.ensureExists(ctx, id); err != nil {
 		return err
 	}
-	if err := s.ensureDeletable(ctx, id); err != nil {
+	// 级联软删除：先删关联数据，再删租户
+	return dao.Tenant.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		// 清理该租户所有用户的认证缓存
+		authlogic.ClearTenantTokens(ctx, int64(id))
+		// 软删除域名绑定
+		_, _ = tx.Model(dao.Domain.Table()).Ctx(ctx).Where(dao.Domain.Columns().TenantId, id).Delete()
+		// 软删除商户
+		_, _ = tx.Model(dao.Merchant.Table()).Ctx(ctx).Where(dao.Merchant.Columns().TenantId, id).Delete()
+		// 软删除用户角色关联
+		var userIDs []int64
+		_ = tx.Model(dao.Users.Table()).Ctx(ctx).Fields("id").Where(dao.Users.Columns().TenantId, id).Scan(&userIDs)
+		if len(userIDs) > 0 {
+			_, _ = tx.Model("system_user_role").Ctx(ctx).WhereIn("user_id", userIDs).Delete()
+			_, _ = tx.Model("system_user_dept").Ctx(ctx).WhereIn("user_id", userIDs).Delete()
+		}
+		// 软删除用户
+		_, _ = tx.Model(dao.Users.Table()).Ctx(ctx).Where(dao.Users.Columns().TenantId, id).Delete()
+		// 软删除角色（含角色菜单、角色部门关联）
+		var roleIDs []int64
+		_ = tx.Model(dao.Role.Table()).Ctx(ctx).Fields("id").Where(dao.Role.Columns().TenantId, id).Scan(&roleIDs)
+		if len(roleIDs) > 0 {
+			_, _ = tx.Model("system_role_menu").Ctx(ctx).WhereIn("role_id", roleIDs).Delete()
+			_, _ = tx.Model("system_role_dept").Ctx(ctx).WhereIn("role_id", roleIDs).Delete()
+		}
+		_, _ = tx.Model(dao.Role.Table()).Ctx(ctx).Where(dao.Role.Columns().TenantId, id).Delete()
+		// 软删除部门
+		_, _ = tx.Model(dao.Dept.Table()).Ctx(ctx).Where(dao.Dept.Columns().TenantId, id).Delete()
+		// 软删除套餐订阅
+		_, _ = tx.Model("system_tenant_plan").Ctx(ctx).Where("tenant_id", id).Delete()
+		// 删除租户
+		_, err := tx.Model(dao.Tenant.Table()).Ctx(ctx).Where(dao.Tenant.Columns().Id, id).Delete()
 		return err
-	}
-	_, err := dao.Tenant.Ctx(ctx).
-		Where(dao.Tenant.Columns().Id, id).
-		Delete()
-	return err
+	})
 }
 
 func (s *sTenant) BatchDelete(ctx context.Context, ids []snowflake.JsonInt64) error {

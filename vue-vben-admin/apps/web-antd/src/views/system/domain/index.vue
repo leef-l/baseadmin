@@ -184,6 +184,7 @@ const gridOptions: VxeGridProps<DomainItem> = {
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions,
   gridOptions,
+  showSearchForm: false,
 });
 
 function handleCreate() {
@@ -293,22 +294,23 @@ function getRowActions(row: DomainItem): ActionMoreItem[] {
   <Page auto-content-height>
     <FormModalComp @success="() => gridApi.reload()" />
     <Grid>
-      <template #toolbar-actions>
-        <Button
-          v-access:code="'system:domain:create'"
-          type="primary"
-          @click="handleCreate"
-        >
-          新建
-        </Button>
-        <Button
-          v-access:code="'system:domain:batch-delete'"
-          danger
-          @click="handleBatchDelete"
-        >
-          批量删除
-        </Button>
-      </template>
+	      <template #toolbar-actions>
+	        <Button
+	          v-access:code="'system:domain:create'"
+	          type="primary"
+	          class="mr-2"
+	          @click="handleCreate"
+	        >
+	          新建
+	        </Button>
+	        <Button
+	          v-access:code="'system:domain:batch-delete'"
+	          danger
+	          @click="handleBatchDelete"
+	        >
+	          批量删除
+	        </Button>
+	      </template>
       <template #owner_cell="{ row }">
         <Tag color="blue">{{ ownerMap[row.ownerType] || row.ownerType }}</Tag>
       </template>

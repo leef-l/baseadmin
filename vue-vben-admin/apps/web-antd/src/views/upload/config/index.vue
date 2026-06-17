@@ -175,6 +175,7 @@ const gridOptions: VxeGridProps<ConfigItem> = {
 const [Grid, gridApi] = useVbenVxeGrid({
   formOptions,
   gridOptions,
+  showSearchForm: false,
 });
 
 /** 新建 */
@@ -247,7 +248,7 @@ function getRowActions(row: ConfigItem): ActionMoreItem[] {
     <FormModalComp @success="() => gridApi.reload()" />
     <Grid>
       <template #toolbar-actions>
-        <Button v-access:code="'upload:config:create'" type="primary" @click="handleCreate">新建</Button>
+        <Button v-access:code="'upload:config:create'" class="mr-2" type="primary" @click="handleCreate">新建</Button>
         <Button v-access:code="'upload:config:batch-delete'" danger @click="handleBatchDelete">批量删除</Button>
       </template>
       <template #storage_cell="{ row }">
